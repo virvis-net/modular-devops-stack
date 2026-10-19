@@ -1,0 +1,17 @@
+services:
+  scm:
+    image: gitea/gitea:1.22.0
+    container_name: scm
+    restart: unless-stopped
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__server__ROOT_URL=http://localhost:3000
+      - GITEA__server__SSH_DOMAIN=localhost
+      - GITEA__server__SSH_PORT=2222
+      - GITEA__server__START_SSH_SERVER=true
+    volumes:
+      - ./data:/data
+    ports:
+      - "3000:3000"   # Web UI
+      - "2222:22"     # SSH
