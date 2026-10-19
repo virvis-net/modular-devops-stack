@@ -1,0 +1,25 @@
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Python / Node / PHP (future-proofing)
+__pycache__/
+node_modules/
+vendor/
+
+# Docker
+*.log
+docker-compose.override.yml
+
+# Kubernetes
+*.kube
+*.yaml.tmp
+
+# Flux / Argo temporary files
+tmp/
+
+# Secrets (never commit real ones)
+secrets/
+*.env
+.env.*
