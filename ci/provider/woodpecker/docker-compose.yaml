@@ -1,0 +1,29 @@
+services:
+  ci-server:
+    image: woodpeckerci/woodpecker-server:v3
+    container_name: ci-server
+    restart: unless-stopped
+    environment:
+      WOODPECKER_HOST: "http://localhost:8000"
+      WOODPECKER_OPEN: "true"
+      WOODPECKER_ADMIN: "oliver"
+      WOODPECKER_GITEA: "true"
+      WOODPECKER_GITEA_URL: "http://host.docker.internal:3000"
+      WOODPECKER_GITEA_CLIENT: "4ba2b329-9cdb-4333-9ff8-9197cc842d7e"
+      WOODPECKER_GITEA_SECRET: "gto_valdimsn6kx3yprh4tax6ewpjgyqbu2xbcciidvqqz27crea7paa"
+      WOODPECKER_AGENT_SECRET: "supersecret"
+    volumes:
+      - ./data:/var/lib/woodpecker
+    ports:
+      - "8000:8000"
+      - "9000:9000"
+
+  ci-agent:
+    image: woodpeckerci/woodpecker-agent:v3
+    container_name: ci-agent
+    restart: unless-stopped
+    environment:
+      WOODPECKER_SERVER: "ci-server:9000"
+      WOODPECKER_AGENT_SECRET: "supersecret"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
