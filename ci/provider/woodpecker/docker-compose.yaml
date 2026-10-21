@@ -4,7 +4,7 @@ services:
     container_name: ci-server
     restart: unless-stopped
     environment:
-      WOODPECKER_HOST: "http://localhost:8000"
+      WOODPECKER_HOST: "http://host.docker.internal:8000"
       WOODPECKER_OPEN: "true"
       WOODPECKER_ADMIN: "oliver"
       WOODPECKER_GITEA: "true"
@@ -12,11 +12,14 @@ services:
       WOODPECKER_GITEA_CLIENT: "4ba2b329-9cdb-4333-9ff8-9197cc842d7e"
       WOODPECKER_GITEA_SECRET: "gto_valdimsn6kx3yprh4tax6ewpjgyqbu2xbcciidvqqz27crea7paa"
       WOODPECKER_AGENT_SECRET: "supersecret"
+      WOODPECKER_PLUGINS_PRIVILEGED: woodpeckerci/plugin-docker-buildx
     volumes:
-      - ./data:/var/lib/woodpecker
+      - ${PWD}/ci/provider/woodpecker/data:/var/lib/woodpecker
     ports:
       - "8000:8000"
       - "9000:9000"
+    networks:
+      - mds-network
 
   ci-agent:
     image: woodpeckerci/woodpecker-agent:v3
@@ -27,3 +30,5 @@ services:
       WOODPECKER_AGENT_SECRET: "supersecret"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - mds-network

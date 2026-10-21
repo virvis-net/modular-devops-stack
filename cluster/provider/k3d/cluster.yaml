@@ -1,7 +1,7 @@
 apiVersion: k3d.io/v1alpha5
 kind: Simple
 metadata:
-  name: dev-cluster
+  name: mds-cluster
 
 servers: 1
 agents: 2
@@ -17,12 +17,14 @@ ports:
       - loadbalancer
 
 volumes:
-  - volume: $PWD/data:/var/lib/rancher/k3s/storage
+  - volume: ${PWD}/cluster/provider/k3d/data:/var/lib/rancher/k3s/storage
     nodeFilters:
       - all
 
+network: mds-network
+
 registries:
-  config: ./registries.yaml
+  config: ${PWD}/cluster/provider/k3d/registries.yaml
 
 options:
   k3s:

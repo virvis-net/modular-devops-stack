@@ -1,0 +1,3 @@
+networks:
+  mds-network:
+    external: true
