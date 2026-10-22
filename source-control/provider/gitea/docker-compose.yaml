@@ -1,17 +1,17 @@
 services:
   scm:
-    image: gitea/gitea:1.22.0
+    image: docker.gitea.com/gitea:28.2.0
     container_name: scm
     restart: unless-stopped
     environment:
       - USER_UID=1000
       - USER_GID=1000
       - GITEA__server__ROOT_URL=http://host.docker.internal:3000
-      - GITEA__server__SSH_DOMAIN=localhost
-      - GITEA__server__SSH_PORT=2222
-      - GITEA__server__START_SSH_SERVER=true
+      - GITEA__webhook__ALLOWED_HOST_LIST=192.168.65.0/24, 172.23.0.0/16, ::1
     volumes:
       - ${PWD}/source-control/provider/gitea/data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     ports:
       - "3000:3000"   # Web UI
       - "2222:22"     # SSH
