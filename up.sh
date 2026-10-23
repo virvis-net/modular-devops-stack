@@ -15,3 +15,6 @@ docker compose -p mds-providers \
 if ! k3d cluster list | grep -q mds-cluster; then
   k3d cluster create --config cluster/provider/k3d/cluster.yaml
 fi
+
+# Bootstrap Flux (idempotent)
+./scripts/bootstrap-flux.sh

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Tear down Flux (idempotent)
+./scripts/teardown-flux.sh
+
 # Delete k3d cluster
 k3d cluster delete mds-cluster
 
