@@ -1,4 +1,4 @@
-# Woodpecker CI Provider
+# Woodpecker CI Provider (CI layer)
 
 This folder contains the Woodpecker CI implementation of the CI layer.
 
