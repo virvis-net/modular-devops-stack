@@ -7,10 +7,14 @@ This folder contains the local Docker registry implementation of the registry la
 - data/ — persistent storage for registry images
 
 ## Usage
-docker compose up -d
-curl http://localhost:5000/v2/_catalog
 
-## Neutral Architecture
-The top-level folder `registry/` represents the domain.
-The `provider/` folder contains the current implementation.
-This allows swapping the local registry for Harbor, GHCR, ECR, ACR, or GCR without changing the domain structure.
+The registry is normally started by `./scripts/up.sh` on the shared Docker
+network. With the default configuration, its HTTP API is available at
+`http://localhost:5000`:
+
+```sh
+curl http://localhost:5000/v2/_catalog
+```
+
+The k3d nodes pull images from this registry through the mirror configured in
+`cluster/provider/k3d/registries.yaml`.

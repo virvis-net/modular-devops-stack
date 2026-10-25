@@ -1,12 +1,16 @@
-# Flux Provider (Gitops layer)
+# Flux Provider (GitOps layer)
 
 ## Overview
 
-This folder contains the Flux provider implementation for the Modular DevOps Stack.
-Flux is one of several possible GitOps engines that can be used to synchronize the cluster with the external GitOps repository.
+This folder contains the Flux bootstrap and teardown scripts used by the
+current stack. Flux watches the GitOps repository and reconciles the configured
+cluster path into Kubernetes.
 
-The framework treats Flux as a pluggable provider.
-It installs Flux, configures it, and connects it to the GitOps repo — but it does not contain any Flux manifests or desired‑state definitions.
-Those live entirely in the external GitOps repository.
+`bootstrap.sh` runs the Flux CLI in a container, uses the local kubeconfig, and
+connects Flux to the GitOps repository configured by `.env`. Flux generates and
+commits its own sync manifests to that repository. Application desired state
+lives in the GitOps repository, seeded from `templates/gitops/`.
 
-This design keeps the framework modular, provider‑agnostic, and easy to extend.
+The script expects the GitOps repository and its cluster path to exist and
+requires a write-enabled deploy key for the initial bootstrap commit. Set
+`FLUX_BOOTSTRAP_TIMEOUT` to change the CLI timeout (default: `15m`).

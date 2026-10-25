@@ -7,12 +7,11 @@ This folder contains the k3d implementation of the cluster provider.
 - registries.yaml — configures k3d nodes to pull from the local HTTP registry
 - data/ — persistent storage for k3s runtime state
 
-The registry mirror points to `http://registry:5000`, the registry's service
-name and port on the shared Docker network. This file is consumed directly by
-k3d, so its mirror endpoint must be a literal URL rather than an environment
-variable reference.
+The registry mirror points to `http://registry:5000`, the registry service
+name and port on the shared Docker network. k3d copies this configuration into
+the nodes when it creates the cluster. If the registry config changes later,
+existing nodes need to be updated or recreated before they use the new setting.
 
-## Neutral Architecture
-The top-level folder `cluster/` represents the domain.
-The `provider/` folder contains the current implementation.
-This allows swapping k3d for kind, minikube, microk8s, or any other provider without changing the domain structure.
+The ingress controller is installed by `scripts/up.sh`. Its host-port bindings
+are removed because k3s LoadBalancer pods use the cluster node ports in this
+setup; the k3d load balancer maps host ports 80 and 443 into the cluster.
