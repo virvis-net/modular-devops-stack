@@ -9,6 +9,11 @@ fi
 # Tear down Flux (idempotent)
 ./gitops/provider/flux/teardown.sh
 
+# Remove ingress-nginx (idempotent)
+echo "Removing ingress-nginx..."
+kubectl delete namespace ingress-nginx --ignore-not-found=true
+kubectl delete -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml --ignore-not-found=true || true
+
 # Delete k3d cluster
 k3d cluster delete "$K3D_CLUSTER_NAME"
 

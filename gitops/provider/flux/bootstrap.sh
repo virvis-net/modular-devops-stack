@@ -10,6 +10,7 @@ SSH_PORT="${GITEA_SSH_PORT:-2222}"
 SSH_KEY="${FLUX_PRIVATE_KEY:-$HOME/.ssh/flux_deploy_key}"
 KNOWN_HOSTS="$HOME/.ssh/known_hosts.flux"
 FLUX_IMAGE="${FLUX_IMAGE:-ghcr.io/fluxcd/flux-cli:v0.38.0}"
+FLUX_BOOTSTRAP_TIMEOUT="${FLUX_BOOTSTRAP_TIMEOUT:-15m}"
 KUBE_CONFIG_SRC="${KUBE_DIR:-$HOME/.kube}/config"
 FLUX_KUBECONFIG="$HOME/.kube/config.flux"
 
@@ -100,15 +101,15 @@ docker run --rm \
   -e SSH_KNOWN_HOSTS=/flux-conf/ssh-known_hosts \
   "$FLUX_IMAGE" \
   bootstrap git \
+    --timeout="$FLUX_BOOTSTRAP_TIMEOUT" \
     --url="$GIT_URL" \
     --branch="$GIT_BRANCH" \
     --path="$GIT_PATH" \
     --private-key-file=/flux-conf/ssh-private_key \
     --components-extra=image-reflector-controller,image-automation-controller \
-    --silent \
-  || warn "flux bootstrap returned non-zero; continuing to fallback checks"
+    --silent
 
 info "Flux bootstrap (container) finished. Verify controllers in namespace flux-system."
-kubectl get pods -n flux-system || true
+kubectl get pods -n flux-system
 
 exit 0

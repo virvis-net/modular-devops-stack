@@ -22,5 +22,27 @@ if ! k3d cluster list | grep -q "$K3D_CLUSTER_NAME"; then
   k3d cluster create --config ./cluster/provider/k3d/cluster.yaml
 fi
 
+# Install ingress-nginx (idempotent)
+echo "Installing ingress-nginx..."
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+
+echo "Configuring ingress-nginx for k3d..."
+kubectl patch deployment ingress-nginx-controller --namespace ingress-nginx \
+  --type=strategic \
+  --patch='{"spec":{"template":{"spec":{"containers":[{"name":"controller","ports":[{"containerPort":80,"hostPort":null},{"containerPort":443,"hostPort":null}]}]}}}}'
+
+echo "Waiting for ingress admission jobs to complete..."
+kubectl wait --namespace ingress-nginx \
+  --for=condition=Complete \
+  job/ingress-nginx-admission-create \
+  job/ingress-nginx-admission-patch \
+  --timeout=120s
+
+echo "Waiting for ingress admission endpoint to be ready..."
+kubectl wait --namespace ingress-nginx \
+  --for=jsonpath='{.subsets[0].addresses[0].ip}' \
+  endpoints/ingress-nginx-controller-admission \
+  --timeout=120s
+
 # Bootstrap Flux (idempotent)
 ./gitops/provider/flux/bootstrap.sh
