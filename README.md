@@ -18,6 +18,7 @@ This repository will evolve step-by-step into a reusable DevOps foundation.
 
 ## Setup
 
+1. Copy the .env.example file to .env, adapt if needed
 1. Run script `./scripts/up.sh`
 1. Install Gitea, add SSH key and set up repositories `http://localhost:3000`
     - create an Organisation named "mds"
@@ -28,7 +29,7 @@ This repository will evolve step-by-step into a reusable DevOps foundation.
         http://localhost:8000/authorize
         http://host.docker.internal:8000/authorize
         http://ci-server:8000/authorize
-1. Add the generated Client ID and Secret to the Woodpecker docker-compose.yaml (TODO: move these values to .env or similar)
-1. Restart the stack by running scripts `./down.sh` and `./up.sh`
+1. Add the generated Client ID and Secret to the .env
+1. Restart the stack by running `./scripts/down.sh && ./scripts/up.sh`
 1. Log in to Woodpecker and connect the "app" repository created earlier `http://localhost:8000/login`
     - Then go into Settings of the "app" repo and select the checkbox next to "Volumes" under "Trusted" and save the changes
