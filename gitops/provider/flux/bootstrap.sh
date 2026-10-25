@@ -2,9 +2,11 @@
 set -euo pipefail
 
 # --- Configurable values (override with env vars) ---
-GIT_URL="${GIT_URL:-ssh://git@host.docker.internal:2222/mds/gitops.git}"
-GIT_BRANCH="${GIT_BRANCH:-main}"
-GIT_PATH="${GIT_PATH:-clusters/mds-cluster}"
+GIT_URL="${GITOPS_REPO_URL:-ssh://git@host.docker.internal:2222/mds/gitops.git}"
+GIT_BRANCH="${GITOPS_BRANCH:-main}"
+GIT_PATH="${GITOPS_PATH:-clusters/mds-cluster}"
+SSH_DOMAIN="${GITEA_SSH_DOMAIN:-host.docker.internal}"
+SSH_PORT="${GITEA_SSH_PORT:-2222}"
 SSH_KEY="${FLUX_PRIVATE_KEY:-$HOME/.ssh/flux_deploy_key}"
 KNOWN_HOSTS="$HOME/.ssh/known_hosts.flux"
 FLUX_IMAGE="${FLUX_IMAGE:-ghcr.io/fluxcd/flux-cli:v0.38.0}"
@@ -35,11 +37,11 @@ fi
 info "Waiting for Kubernetes nodes to be Ready..."
 kubectl wait --for=condition=Ready nodes --all --timeout=120s >/dev/null 2>&1 || true
 
-# Wait for Gitea SSH to be reachable
-info "Waiting for Gitea SSH on localhost:2222..."
+# Wait for Source Control SSH to be reachable
+info "Waiting for Source Control SSH on localhost:${SSH_PORT}..."
 for i in $(seq 1 30); do
-  if nc -z localhost 2222 >/dev/null 2>&1; then
-    info "Gitea SSH reachable"
+  if nc -z localhost "$SSH_PORT" >/dev/null 2>&1; then
+    info "Source Control SSH reachable"
     break
   fi
   sleep 2
@@ -57,14 +59,14 @@ if [ ! -f "$SSH_KEY" ]; then
 fi
 
 # If the Flux-specific known_hosts does not contain the Gitea entry, add it
-if [ ! -f "$KNOWN_HOSTS" ] || ! ssh-keygen -F "[host.docker.internal]:2222" -f "$KNOWN_HOSTS" >/dev/null 2>&1; then
+if [ ! -f "$KNOWN_HOSTS" ] || ! ssh-keygen -F "[${GITEA_SSH_DOMAIN}]:${GITEA_SSH_PORT}" -f "$KNOWN_HOSTS" >/dev/null 2>&1; then
   info "Adding Gitea host key to Flux-specific known_hosts at $KNOWN_HOSTS"
-  TMP_KEYSCAN=$(ssh-keyscan -p 2222 localhost 2>/dev/null || true)
+  TMP_KEYSCAN=$(ssh-keyscan -p "$GITEA_SSH_PORT" localhost 2>/dev/null || true)
   if [ -n "$TMP_KEYSCAN" ]; then
-    # Rewrite the hostname from localhost → host.docker.internal
-    echo "$TMP_KEYSCAN" | sed 's/\[localhost\]:2222/\[host.docker.internal\]:2222/' >> "$KNOWN_HOSTS"
+    # Rewrite the hostname from localhost → ${GITEA_SSH_DOMAIN} so that Flux can connect from inside the container
+    echo "$TMP_KEYSCAN" | sed "s/\[localhost\]:${GITEA_SSH_PORT}/\[${GITEA_SSH_DOMAIN}\]:${GITEA_SSH_PORT}/" >> "$KNOWN_HOSTS"
   else
-    warn "Could not retrieve SSH key from localhost:2222; Flux SSH may fail."
+    warn "Could not retrieve SSH key from localhost:${GITEA_SSH_PORT}; Flux SSH may fail."
   fi
   chmod 644 "$KNOWN_HOSTS"
 fi
@@ -89,7 +91,7 @@ fi
 # Containerized flux CLI
 info "Bootstrapping Flux using containerized CLI image $FLUX_IMAGE"
 docker run --rm \
-  --add-host=host.docker.internal:host-gateway \
+  --add-host=${GITEA_SSH_DOMAIN}:host-gateway \
   -v "$FLUX_KUBECONFIG:/flux-conf/kube-config:ro" \
   -v "$SSH_KEY:/flux-conf/ssh-private_key:ro" \
   -v "$KNOWN_HOSTS:/flux-conf/ssh-known_hosts:ro" \

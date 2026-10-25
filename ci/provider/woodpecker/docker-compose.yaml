@@ -4,22 +4,21 @@ services:
     container_name: ci-server
     restart: unless-stopped
     environment:
-      - WOODPECKER_HOST=http://ci-server:8000
       - WOODPECKER_OPEN=true
-      - WOODPECKER_ADMIN=oliver
+      - WOODPECKER_HOST=${WOODPECKER_HOST}
       - WOODPECKER_GITEA=true
-      - WOODPECKER_GITEA_URL=http://host.docker.internal:3000
-      - WOODPECKER_GITEA_CLIENT=37932e99-72d6-47db-961f-a94d54b00f8f
-      - WOODPECKER_GITEA_SECRET=gto_znsngyjskkeyjdispxd6zxa75ktcq3hj2m6nigfsrkqfmpe5ekgq
+      - WOODPECKER_GITEA_URL=${WOODPECKER_GITEA_URL}
+      - WOODPECKER_GITEA_CLIENT=${GITEA_CLIENT}
+      - WOODPECKER_GITEA_SECRET=${GITEA_SECRET}
       - WOODPECKER_GITEA_SKIP_VERIFY=true
-      - WOODPECKER_AGENT_SECRET=supersecret
+      - WOODPECKER_AGENT_SECRET=${WOODPECKER_AGENT_SECRET}
       - WOODPECKER_PLUGINS_PRIVILEGED=woodpeckerci/plugin-docker-buildx
     volumes:
       - ${PWD}/ci/provider/woodpecker/data:/var/lib/woodpecker
     ports:
-      - "8000:8000"
+      - "${WOODPECKER_PORT}:8000"
     networks:
-      - mds-network
+      - ${NETWORK_NAME}
 
   ci-agent:
     image: woodpeckerci/woodpecker-agent:v3
@@ -29,8 +28,8 @@ services:
       - ci-server
     environment:
       - WOODPECKER_SERVER=ci-server:9000
-      - WOODPECKER_AGENT_SECRET=supersecret
+      - WOODPECKER_AGENT_SECRET=${WOODPECKER_AGENT_SECRET}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - mds-network
+      - ${NETWORK_NAME}

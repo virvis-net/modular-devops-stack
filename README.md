@@ -18,7 +18,7 @@ This repository will evolve step-by-step into a reusable DevOps foundation.
 
 ## Setup
 
-1. Run script `./up.sh`
+1. Run script `./scripts/up.sh`
 1. Install Gitea, add SSH key and set up repositories `http://localhost:3000`
     - create an Organisation named "mds"
     - set up repositories named "app", "gitops" and "infrastructure"
