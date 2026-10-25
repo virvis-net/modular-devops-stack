@@ -1,10 +1,10 @@
 mirrors:
-  "localhost:5000":
+  "localhost:${REGISTRY_PORT}":
     endpoint:
-      - "http://registry:5000"
+      - "${REGISTRY_URL}"
   "registry:5000":
     endpoint:
-      - "http://registry:5000"
+      - "${REGISTRY_URL}"
 
 configs:
   "registry:5000":

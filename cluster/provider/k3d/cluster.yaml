@@ -1,7 +1,7 @@
 apiVersion: k3d.io/v1alpha5
 kind: Simple
 metadata:
-  name: mds-cluster
+  name: ${K3D_CLUSTER_NAME}
 
 servers: 1
 agents: 2
@@ -9,10 +9,10 @@ agents: 2
 image: rancher/k3s:v1.29.4-k3s1
 
 ports:
-  - port: 80:80
+  - port: ${K3D_CLUSTER_PORT}:80
     nodeFilters:
       - loadbalancer
-  - port: 443:443
+  - port: ${K3D_CLUSTER_PORT_SSL}:443
     nodeFilters:
       - loadbalancer
 
@@ -21,7 +21,7 @@ volumes:
     nodeFilters:
       - all
 
-network: mds-network
+network: ${NETWORK_NAME}
 
 registries:
   config: ${PWD}/cluster/provider/k3d/registries.yaml
