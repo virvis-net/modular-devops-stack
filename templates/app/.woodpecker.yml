@@ -1,0 +1,58 @@
+steps:
+  build:
+    image: docker:24.0.0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      REGISTRY: "localhost:5000"
+    commands:
+      - IMAGE_TAG=$${DRONE_BUILD_NUMBER:-$$(date +%s)}
+      - echo "$${IMAGE_TAG}" > .image_tag
+      - docker build -t $${REGISTRY}/app:$${IMAGE_TAG} -f Dockerfile .
+      - docker push $${REGISTRY}/app:$${IMAGE_TAG}
+    when:
+      event:
+        - push
+
+  update_gitops:
+    image: alpine/git:latest
+    environment:
+      GIT_SSH_KEY:
+        from_secret: GIT_SSH_KEY
+    commands:
+      - |
+        set -euxo pipefail
+
+        if [ -z "$${GIT_SSH_KEY:-}" ]; then
+          echo "ERROR: GIT_SSH_KEY is not set."
+          exit 1
+        fi
+
+        GIT_REPO_SSH="ssh://git@host.docker.internal:2222/mds/gitops.git"
+        TARGET_FILE="clusters/mds-cluster/apps/app/kustomization.yaml"
+        REGISTRY="$${REGISTRY:-localhost:5000}"
+        IMAGE_TAG="$$(cat .image_tag)"
+
+        mkdir -p /root/.ssh
+        printf '%s\n' "$$GIT_SSH_KEY" > /root/.ssh/id_rsa
+        chmod 600 /root/.ssh/id_rsa
+        export GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no -i /root/.ssh/id_rsa'
+
+        git clone "$$GIT_REPO_SSH" gitops
+        cd gitops
+
+        if [ ! -f "$$TARGET_FILE" ]; then
+          echo "Target file $$TARGET_FILE not found; aborting"
+          exit 1
+        fi
+
+        sed -E -i "s|^([[:space:]]*newTag:[[:space:]]*).*|\1\"$${IMAGE_TAG}\"|" "$$TARGET_FILE"
+
+        git add "$$TARGET_FILE"
+        git config user.name "ci-bot"
+        git config user.email "ci-bot@example.com"
+        git commit -m "ci: update app image to $${REGISTRY}/app:$${IMAGE_TAG}" || true
+        git push origin HEAD
+    when:
+      event:
+        - push
