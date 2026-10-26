@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0 - Staging and Production environments
+- CD deploys to staging environment on main branch
+- Optional image promotion to deploy on production environment
+
 ## 0.3.0 - CI test step
 - Added test step to CI pipeline
 - Container image is built if tests pass

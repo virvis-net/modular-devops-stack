@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: production
+
+resources:
+  - ../../base
+
+images:
+  - name: registry:5000/app
+    newTag: "latest"
+
+patches:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: app
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi

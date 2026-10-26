@@ -6,12 +6,13 @@ Gitea, Woodpecker CI, a local Docker registry, k3d, Flux, and ingress-nginx.
 
 The example delivery flow is:
 
-1. A push to the app repository starts a Woodpecker pipeline.
-2. CI builds the Go app container, pushes it to the local registry, and updates
-   the image tag in the GitOps repository.
-3. Flux notices the GitOps change and reconciles it into k3d.
-4. ingress-nginx routes `http://localhost:<K3D_CLUSTER_PORT>/` to the app
-   (port `80` by default).
+1. Every push to the app repository runs the Go test suite.
+2. A push to `main` builds and publishes the app image once, identified by its
+   registry digest, then updates the staging GitOps configuration.
+3. Flux deploys that digest to the staging namespace.
+4. A GitOps change promotes the same digest to production (optionally through
+   a pull request for review).
+5. Flux deploys it to the separate production namespace.
 
 This is a learning and proof-of-concept project, not a production-ready or
 provider-independent platform. Some local Docker, host networking, and
@@ -131,8 +132,10 @@ cluster/bootstrap steps.
 
 Open `http://localhost:<WOODPECKER_PORT>/login` (default port `8000`), sign in
 through Gitea, and activate the `mds/app` repository in Woodpecker. In the
-repository settings, enable trusted volumes; the example pipeline requires the
-Docker socket mount.
+repository settings, ensure push events are enabled. The test step runs for
+pushes to every branch; only pushes to `main` build and publish an image and
+update staging. The example pipeline requires trusted volumes for its Docker
+socket mount.
 The Trusted option is only shown to Woodpecker server admins. If it is missing,
 confirm that `GITEA_ADMIN_USER` in `.env` exactly matches the signed-in Gitea
 username, then rerun `./scripts/up.sh` and reload the settings page.
@@ -146,17 +149,50 @@ instead. Keep the private key secret; do not commit it to either repository.
 
 ### 5. Verify the end-to-end flow
 
-Push a change to the app repository. Woodpecker should build and push an image,
-update the image tag in GitOps, and Flux should deploy that revision. Check
-Flux and the app with:
+Push an app change to any branch and confirm that the Woodpecker test step
+passes. When a change is pushed to `main`, Woodpecker should also build and
+push the image, then update the staging digest in GitOps. Flux should deploy
+that revision to the `staging` namespace. Check Flux and staging with:
 
 ```sh
 kubectl get kustomization flux-system -n flux-system
-kubectl get pods,services,ingress -n default
+kubectl get pods,services,ingress -n staging
 ```
 
-When the app Pod is Ready, open `http://localhost:<K3D_CLUSTER_PORT>` (default
-port `80`). The sample app should display its greeting.
+When the staging Pod is Ready, open
+`http://staging.localhost:<K3D_CLUSTER_PORT>/` (default port `80`). The sample
+app should display its greeting.
+
+### 6. Promote the tested image to production
+
+Production is not reconciled until it is explicitly enabled in GitOps. To
+promote the staging image:
+
+1. In `workspace/gitops`, pull the latest `main`.
+2. Copy the complete `digest: sha256:...` value from
+   `apps/app/overlays/staging/kustomization.yaml` into the `images` section of
+   `apps/app/overlays/production/kustomization.yaml`, replacing its initial
+   `newTag: "latest"` entry with `digest`.
+3. Add `- environments/production` to the `resources` list in
+   `clusters/${K3D_CLUSTER_NAME}/kustomization.yaml`.
+4. Confirm that the staging and production overlays specify the same digest,
+   then commit and push the changes to GitOps `main`. Flux will deploy the
+   already-tested image to the `production` namespace; no image rebuild occurs.
+
+For an additional review or approval gate, make these changes on a separate
+branch and open a pull request to `main` instead. Flux deploys the image after
+the promotion reaches `main`.
+
+After reconciliation, verify production with
+`kubectl get pods,services,ingress -n production` and open
+`http://production.localhost:<K3D_CLUSTER_PORT>/`.
+
+The two environments have separate namespaces, app Deployments, Services,
+Ingresses, and Kubernetes namespaced configuration. Future databases, caches,
+Secrets, and persistent volume claims should be instantiated independently
+under each environment. Both environments still share one local k3d cluster
+and host, so namespaces provide logical separation, not a strong security
+boundary. Use separate clusters where stronger isolation is required.
 
 To stop the lab, run `./scripts/down.sh`. This deletes the k3d cluster and
 stops the providers; source data is stored in the provider `data/` directories.
@@ -176,8 +212,6 @@ stops the providers; source data is stored in the provider `data/` directories.
 
 ## Next steps
 
-- Add a staging-to-production deployment flow, including clear environment
-  configuration and promotion of tested image versions.
 - Add observability for the demo, such as application and cluster metrics,
   dashboards, and basic operational health checks.
 - Define clear provider interfaces and configuration so components can be

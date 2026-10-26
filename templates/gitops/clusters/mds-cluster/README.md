@@ -1,26 +1,29 @@
 # __K3D_CLUSTER_NAME__
 
 This folder defines the desired state for the `__K3D_CLUSTER_NAME__` Kubernetes
-cluster. The root Kustomization applies resources to the `default` namespace
-and includes the cluster-specific app resources.
+cluster. Its root Kustomization initially includes the staging environment;
+production is added when an image is promoted.
 
-Flux reconciles the `kustomization.yaml` here, which includes the app overlay.
+Each environment has a dedicated namespace, app overlay, and Ingress. They
+share one local k3d cluster, so this is logical rather than strong security
+isolation.
 
-## Accessing the App
+## Accessing the environments
 
-Once Flux has reconciled the GitOps repository and the app Pod is Ready, the
-application is reachable through ingress-nginx.
+After Flux has reconciled the GitOps repository and the app Pod is Ready,
+staging is available through ingress-nginx:
 
-### URL
-You can access the app at:
+http://staging.localhost:__K3D_CLUSTER_PORT__/
 
-http://localhost:__K3D_CLUSTER_PORT__/
+After a production promotion PR is merged, production is available at:
+
+http://production.localhost:__K3D_CLUSTER_PORT__/
 
 ### How it works
 
 - The app container listens internally on port **8080**.
 - The Kubernetes Service exposes the app on port **80** inside the cluster.
-- The Ingress routes traffic for host `localhost` to the Service.
+- Each environment has its own namespace, Service, and Ingress hostname.
 - K3d’s load balancer maps host port **__K3D_CLUSTER_PORT__** to the cluster’s
   Ingress controller.
 
@@ -29,23 +32,20 @@ http://localhost:__K3D_CLUSTER_PORT__/
 You can confirm the app is running with:
 
 ```bash
-kubectl get deployments -n default
-kubectl get svc -n default
-kubectl get ingress -n default
-kubectl get pods -n default
+kubectl get all,ingress -n staging
+kubectl get all,ingress -n production
 ```
 
-You should see:
-- A Deployment named app
-- A Service named app exposing port 80
-- An Ingress named app routing / to the Service
+The production namespace remains unused until the first promotion.
 
 ### Expected response
 
-Opening http://localhost:__K3D_CLUSTER_PORT__/ in your browser should display:
+Opening
+http://staging.localhost:__K3D_CLUSTER_PORT__/
+in your browser should display:
 
 > Hello from Modular DevOps Stack App!
 
 This confirms that the app, Service, Flux reconciliation, and Ingress routing
-are working. To verify a code-to-deployment update, push a commit to the app
-repository and check that Woodpecker updates the GitOps image tag.
+are working. To verify an image promotion, compare the `digest` values in the
+staging and production app overlays after the promotion has reconciled.

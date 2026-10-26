@@ -5,14 +5,17 @@ Modular DevOps Stack lab.
 
 ## Delivery flow
 
-On each push to the `app` repository, `.woodpecker.yml`:
+For every pipeline, `.woodpecker.yml`:
 
 1. Runs the Go test suite.
-2. If tests pass, builds the container image and pushes it to the local registry.
-3. Updates the image tag in
-   `clusters/__K3D_CLUSTER_NAME__/apps/app/kustomization.yaml`
-   in the GitOps repository.
-4. Flux observes that Git change and deploys the new image.
+2. On a push to `main`, builds and pushes an image tagged with the commit SHA.
+3. Records the registry's immutable image digest in the staging GitOps overlay.
+4. Flux deploys the image to the staging namespace.
+
+Production promotion is a separate GitOps pull request that copies the tested
+staging digest into the production overlay and enables the production
+environment in the cluster Kustomization. This promotes the same image without
+rebuilding it.
 
 ## Setup
 
@@ -24,8 +27,8 @@ On each push to the `app` repository, `.woodpecker.yml`:
    `~/.ssh/flux_deploy_key`) to the `__STACK_NAME__/app` repository secrets in
    Woodpecker as `GIT_SSH_KEY`. Its public key must already be configured
    with write access to `__STACK_NAME__/gitops`. Do not commit the private key.
-4. Push an app change and confirm that the pipeline pushes the image and
-   updates the GitOps repository.
+4. Merge an app change to `main` and confirm that the pipeline publishes an
+   image and updates staging in the GitOps repository.
 
 The setup helper renders `.woodpecker.yml` with the registry and Gitea SSH
 settings from the stack's `.env`.

@@ -16,4 +16,4 @@ spec:
         - name: app
           image: registry:5000/app:latest
           ports:
-            - containerPort: 80
+            - containerPort: 8080

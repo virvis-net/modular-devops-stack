@@ -16,25 +16,37 @@ steps:
     environment:
       REGISTRY: "localhost:__REGISTRY_PORT__"
     commands:
-      - IMAGE_TAG=$${DRONE_BUILD_NUMBER:-$$(date +%s)}
-      - echo "$${IMAGE_TAG}" > .image_tag
-      - docker build -t $${REGISTRY}/app:$${IMAGE_TAG} -f Dockerfile .
-      - docker push $${REGISTRY}/app:$${IMAGE_TAG}
+      - |
+        set -eu
+
+        IMAGE_TAG="$${CI_COMMIT_SHA}"
+        IMAGE="$${REGISTRY}/app:$${IMAGE_TAG}"
+        docker build -t "$$IMAGE" -f Dockerfile .
+        docker push "$$IMAGE"
+
+        REPO_DIGEST="$$(docker image inspect --format='{{index .RepoDigests 0}}' "$$IMAGE")"
+        IMAGE_DIGEST="$${REPO_DIGEST##*@}"
+        if ! printf '%s\n' "$$IMAGE_DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
+          echo "ERROR: Could not determine the pushed image digest."
+          exit 1
+        fi
+        printf '%s\n' "$$IMAGE_DIGEST" > .image_digest
     when:
       event:
         - push
+      branch:
+        - main
 
   update_gitops:
     image: alpine/git:latest
     depends_on:
       - build
     environment:
-      REGISTRY: "localhost:__REGISTRY_PORT__"
       GIT_SSH_KEY:
         from_secret: GIT_SSH_KEY
     commands:
       - |
-        set -euxo pipefail
+        set -eu
 
         if [ -z "$${GIT_SSH_KEY:-}" ]; then
           echo "ERROR: GIT_SSH_KEY is not set."
@@ -42,8 +54,8 @@ steps:
         fi
 
         GIT_REPO_SSH="__GITOPS_REPO_URL__"
-        TARGET_FILE="clusters/__K3D_CLUSTER_NAME__/apps/app/kustomization.yaml"
-        IMAGE_TAG="$$(cat .image_tag)"
+        TARGET_FILE="apps/app/overlays/staging/kustomization.yaml"
+        IMAGE_DIGEST="$$(cat .image_digest)"
 
         mkdir -p /root/.ssh
         printf '%s\n' "$$GIT_SSH_KEY" > /root/.ssh/id_rsa
@@ -58,13 +70,25 @@ steps:
           exit 1
         fi
 
-        sed -E -i "s|^([[:space:]]*newTag:[[:space:]]*).*|\1\"$${IMAGE_TAG}\"|" "$$TARGET_FILE"
+        sed -E -i \
+          -e "s|^([[:space:]]*)newTag:.*|\1digest: $${IMAGE_DIGEST}|" \
+          -e "s|^([[:space:]]*)digest:.*|\1digest: $${IMAGE_DIGEST}|" \
+          "$$TARGET_FILE"
+
+        if ! grep -Eq "^[[:space:]]*digest: $${IMAGE_DIGEST}$" "$$TARGET_FILE"; then
+          echo "ERROR: Failed to set the staging image digest in $$TARGET_FILE"
+          exit 1
+        fi
 
         git add "$$TARGET_FILE"
         git config user.name "ci-bot"
         git config user.email "ci-bot@virvis.net"
-        git commit -m "ci: update app image to $${REGISTRY}/app:$${IMAGE_TAG}" || true
+        if ! git diff --cached --quiet; then
+          git commit -m "ci: deploy app digest $${IMAGE_DIGEST} to staging"
+        fi
         git push origin HEAD
     when:
       event:
         - push
+      branch:
+        - main
