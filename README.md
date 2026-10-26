@@ -180,7 +180,5 @@ stops the providers; source data is stored in the provider `data/` directories.
   configuration and promotion of tested image versions.
 - Add observability for the demo, such as application and cluster metrics,
   dashboards, and basic operational health checks.
-- Add a test step to the Woodpecker pipeline so changes are tested before an
-  image is published and the GitOps repository is updated.
 - Define clear provider interfaces and configuration so components can be
   selected or replaced without rewriting the end-to-end workflow.

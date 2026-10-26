@@ -7,11 +7,12 @@ Modular DevOps Stack lab.
 
 On each push to the `app` repository, `.woodpecker.yml`:
 
-1. Builds the container image and pushes it to the local registry.
-2. Updates the image tag in
+1. Runs the Go test suite.
+2. If tests pass, builds the container image and pushes it to the local registry.
+3. Updates the image tag in
    `clusters/__K3D_CLUSTER_NAME__/apps/app/kustomization.yaml`
    in the GitOps repository.
-3. Flux observes that Git change and deploys the new image.
+4. Flux observes that Git change and deploys the new image.
 
 ## Setup
 

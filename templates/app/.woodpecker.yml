@@ -1,6 +1,13 @@
 steps:
+  test:
+    image: golang:1.22-alpine
+    commands:
+      - go test ./...
+
   build:
     image: docker:24.0.0
+    depends_on:
+      - test
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -16,6 +23,8 @@ steps:
 
   update_gitops:
     image: alpine/git:latest
+    depends_on:
+      - build
     environment:
       REGISTRY: "localhost:__REGISTRY_PORT__"
       GIT_SSH_KEY:
