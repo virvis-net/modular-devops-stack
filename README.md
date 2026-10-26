@@ -139,6 +139,7 @@ stops the providers; source data is stored in the provider `data/` directories.
 - `ci/provider/woodpecker/` — Woodpecker server and agent
 - `registry/provider/local/` — local container registry
 - `cluster/provider/k3d/` — k3d cluster and registry configuration
+- `ingress/provider/nginx/` — ingress-nginx install, readiness, and teardown
 - `gitops/provider/flux/` — Flux bootstrap and teardown
 - `templates/app/` and `templates/gitops/` — example repositories to copy into
   Gitea

@@ -12,6 +12,7 @@ name and port on the shared Docker network. k3d copies this configuration into
 the nodes when it creates the cluster. If the registry config changes later,
 existing nodes need to be updated or recreated before they use the new setting.
 
-The ingress controller is installed by `scripts/up.sh`. Its host-port bindings
-are removed because k3s LoadBalancer pods use the cluster node ports in this
-setup; the k3d load balancer maps host ports 80 and 443 into the cluster.
+`configure-ingress-nginx.sh` applies the k3d-specific ingress adjustment. The
+nginx provider installs and removes the controller; this script clears its
+host-port bindings because k3s LoadBalancer pods use the cluster node ports in
+this setup. The k3d load balancer maps host ports 80 and 443 into the cluster.
