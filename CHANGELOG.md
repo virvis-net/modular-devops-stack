@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0 - CI test step
+- Added test step to CI pipeline
+- Container image is built if tests pass
+
 ## 0.2.2 - Bug fixes
 - Fix hard coded network reference
 - Connect Woodpecker as Gitea admin

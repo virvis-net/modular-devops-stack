@@ -3,6 +3,9 @@ steps:
     image: golang:1.22-alpine
     commands:
       - go test ./...
+    when:
+      event:
+        - push
 
   build:
     image: docker:24.0.0
