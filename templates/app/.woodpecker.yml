@@ -4,7 +4,7 @@ steps:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      REGISTRY: "localhost:5000"
+      REGISTRY: "localhost:__REGISTRY_PORT__"
     commands:
       - IMAGE_TAG=$${DRONE_BUILD_NUMBER:-$$(date +%s)}
       - echo "$${IMAGE_TAG}" > .image_tag
@@ -17,6 +17,7 @@ steps:
   update_gitops:
     image: alpine/git:latest
     environment:
+      REGISTRY: "localhost:__REGISTRY_PORT__"
       GIT_SSH_KEY:
         from_secret: GIT_SSH_KEY
     commands:
@@ -28,9 +29,8 @@ steps:
           exit 1
         fi
 
-        GIT_REPO_SSH="ssh://git@host.docker.internal:2222/mds/gitops.git"
-        TARGET_FILE="clusters/mds-cluster/apps/app/kustomization.yaml"
-        REGISTRY="$${REGISTRY:-localhost:5000}"
+        GIT_REPO_SSH="__GITOPS_REPO_URL__"
+        TARGET_FILE="clusters/__K3D_CLUSTER_NAME__/apps/app/kustomization.yaml"
         IMAGE_TAG="$$(cat .image_tag)"
 
         mkdir -p /root/.ssh

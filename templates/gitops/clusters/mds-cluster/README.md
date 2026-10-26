@@ -1,6 +1,6 @@
-# mds-cluster
+# __K3D_CLUSTER_NAME__
 
-This folder defines the desired state for the `mds-cluster` Kubernetes
+This folder defines the desired state for the `__K3D_CLUSTER_NAME__` Kubernetes
 cluster. The root Kustomization applies resources to the `default` namespace
 and includes the cluster-specific app resources.
 
@@ -14,14 +14,15 @@ application is reachable through ingress-nginx.
 ### URL
 You can access the app at:
 
-http://localhost/
+http://localhost:__K3D_CLUSTER_PORT__/
 
 ### How it works
 
 - The app container listens internally on port **8080**.
 - The Kubernetes Service exposes the app on port **80** inside the cluster.
 - The Ingress routes external traffic from `http://localhost/` to the Service.
-- K3d’s load balancer maps host port **80** to the cluster’s Ingress controller.
+- K3d’s load balancer maps host port **__K3D_CLUSTER_PORT__** to the cluster’s
+  Ingress controller.
 
 ### Verifying the deployment
 
