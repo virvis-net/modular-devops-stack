@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2 - Bug fixes
+- Fix hard coded network reference
+- Connect Woodpecker as Gitea admin
+- Improved first run experience
+
 ## 0.2.1 - Ingress provider
 - Separate provider for nginx ingress
 - Script idempotency improvements
