@@ -21,7 +21,10 @@ single-user lab assumptions are intentional.
 - Docker Engine/Desktop with Docker Compose
 - k3d, kubectl, Git, and OpenSSH client tools
 - Python 3
-- Available host ports `80`, `443`, `2222`, `3000`, `5000`, and `8000`
+- Available host ports configured by `K3D_CLUSTER_PORT` (default `80`),
+  `K3D_CLUSTER_PORT_SSL` (`443`), `GITEA_SSH_PORT` (`2222`),
+  `GITEA_HTTP_PORT` (`3000`), `REGISTRY_PORT` (`5000`), and
+  `WOODPECKER_PORT` (`8000`)
 - A Gitea account with permission to create repositories and deploy keys
 
 The repository setup helper renders the app and GitOps templates using the
@@ -100,13 +103,18 @@ the waiting terminal and press Enter.
 
 ### 3. Configure Woodpecker OAuth
 
-In Gitea, create an OAuth2 application for Woodpecker. Use these callback URLs:
+In Gitea, create an OAuth2 application for Woodpecker. Use these callback URLs,
+replacing `<WOODPECKER_PORT>` with the value configured in `.env` (default
+`8000`):
 
 ```text
-http://localhost:8000/authorize
-http://host.docker.internal:8000/authorize
+http://localhost:<WOODPECKER_PORT>/authorize
+http://host.docker.internal:<WOODPECKER_PORT>/authorize
 http://ci-server:8000/authorize
 ```
+
+The `ci-server:8000` URL uses Woodpecker's fixed internal container port; it
+does not change when you change the host port.
 
 Copy the generated client ID and secret into `GITEA_CLIENT` and `GITEA_SECRET`
 in `.env`, then rerun:
@@ -120,9 +128,10 @@ cluster/bootstrap steps.
 
 ### 4. Enable the CI workflow
 
-Open [http://localhost:8000](http://localhost:8000), sign in through Gitea, and
-activate the `mds/app` repository in Woodpecker. In the repository settings,
-enable trusted volumes; the example pipeline requires the Docker socket mount.
+Open `http://localhost:<WOODPECKER_PORT>/login` (default port `8000`), sign in
+through Gitea, and activate the `mds/app` repository in Woodpecker. In the
+repository settings, enable trusted volumes; the example pipeline requires the
+Docker socket mount.
 The Trusted option is only shown to Woodpecker server admins. If it is missing,
 confirm that `GITEA_ADMIN_USER` in `.env` exactly matches the signed-in Gitea
 username, then rerun `./scripts/up.sh` and reload the settings page.
@@ -145,8 +154,8 @@ kubectl get kustomization flux-system -n flux-system
 kubectl get pods,services,ingress -n default
 ```
 
-When the app Pod is Ready, open [http://localhost](http://localhost). The
-sample app should display its greeting.
+When the app Pod is Ready, open `http://localhost:<K3D_CLUSTER_PORT>` (default
+port `80`). The sample app should display its greeting.
 
 To stop the lab, run `./scripts/down.sh`. This deletes the k3d cluster and
 stops the providers; source data is stored in the provider `data/` directories.
