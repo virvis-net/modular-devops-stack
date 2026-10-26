@@ -22,3 +22,7 @@ tmp/
 # Secrets (never commit real ones)
 secrets/
 *.env
+
+# Workspace folder
+workspace/*
+!workspace/.gitkeep
