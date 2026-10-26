@@ -59,7 +59,7 @@ steps:
 
         git add "$$TARGET_FILE"
         git config user.name "ci-bot"
-        git config user.email "ci-bot@example.com"
+        git config user.email "ci-bot@virvis.net"
         git commit -m "ci: update app image to $${REGISTRY}/app:$${IMAGE_TAG}" || true
         git push origin HEAD
     when:
