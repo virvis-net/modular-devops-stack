@@ -6,16 +6,23 @@ if [ -f .env ]; then
   set -a && source .env && set +a
 fi
 
-# Tear down Flux (idempotent)
-./gitops/provider/flux/teardown.sh
+# Tear down cluster resources only when the cluster exists
+if k3d cluster list "$K3D_CLUSTER_NAME" >/dev/null 2>&1; then
+  # Tear down Flux (idempotent)
+  ./gitops/provider/flux/teardown.sh
 
-# Remove ingress-nginx (idempotent)
-echo "Removing ingress-nginx..."
-kubectl delete namespace ingress-nginx --ignore-not-found=true
-kubectl delete -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml --ignore-not-found=true || true
+  # Remove ingress-nginx (idempotent)
+  echo "Removing ingress-nginx..."
+  kubectl delete namespace ingress-nginx --ignore-not-found=true
+  kubectl delete \
+    -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml \
+    --ignore-not-found=true
 
-# Delete k3d cluster
-k3d cluster delete "$K3D_CLUSTER_NAME"
+  # Delete k3d cluster
+  k3d cluster delete "$K3D_CLUSTER_NAME"
+else
+  echo "Cluster \"$K3D_CLUSTER_NAME\" does not exist; skipping Kubernetes cleanup."
+fi
 
 # Stop the whole stack
 docker compose -p "$STACK_NAME-providers" \
@@ -25,5 +32,7 @@ docker compose -p "$STACK_NAME-providers" \
   -f ./ci/provider/woodpecker/docker-compose.yaml \
   down
 
-# Remove shared network
-docker network rm "$NETWORK_NAME"
+# Remove shared network if it exists
+if docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
+  docker network rm "$NETWORK_NAME"
+fi

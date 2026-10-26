@@ -31,17 +31,22 @@ kubectl patch deployment ingress-nginx-controller --namespace ingress-nginx \
   --type=strategic \
   --patch='{"spec":{"template":{"spec":{"containers":[{"name":"controller","ports":[{"containerPort":80,"hostPort":null},{"containerPort":443,"hostPort":null}]}]}}}}'
 
-echo "Waiting for ingress admission jobs to complete..."
+echo "Waiting for ingress admission endpoint to be created..."
 kubectl wait --namespace ingress-nginx \
-  --for=condition=Complete \
-  job/ingress-nginx-admission-create \
-  job/ingress-nginx-admission-patch \
+  --for=create \
+  endpoints/ingress-nginx-controller-admission \
   --timeout=120s
 
 echo "Waiting for ingress admission endpoint to be ready..."
 kubectl wait --namespace ingress-nginx \
   --for=jsonpath='{.subsets[0].addresses[0].ip}' \
   endpoints/ingress-nginx-controller-admission \
+  --timeout=120s
+
+echo "Waiting for ingress admission webhook certificate to be configured..."
+kubectl wait \
+  --for=jsonpath='{.webhooks[0].clientConfig.caBundle}' \
+  validatingwebhookconfiguration/ingress-nginx-admission \
   --timeout=120s
 
 # Bootstrap Flux (idempotent)

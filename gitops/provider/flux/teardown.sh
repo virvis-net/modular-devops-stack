@@ -14,8 +14,11 @@ warn(){ printf "\033[1;33m[warn]\033[0m %s\n" "$*"; }
 kubectl_retry(){
   local tries=0 rc=0
   while [ $tries -lt "$KUBECTL_RETRIES" ]; do
-    if kubectl "$@" >/dev/null 2>&1; then return 0; fi
-    rc=$?
+    if kubectl "$@"; then
+      return 0
+    else
+      rc=$?
+    fi
     tries=$((tries+1))
     sleep "$KUBECTL_RETRY_SLEEP"
   done
@@ -67,17 +70,28 @@ if kubectl_retry get ns flux-system >/dev/null 2>&1; then
   # ------------------------------------------------------------
   info "Waiting up to ${NAMESPACE_WAIT_SECONDS}s for namespace removal"
   local_end=$((SECONDS + NAMESPACE_WAIT_SECONDS))
+  namespace_check_failed=0
+  namespace=flux-system
 
   while [ $SECONDS -lt $local_end ]; do
-    if ! kubectl_retry get ns flux-system >/dev/null 2>&1; then
-      info "Namespace flux-system removed"
+    if namespace=$(kubectl_retry get ns flux-system --ignore-not-found -o name); then
+      if [ -z "$namespace" ]; then
+        info "Namespace flux-system removed"
+        break
+      fi
+    else
+      warn "Could not check namespace removal because the Kubernetes API is unavailable"
+      namespace_check_failed=1
       break
     fi
     sleep 1
   done
 
-  if kubectl_retry get ns flux-system >/dev/null 2>&1; then
-    warn "Namespace still present; manual finalizer removal may be required"
+  if [ "$namespace_check_failed" -eq 0 ] && [ -n "$namespace" ]; then
+    namespace_status=$(kubectl get ns flux-system \
+      -o go-template='phase={{.status.phase}} finalizers={{.spec.finalizers}} conditions={{range .status.conditions}}{{.type}}={{.status}}:{{.message}}; {{end}}' \
+      2>&1 || true)
+    warn "Namespace still present after ${NAMESPACE_WAIT_SECONDS}s: ${namespace_status}"
   fi
 
 else
