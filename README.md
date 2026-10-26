@@ -41,6 +41,11 @@ cp .env.example .env
 Review `.env` and adjust the values for your environment. Start the providers
 and cluster:
 
+Set `GITEA_ADMIN_USER` to the username you will create in Gitea. The example
+configuration uses that value for `WOODPECKER_ADMIN`, granting the matching
+Gitea account Woodpecker server-admin privileges. This does not create a Gitea
+user; create the account during Gitea's initial setup, using the same username.
+
 ```sh
 ./scripts/up.sh
 ```
@@ -118,6 +123,9 @@ cluster/bootstrap steps.
 Open [http://localhost:8000](http://localhost:8000), sign in through Gitea, and
 activate the `mds/app` repository in Woodpecker. In the repository settings,
 enable trusted volumes; the example pipeline requires the Docker socket mount.
+The Trusted option is only shown to Woodpecker server admins. If it is missing,
+confirm that `GITEA_ADMIN_USER` in `.env` exactly matches the signed-in Gitea
+username, then rerun `./scripts/up.sh` and reload the settings page.
 
 The Flux deploy key was created in step 1 and its public key was added to the
 GitOps repository in step 2. In the Woodpecker `app` repository settings, add
