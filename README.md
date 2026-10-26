@@ -10,7 +10,8 @@ The example delivery flow is:
 2. CI builds the Go app container, pushes it to the local registry, and updates
    the image tag in the GitOps repository.
 3. Flux notices the GitOps change and reconciles it into k3d.
-4. ingress-nginx routes `http://localhost/` to the app.
+4. ingress-nginx routes `http://localhost:<K3D_CLUSTER_PORT>/` to the app
+   (port `80` by default).
 
 This is a learning and proof-of-concept project, not a production-ready or
 provider-independent platform. Some local Docker, host networking, and

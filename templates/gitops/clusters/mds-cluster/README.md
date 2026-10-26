@@ -20,7 +20,7 @@ http://localhost:__K3D_CLUSTER_PORT__/
 
 - The app container listens internally on port **8080**.
 - The Kubernetes Service exposes the app on port **80** inside the cluster.
-- The Ingress routes external traffic from `http://localhost/` to the Service.
+- The Ingress routes traffic for host `localhost` to the Service.
 - K3d’s load balancer maps host port **__K3D_CLUSTER_PORT__** to the cluster’s
   Ingress controller.
 
@@ -42,7 +42,7 @@ You should see:
 
 ### Expected response
 
-Opening http://localhost/ in your browser should display:
+Opening http://localhost:__K3D_CLUSTER_PORT__/ in your browser should display:
 
 > Hello from Modular DevOps Stack App!
 
