@@ -1,3 +1,4 @@
 networks:
-  mds-network:
+  shared:
+    name: ${NETWORK_NAME}
     external: true

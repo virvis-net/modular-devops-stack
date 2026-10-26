@@ -1,7 +1,6 @@
 services:
   ci-server:
     image: woodpeckerci/woodpecker-server:v3
-    container_name: ci-server
     restart: unless-stopped
     environment:
       - WOODPECKER_OPEN=true
@@ -18,11 +17,10 @@ services:
     ports:
       - "${WOODPECKER_PORT}:8000"
     networks:
-      - ${NETWORK_NAME}
+      - shared
 
   ci-agent:
     image: woodpeckerci/woodpecker-agent:v3
-    container_name: ci-agent
     restart: unless-stopped
     depends_on:
       - ci-server
@@ -32,4 +30,4 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - ${NETWORK_NAME}
+      - shared

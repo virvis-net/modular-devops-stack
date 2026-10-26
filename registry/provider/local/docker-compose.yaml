@@ -1,11 +1,10 @@
 services:
   registry:
     image: registry:2
-    container_name: registry
     restart: unless-stopped
     ports:
       - "${REGISTRY_PORT}:5000"
     volumes:
       - ${PWD}/registry/provider/local/data:/var/lib/registry
     networks:
-      - ${NETWORK_NAME}
+      - shared
