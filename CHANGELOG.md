@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1 - Application metrics (runtime)
+- Added Go runtime metrics for goroutines, memory use, stack use, and GC cycles
+- Configured Grafana provisioning changes to trigger automatic pod rollouts
+
 ## 0.6.0 - Application metrics
 - Added monitoring deployment configuration to the framework as a provider which will be rendered it into the GitOps repository during init, ready for Flux to apply
 - Exposed application request counters and duration histograms for Prometheus

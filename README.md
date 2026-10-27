@@ -27,7 +27,8 @@ any.
 The example app exposes request counters and request-duration histograms in
 Prometheus text format on its internal `9090` metrics port. Prometheus
 discovers app Services in the staging and production namespaces; Grafana
-provides a provisioned dashboard for request rate, status, and p95 latency.
+provides a provisioned dashboard for request rate, status, p95 latency, and
+selected Go runtime metrics.
 Access the local dashboard at
 `http://monitoring.localhost:<K3D_CLUSTER_PORT>` (port `80` by default).
 Grafana is routed through ingress-nginx; Prometheus remains an internal
@@ -37,6 +38,8 @@ Prometheus stores its seven-day retention window on ephemeral pod storage, so
 its metrics history is lost if the pod is recreated. This increment covers
 application metrics only; cluster, ingress, database, and cache telemetry
 remain future work.
+The app also exports selected Go runtime metrics (goroutines, heap and stack
+memory, and garbage-collection cycles), which appear on the Grafana dashboard.
 
 The sample Go app emits Prometheus metrics directly to keep this first step
 small. A later OpenTelemetry Collector integration can provide a more
@@ -245,10 +248,37 @@ stops the providers; source data is stored in the provider `data/` directories.
 - `templates/app/` and `templates/gitops/` — example repositories to copy into
   Gitea
 
+## Observability roadmap
+
+The first two increments are in place: application health checks, followed by
+application request metrics with Prometheus scraping and a Grafana dashboard.
+The metrics example covers request count, status, and duration, along with
+selected Go runtime metrics (goroutines, memory, and garbage collection).
+
+1. **Health basics — complete.** App health/readiness endpoints and Kubernetes
+   probes.
+2. **Application metrics — complete.** Expose and scrape request and selected
+   Go runtime metrics, with a dashboard.
+3. **Cluster and ingress metrics — next.** Add cluster state/resource metrics
+   and ingress-controller metrics, then extend the dashboard to make workload
+   and traffic health visible alongside app behavior.
+4. **OpenTelemetry collection.** Add an OpenTelemetry Collector and a generic
+   OTLP-instrumented app example, keeping instrumentation independent from a
+   particular telemetry backend.
+5. **Logs and traces.** Add independently replaceable backends and connect
+   them to Grafana, with enough correlation to investigate a request across
+   metrics, logs, and traces.
+6. **Events and alerts.** Collect Kubernetes events and define a few
+   actionable alerts; add synthetic checks if they provide useful coverage.
+
+Prometheus and Grafana are currently implemented by the framework's
+Kubernetes monitoring provider; its manifests are rendered into the GitOps
+repository for Flux to apply. Provider selection across the stack remains a
+later modularity task. Persistence, availability, and access controls should
+also be revisited before treating this local demo configuration as production
+monitoring.
+
 ## Next steps
 
-- Add infrastructure metrics, dashboards, and alerting.
-- Extend the observability layer with centralized logs, traces, and Kubernetes
-  events through modular collection and storage components.
 - Define clear provider interfaces and configuration so components can be
   selected or replaced without rewriting the end-to-end workflow.

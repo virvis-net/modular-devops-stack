@@ -41,4 +41,6 @@ external dependencies.
 The app exposes request counters and request-duration histograms in Prometheus
 text format at port `9090` on `/metrics`. That port is internal to the cluster
 and is not routed by the app Ingress. Health and metrics scrape requests are
-excluded from the application request metrics.
+excluded from the application request metrics. The same endpoint also exposes
+Go runtime goroutine, heap, stack, and garbage-collection metrics using the Go
+standard library.

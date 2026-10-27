@@ -1,0 +1,10 @@
+apiVersion: 1
+providers:
+  - name: MDS
+    orgId: 1
+    folder: Modular DevOps Stack
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: /etc/grafana/provisioning/dashboards

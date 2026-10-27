@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"runtime"
 	"sort"
 	"sync"
 	"time"
@@ -101,6 +102,9 @@ func (metrics *appMetrics) observe(method string, status int, duration float64) 
 func (metrics *appMetrics) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 
+	var runtimeStats runtime.MemStats
+	runtime.ReadMemStats(&runtimeStats)
+
 	metrics.mu.Lock()
 	labels := make([]requestLabels, 0, len(metrics.requests))
 	observations := make(map[requestLabels]requestObservation, len(metrics.requests))
@@ -126,6 +130,24 @@ func (metrics *appMetrics) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "# TYPE app_http_requests_total counter")
 	fmt.Fprintln(w, "# HELP app_http_request_duration_seconds HTTP request duration in seconds.")
 	fmt.Fprintln(w, "# TYPE app_http_request_duration_seconds histogram")
+	fmt.Fprintln(w, "# HELP go_goroutines Number of goroutines that currently exist.")
+	fmt.Fprintln(w, "# TYPE go_goroutines gauge")
+	fmt.Fprintf(w, "go_goroutines %d\n", runtime.NumGoroutine())
+	fmt.Fprintln(w, "# HELP go_memstats_alloc_bytes Bytes of allocated heap objects.")
+	fmt.Fprintln(w, "# TYPE go_memstats_alloc_bytes gauge")
+	fmt.Fprintf(w, "go_memstats_alloc_bytes %d\n", runtimeStats.Alloc)
+	fmt.Fprintln(w, "# HELP go_memstats_heap_inuse_bytes Bytes in in-use heap spans.")
+	fmt.Fprintln(w, "# TYPE go_memstats_heap_inuse_bytes gauge")
+	fmt.Fprintf(w, "go_memstats_heap_inuse_bytes %d\n", runtimeStats.HeapInuse)
+	fmt.Fprintln(w, "# HELP go_memstats_heap_sys_bytes Bytes of heap memory obtained from the OS.")
+	fmt.Fprintln(w, "# TYPE go_memstats_heap_sys_bytes gauge")
+	fmt.Fprintf(w, "go_memstats_heap_sys_bytes %d\n", runtimeStats.HeapSys)
+	fmt.Fprintln(w, "# HELP go_memstats_stack_inuse_bytes Bytes in stack spans.")
+	fmt.Fprintln(w, "# TYPE go_memstats_stack_inuse_bytes gauge")
+	fmt.Fprintf(w, "go_memstats_stack_inuse_bytes %d\n", runtimeStats.StackInuse)
+	fmt.Fprintln(w, "# HELP go_gc_cycles_total Total number of completed garbage collection cycles.")
+	fmt.Fprintln(w, "# TYPE go_gc_cycles_total counter")
+	fmt.Fprintf(w, "go_gc_cycles_total %d\n", runtimeStats.NumGC)
 
 	for _, label := range labels {
 		observation := observations[label]
