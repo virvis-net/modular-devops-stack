@@ -14,6 +14,14 @@ The example delivery flow is:
    a pull request for review).
 5. Flux deploys it to the separate production namespace.
 
+## Application health checks
+
+The sample app exposes `/healthz` for liveness and `/readyz` for readiness.
+Both staging and production Deployments use these endpoints as Kubernetes
+probes. They currently return healthy whenever the HTTP server is responding;
+the readiness check can be extended to verify dependencies if the app gains
+any.
+
 This is a learning and proof-of-concept project, not a production-ready or
 provider-independent platform. Some local Docker, host networking, and
 single-user lab assumptions are intentional.
@@ -212,7 +220,8 @@ stops the providers; source data is stored in the provider `data/` directories.
 
 ## Next steps
 
-- Add observability for the demo, such as application and cluster metrics,
-  dashboards, and basic operational health checks.
+- Add application and infrastructure metrics, dashboards, and alerting.
+- Extend the observability layer with centralized logs, traces, and Kubernetes
+  events through modular collection and storage components.
 - Define clear provider interfaces and configuration so components can be
   selected or replaced without rewriting the end-to-end workflow.

@@ -16,4 +16,15 @@ spec:
         - name: app
           image: registry:5000/app:latest
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5

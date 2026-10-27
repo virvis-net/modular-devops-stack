@@ -32,3 +32,8 @@ rebuilding it.
 
 The setup helper renders `.woodpecker.yml` with the registry and Gitea SSH
 settings from the stack's `.env`.
+
+The app responds with `200 OK` at `/healthz` and `/readyz`. Kubernetes uses
+these endpoints for liveness and readiness probes in both staging and
+production. Readiness currently matches liveness because the sample app has no
+external dependencies.

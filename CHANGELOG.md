@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0 - Application health checks
+- Added `/healthz` and `/readyz` endpoints to the example app
+- Configured Kubernetes liveness and readiness probes for staging and production
+
 ## 0.4.0 - Staging and Production environments
 - CD deploys to staging environment on main branch
 - Optional image promotion to deploy on production environment
