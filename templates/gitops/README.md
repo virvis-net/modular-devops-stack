@@ -13,6 +13,22 @@ not a strong security boundary.
 Flux bootstrap files are generated dynamically by `flux bootstrap` and should
 not be copied from this template.
 
+The framework's Kubernetes monitoring provider supplies the Prometheus and
+Grafana manifests. `scripts/copy-templates.sh` renders them into this
+repository's `clusters/__K3D_CLUSTER_NAME__/monitoring/` directory, where the
+cluster Kustomization includes them and Flux applies them. Prometheus discovers
+app metrics by Kubernetes Service and port; Grafana provisions a dashboard
+from the provider configuration. This initial increment covers application
+request metrics, not cluster, ingress, database, or cache metrics. Prometheus
+has read-only Kubernetes discovery permissions; its relabel rules retain only
+app Service endpoints from the staging and production namespaces. Prometheus
+and Grafana are separate workloads in the same cluster, with Grafana querying
+Prometheus through an internal Service. Grafana is available at
+`http://monitoring.localhost:__K3D_CLUSTER_PORT__/` through ingress-nginx;
+Prometheus is not exposed by Ingress. Because Grafana permits anonymous
+read-only access in this local demo, do not expose this host outside a trusted
+development environment.
+
 The Woodpecker app pipeline tests changes and, on pushes to `main`, builds and
 pushes an image tagged with the commit SHA. It records the pushed image digest
 in `apps/app/overlays/staging/kustomization.yaml`;

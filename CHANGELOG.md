@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 - Application metrics
+- Added monitoring deployment configuration to the framework as a provider which will be rendered it into the GitOps repository during init, ready for Flux to apply
+- Exposed application request counters and duration histograms for Prometheus
+- Added GitOps-managed Prometheus scraping and a provisioned Grafana dashboard
+- Exposed the local Grafana dashboard through ingress-nginx
+
 ## 0.5.0 - Application health checks
 - Added `/healthz` and `/readyz` endpoints to the example app
 - Configured Kubernetes liveness and readiness probes for staging and production

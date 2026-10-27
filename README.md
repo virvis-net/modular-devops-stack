@@ -22,6 +22,26 @@ probes. They currently return healthy whenever the HTTP server is responding;
 the readiness check can be extended to verify dependencies if the app gains
 any.
 
+## Application metrics
+
+The example app exposes request counters and request-duration histograms in
+Prometheus text format on its internal `9090` metrics port. Prometheus
+discovers app Services in the staging and production namespaces; Grafana
+provides a provisioned dashboard for request rate, status, and p95 latency.
+Access the local dashboard at
+`http://monitoring.localhost:<K3D_CLUSTER_PORT>` (port `80` by default).
+Grafana is routed through ingress-nginx; Prometheus remains an internal
+ClusterIP Service. Grafana allows anonymous read-only access for this local
+demo, so do not expose this ingress outside a trusted local environment.
+Prometheus stores its seven-day retention window on ephemeral pod storage, so
+its metrics history is lost if the pod is recreated. This increment covers
+application metrics only; cluster, ingress, database, and cache telemetry
+remain future work.
+
+The sample Go app emits Prometheus metrics directly to keep this first step
+small. A later OpenTelemetry Collector integration can provide a more
+backend-independent telemetry path for other application stacks.
+
 This is a learning and proof-of-concept project, not a production-ready or
 provider-independent platform. Some local Docker, host networking, and
 single-user lab assumptions are intentional.
@@ -171,6 +191,11 @@ When the staging Pod is Ready, open
 `http://staging.localhost:<K3D_CLUSTER_PORT>/` (default port `80`). The sample
 app should display its greeting.
 
+After Flux reconciles the monitoring resources, generate some app traffic and
+open `http://monitoring.localhost:<K3D_CLUSTER_PORT>`. Prometheus scrapes every
+15 seconds; the request-rate and latency panels need traffic to show meaningful
+values.
+
 ### 6. Promote the tested image to production
 
 Production is not reconciled until it is explicitly enabled in GitOps. To
@@ -213,6 +238,8 @@ stops the providers; source data is stored in the provider `data/` directories.
 - `cluster/provider/k3d/` — k3d cluster and registry configuration
 - `ingress/provider/nginx/` — ingress-nginx install, readiness, and teardown
 - `gitops/provider/flux/` — Flux bootstrap and teardown
+- `monitoring/provider/kubernetes/` — Prometheus and Grafana provider
+  configuration and manifests, rendered into GitOps for Flux to apply
 - `scripts/copy-templates.sh` — render templates from `.env` into empty Gitea
   clones
 - `templates/app/` and `templates/gitops/` — example repositories to copy into
@@ -220,7 +247,7 @@ stops the providers; source data is stored in the provider `data/` directories.
 
 ## Next steps
 
-- Add application and infrastructure metrics, dashboards, and alerting.
+- Add infrastructure metrics, dashboards, and alerting.
 - Extend the observability layer with centralized logs, traces, and Kubernetes
   events through modular collection and storage components.
 - Define clear provider interfaces and configuration so components can be

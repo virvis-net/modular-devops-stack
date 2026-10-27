@@ -24,7 +24,7 @@ func readyHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "ok")
 }
 
-func handler() http.Handler {
+func applicationHandler(metrics *appMetrics) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", healthHandler)
 	mux.HandleFunc("/readyz", readyHandler)
@@ -35,10 +35,23 @@ func handler() http.Handler {
 		}
 		homeHandler(w, r)
 	})
+	return metrics.instrument(mux)
+}
+
+func metricsHandler(metrics *appMetrics) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/metrics", metrics.serveHTTP)
 	return mux
 }
 
 func main() {
-	fmt.Println("Starting server on :8080")
-	log.Fatal(http.ListenAndServe(":8080", handler()))
+	metrics := newAppMetrics()
+	appServer := &http.Server{Addr: ":8080", Handler: applicationHandler(metrics)}
+	metricsServer := &http.Server{Addr: ":9090", Handler: metricsHandler(metrics)}
+	errors := make(chan error, 2)
+
+	fmt.Println("Starting app server on :8080 and metrics server on :9090")
+	go func() { errors <- appServer.ListenAndServe() }()
+	go func() { errors <- metricsServer.ListenAndServe() }()
+	log.Fatal(<-errors)
 }

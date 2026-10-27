@@ -106,12 +106,18 @@ def main() -> int:
         root = Path(__file__).resolve().parent.parent
         copy_rendered_tree(root / "templates/app", app_repo, values)
         copy_rendered_tree(root / "templates/gitops", gitops_repo, values)
+        copy_rendered_tree(
+            root / "monitoring/provider/kubernetes/manifests",
+            gitops_repo / "clusters" / values["K3D_CLUSTER_NAME"] / "monitoring",
+            values,
+        )
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"Template setup failed: {error}", file=sys.stderr)
         return 1
 
     print(f"Rendered app template into {app_repo}")
     print(f"Rendered GitOps template into {gitops_repo}")
+    print(f"Rendered Kubernetes monitoring provider into {gitops_repo}")
     return 0
 
 

@@ -6,7 +6,7 @@ production is added when an image is promoted.
 
 Each environment has a dedicated namespace, app overlay, and Ingress. They
 share one local k3d cluster, so this is logical rather than strong security
-isolation.
+isolation. Monitoring uses a separate `monitoring` namespace.
 
 ## Accessing the environments
 
@@ -37,6 +37,18 @@ kubectl get all,ingress -n production
 ```
 
 The production namespace remains unused until the first promotion.
+
+## Application metrics
+
+Prometheus discovers the app Service's `metrics` port in the `staging` and
+`production` namespaces. The production target appears after production is
+enabled. Grafana has a provisioned application dashboard available at
+`http://monitoring.localhost:__K3D_CLUSTER_PORT__/` through ingress-nginx.
+Prometheus remains internal to the cluster. Grafana allows anonymous
+read-only viewing, so keep this ingress limited to the trusted local lab.
+Generate requests to the staging or production app to populate the dashboard.
+Prometheus stores metrics in ephemeral pod storage, so its history is lost if
+the pod is recreated.
 
 ### Expected response
 

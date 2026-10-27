@@ -3,10 +3,11 @@ FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 COPY src/ .
-RUN go build -o server main.go
+RUN go build -o server main.go metrics.go
 
 FROM alpine:3.19
 WORKDIR /app
 COPY --from=builder /app/server .
 EXPOSE 8080
+EXPOSE 9090
 CMD ["./server"]

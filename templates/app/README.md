@@ -37,3 +37,8 @@ The app responds with `200 OK` at `/healthz` and `/readyz`. Kubernetes uses
 these endpoints for liveness and readiness probes in both staging and
 production. Readiness currently matches liveness because the sample app has no
 external dependencies.
+
+The app exposes request counters and request-duration histograms in Prometheus
+text format at port `9090` on `/metrics`. That port is internal to the cluster
+and is not routed by the app Ingress. Health and metrics scrape requests are
+excluded from the application request metrics.
