@@ -286,3 +286,7 @@ monitoring.
 
 - Define clear provider interfaces and configuration so components can be
   selected or replaced without rewriting the end-to-end workflow.
+- Review persistent storage across Docker Compose providers and use named
+  Docker volumes where appropriate, with documented backup and migration
+  steps. Keep ephemeral container data separate from state that must survive
+  container recreation.
