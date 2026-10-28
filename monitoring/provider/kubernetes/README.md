@@ -15,11 +15,17 @@ queries Prometheus through its in-cluster Service and is exposed at
 `http://monitoring.localhost:<K3D_CLUSTER_PORT>/` through ingress-nginx. Its
 anonymous viewer access is intended only for the trusted local lab.
 
+Prometheus also scrapes kubelet resource metrics through the Kubernetes API
+server's node proxy. The Prometheus service account can discover nodes and
+`get` the `nodes/proxy` subresource; this permission is required for the proxy
+path and should be considered when adapting the setup beyond this trusted
+local lab.
+
 The dashboard adds pod phases, desired versus available app replicas,
-container restarts, CPU and memory requests, and ingress request rate, status,
-and p95 latency. CPU and memory panels show Kubernetes resource requests, not
-live usage; node and container utilization via kubelet/cAdvisor is a possible
-follow-up.
+container restarts, configured CPU and memory requests, live node CPU and
+memory working set, staging/production container CPU and memory working set,
+and ingress request rate, status, and p95 latency. Resource requests show
+configured capacity; kubelet resource metrics show observed usage.
 
 The ingress controller's metrics endpoint is enabled by
 `ingress/provider/nginx/enable-metrics.sh`; the provider includes a separate

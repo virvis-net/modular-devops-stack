@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.1 - Cluster and ingress metrics (live)
+- Added live node and staging/production container CPU and memory utilization from kubelet resource metrics
+
 ## 0.7.0 - Cluster and ingress metrics
 - Added kube-state-metrics for Kubernetes workload state and resource requests
 - Enabled ingress-nginx metrics scraping and added infrastructure dashboard panels

@@ -260,12 +260,12 @@ selected Go runtime metrics (goroutines, memory, and garbage collection).
    probes.
 2. **Application metrics — complete.** Expose and scrape request and selected
    Go runtime metrics, with a dashboard.
-3. **Cluster and ingress metrics — initial increment complete.** Added
+3. **Cluster and ingress metrics — complete.** Added
    Kubernetes object-state and resource-request metrics via kube-state-metrics,
    plus ingress-nginx request/status/latency metrics. The dashboard now shows
-   workload state and ingress traffic alongside app behavior. Live node and
-   container CPU/memory utilization via kubelet/cAdvisor remains a possible
-   follow-up.
+   workload state and ingress traffic alongside app behavior, as well as live
+   node and staging/production container CPU and memory usage from kubelet
+   resource metrics.
 4. **OpenTelemetry collection — next.** Add an OpenTelemetry Collector and a generic
    OTLP-instrumented app example, keeping instrumentation independent from a
    particular telemetry backend.
