@@ -22,7 +22,7 @@ services:
 
   ci-agent:
     image: woodpeckerci/woodpecker-agent:v3
-    restart: unless-stopped
+    restart: always
     depends_on:
       - ci-server
     environment:

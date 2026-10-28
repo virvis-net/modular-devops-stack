@@ -1,7 +1,7 @@
 services:
   scm:
     image: docker.gitea.com/gitea:28.2.0
-    restart: unless-stopped
+    restart: always
     environment:
       - USER_UID=1000
       - USER_GID=1000
