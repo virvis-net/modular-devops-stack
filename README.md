@@ -1,53 +1,27 @@
 # Modular DevOps Stack
 
-A local-first lab and demo for learning how source control, CI, container
-registries, Kubernetes, and GitOps fit together. The current working path uses
-Gitea, Woodpecker CI, a local Docker registry, k3d, Flux, and ingress-nginx.
+Modular DevOps Stack is a local-first **skeleton for simulating a complete
+DevOps system**. It provides a working example of how source control, CI,
+container images, Kubernetes, GitOps delivery, ingress, and observability fit
+together. Use it as a learning lab and as a starting point for replacing or
+extending components—not as a production-ready, provider-independent platform.
 
-The example delivery flow is:
+The current example is built from Gitea, Woodpecker CI, a local Docker
+registry, k3d, Flux, ingress-nginx, and a Kubernetes observability stack. The
+delivery flow is described in terms of component responsibilities, so these
+tools can be replaced:
 
-1. Every push to the app repository runs the Go test suite.
-2. A push to `main` builds and publishes the app image once, identified by its
-   registry digest, then updates the staging GitOps configuration.
-3. Flux deploys that digest to the staging namespace.
-4. A GitOps change promotes the same digest to production (optionally through
-   a pull request for review).
-5. Flux deploys it to the separate production namespace.
+1. A change to the application source triggers automated tests.
+2. An approved change to the release branch triggers the CI system to build
+   and publish an application image once, record its immutable digest, and
+   update the desired configuration for the staging environment.
+3. A GitOps reconciler applies that exact image digest to staging.
+4. A reviewed promotion updates production's desired configuration to the
+   same digest, which the reconciler then applies to the production
+   environment.
 
-## Application health checks
-
-The sample app exposes `/healthz` for liveness and `/readyz` for readiness.
-Both staging and production Deployments use these endpoints as Kubernetes
-probes. They currently return healthy whenever the HTTP server is responding;
-the readiness check can be extended to verify dependencies if the app gains
-any.
-
-## Application metrics
-
-The example app exposes request counters and request-duration histograms in
-Prometheus text format on its internal `9090` metrics port. Prometheus
-discovers app Services in the staging and production namespaces; Grafana
-provides a provisioned dashboard for request rate, status, p95 latency, and
-selected Go runtime metrics.
-Access the local dashboard at
-`http://monitoring.localhost:<K3D_CLUSTER_PORT>` (port `80` by default).
-Grafana is routed through ingress-nginx; Prometheus remains an internal
-ClusterIP Service. Grafana allows anonymous read-only access for this local
-demo, so do not expose this ingress outside a trusted local environment.
-Prometheus stores its seven-day retention window on ephemeral pod storage, so
-its metrics history is lost if the pod is recreated. This increment covers
-application, Kubernetes object-state, and ingress metrics; database and cache
-telemetry remain future work.
-The app also exports selected Go runtime metrics (goroutines, heap and stack
-memory, and garbage-collection cycles), which appear on the Grafana dashboard.
-
-The sample Go app emits Prometheus metrics directly to keep this first step
-small. A later OpenTelemetry Collector integration can provide a more
-backend-independent telemetry path for other application stacks.
-
-This is a learning and proof-of-concept project, not a production-ready or
-provider-independent platform. Some local Docker, host networking, and
-single-user lab assumptions are intentional.
+The stack is intentionally small and local. The components and example app
+form an end-to-end path that can be inspected, tested, and adapted.
 
 ## Prerequisites
 
@@ -66,7 +40,7 @@ relevant stack, registry, Gitea SSH, and cluster settings from `.env`.
 The CI agent mounts the host Docker socket so pipelines can build images. Only
 activate trusted repositories whose code you control.
 
-## Setup
+## Initial installation
 
 ### 1. Configure and start the stack
 
@@ -74,13 +48,12 @@ activate trusted repositories whose code you control.
 cp .env.example .env
 ```
 
-Review `.env` and adjust the values for your environment. Start the providers
-and cluster:
-
 Set `GITEA_ADMIN_USER` to the username you will create in Gitea. The example
 configuration uses that value for `WOODPECKER_ADMIN`, granting the matching
 Gitea account Woodpecker server-admin privileges. This does not create a Gitea
 user; create the account during Gitea's initial setup, using the same username.
+Review the remaining `.env` values and adjust them for your environment.
+Start the providers and cluster:
 
 ```sh
 ./scripts/up.sh
@@ -199,10 +172,16 @@ open `http://monitoring.localhost:<K3D_CLUSTER_PORT>`. Prometheus scrapes every
 15 seconds; the request-rate and latency panels need traffic to show meaningful
 values.
 
-### 6. Promote the tested image to production
+## Normal usage
 
-Production is not reconciled until it is explicitly enabled in GitOps. To
-promote the staging image:
+After installation, push app changes to a branch to run tests. Push or merge
+to `main` to build and publish an image and update the staging digest. Check
+the Woodpecker pipeline and wait for Flux to deploy the image before testing
+the staging app. Generate traffic to populate the metrics dashboard and use
+Grafana Explore to inspect logs, traces, and Kubernetes events.
+
+Production is opt-in and is not reconciled until enabled in GitOps. To promote
+the tested staging image:
 
 1. In `workspace/gitops`, pull the latest `main`.
 2. Copy the complete `digest: sha256:...` value from
@@ -233,30 +212,16 @@ boundary. Use separate clusters where stronger isolation is required.
 To stop the lab, run `./scripts/down.sh`. This deletes the k3d cluster and
 stops the providers; source data is stored in the provider `data/` directories.
 
-## Project layout
-
-- `source-control/provider/gitea/` — Gitea
-- `ci/provider/woodpecker/` — Woodpecker server and agent
-- `registry/provider/local/` — local container registry
-- `cluster/provider/k3d/` — k3d cluster and registry configuration
-- `ingress/provider/nginx/` — ingress-nginx install, readiness, and teardown
-- `gitops/provider/flux/` — Flux bootstrap and teardown
-- `monitoring/provider/kubernetes/` — Kubernetes observability provider
-  configuration and manifests, rendered into GitOps for Flux to apply
-- `scripts/copy-templates.sh` — render templates from `.env` into empty Gitea
-  clones
-- `templates/app/` and `templates/gitops/` — example repositories to copy into
-  Gitea
-
 ## Observability
 
 The Kubernetes monitoring provider deploys Prometheus, Grafana, Loki, Tempo,
-an OpenTelemetry Collector, and supporting event and alert services. The
-example app exports request metrics, structured logs, and traces over OTLP.
-Prometheus collects app, cluster, node, ingress, and Collector metrics;
-Kubernetes events and app logs are stored in Loki, while traces are stored in
-Tempo. Grafana connects these signals so requests can be investigated across
-metrics, logs, and traces.
+an OpenTelemetry Collector, kube-state-metrics, a Kubernetes event exporter,
+Alertmanager, and Mailpit. The example app exposes `/healthz` and `/readyz`
+for Kubernetes probes, exports request and selected Go runtime metrics, and
+sends structured logs, traces, and HTTP metrics over OTLP. Prometheus collects
+app, cluster, node, ingress, and Collector metrics; app logs and Kubernetes
+events go to Loki, while traces go to Tempo. Grafana connects these signals so
+requests can be investigated across metrics, logs, and traces.
 
 After rendering the provider into GitOps and allowing Flux to reconcile:
 
@@ -273,18 +238,62 @@ After rendering the provider into GitOps and allowing Flux to reconcile:
   `kubectl port-forward -n monitoring service/prometheus 9090:9090`, then open
   `http://localhost:9090/alerts`.
 
-The provider README documents alert testing, retention, storage, and
-configuration details: [Kubernetes monitoring provider](monitoring/provider/kubernetes/README.md).
+Prometheus alerts on scrape targets remaining down, elevated app 5xx rates,
+image-pull failures, and crash loops. Alertmanager sends firing and resolved
+notifications to the local Mailpit inbox. The [monitoring provider
+documentation](monitoring/provider/kubernetes/README.md) includes alert
+testing steps, Loki queries, retention, storage, and configuration details.
+
 This single-replica local setup is intended for a trusted development
 environment, not production. Grafana and the notification inbox have no login;
 Loki and Tempo use local PVCs with finite retention, and those volumes are not
-backups.
+backups. Prometheus data uses ephemeral pod storage.
 
-## Next steps
+## Extendability
 
-- Define clear provider interfaces and configuration so components can be
-  selected or replaced without rewriting the end-to-end workflow.
+The framework is organized around providers so infrastructure implementations
+can be replaced or added as the lab grows. The current template-rendering
+workflow includes the example app, GitOps repository, and Kubernetes
+observability manifests. Edit the source templates and provider manifests in
+this repository, then render them into the Gitea repositories; Flux applies
+the rendered Kubernetes state from GitOps.
+
+Useful extension points include:
+
+- Add app dependencies such as a database or cache, with separate resources
+  and configuration for staging and production.
+- Add CI steps, deployment environments, or approval gates to the example
+  pipeline and GitOps flow.
+- Add or replace infrastructure providers and their configuration while
+  preserving the end-to-end workflow.
+- Extend dashboards, telemetry, event collection, and alert rules for the
+  services added to the lab.
+
+Before using the stack beyond a trusted local lab, define provider-selection
+interfaces and review authentication, network exposure, availability, and
+persistent storage. Add backup and migration procedures for any data that
+must survive container or cluster recreation.
+
+## Planned improvements
+
+- Define provider interfaces and configuration so components can be selected
+  or replaced without rewriting the end-to-end workflow.
 - Review persistent storage across Docker Compose providers and use named
-  Docker volumes where appropriate, with documented backup and migration
-  steps. Keep ephemeral container data separate from state that must survive
+  Docker volumes where appropriate. Document backup and migration steps, and
+  distinguish ephemeral container data from state that must survive
   container recreation.
+
+## Project layout
+
+- `source-control/provider/gitea/` — Gitea
+- `ci/provider/woodpecker/` — Woodpecker server and agent
+- `registry/provider/local/` — local container registry
+- `cluster/provider/k3d/` — k3d cluster and registry configuration
+- `ingress/provider/nginx/` — ingress-nginx install, readiness, and teardown
+- `gitops/provider/flux/` — Flux bootstrap and teardown
+- `monitoring/provider/kubernetes/` — observability provider configuration
+  and manifests, rendered into GitOps for Flux to apply
+- `scripts/copy-templates.sh` — render templates from `.env` into empty Gitea
+  clones
+- `templates/app/` and `templates/gitops/` — example repositories rendered
+  into Gitea
