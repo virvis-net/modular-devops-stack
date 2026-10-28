@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0 - Logs and traces
+- Added Loki and Tempo backends with local persistent storage and retention
+- Routed Collector logs and traces to Loki and Tempo, and exposed OTLP metrics to Prometheus
+- Added trace-aware structured request logs and Grafana log/trace/exemplar correlation
+- Added an OTel HTTP request-duration dashboard panel
+
 ## 0.8.0 - OpenTelemetry collection
 - Added an OpenTelemetry Collector with OTLP/gRPC and OTLP/HTTP receivers
 - Instrumented the example Go HTTP server to export traces and metrics over OTLP

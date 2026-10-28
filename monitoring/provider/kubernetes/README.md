@@ -5,8 +5,9 @@ Grafana. Its manifests are rendered by `scripts/copy-templates.sh` into the
 GitOps repository at `clusters/<K3D_CLUSTER_NAME>/monitoring/`. The cluster
 Kustomization includes that directory, and Flux applies the rendered resources.
 
-The provider deploys Prometheus, Grafana, kube-state-metrics, and an
-OpenTelemetry Collector as separate workloads in the `monitoring` namespace.
+The provider deploys Prometheus, Grafana, kube-state-metrics, an
+OpenTelemetry Collector, Loki, and Tempo as separate workloads in the
+`monitoring` namespace.
 Prometheus discovers app metrics endpoints in staging and production,
 Kubernetes state from a least-privilege kube-state-metrics deployment,
 ingress-nginx metrics, and kubelet resource metrics. The app metrics
@@ -29,10 +30,21 @@ and ingress request rate, status, and p95 latency. Resource requests show
 configured capacity; kubelet resource metrics show observed usage.
 
 The Collector accepts OTLP over gRPC and HTTP on internal ClusterIP Service
-ports 4317 and 4318. Its debug exporter writes received traces and metrics to
-the Collector pod logs for this demonstration; no telemetry backend or
-persistent storage is configured yet. Inspect received telemetry with
-`kubectl logs -n monitoring deployment/otel-collector`.
+ports 4317 and 4318. It exports traces to Tempo, logs to Loki, and metrics to
+its Prometheus exporter, which Prometheus scrapes. Tempo's metrics generator
+also remote-writes span and service-graph metrics to Prometheus.
+
+Grafana provisions Prometheus, Loki, and Tempo data sources. Use Grafana
+Explore with Loki and the query `{service_name="example-app"} | trace_id != ""`
+to find correlated app request logs; the `TraceID` link opens the trace in
+Tempo. Tempo's trace-to-logs link filters Loki by service and trace ID, and
+Prometheus exemplars link applicable metric samples back to Tempo. The
+dashboard includes the OTel HTTP request-duration p95 panel.
+
+Loki retains logs for seven days and Tempo retains traces for 48 hours. Each
+uses a 2Gi PVC, backed by the cluster's local-path storage in the local k3d
+setup. These are single-replica local backends, not highly available; PVCs
+provide persistence across pod restarts but are not backups.
 
 The ingress controller's metrics endpoint is enabled by
 `ingress/provider/nginx/enable-metrics.sh`; the provider includes a separate

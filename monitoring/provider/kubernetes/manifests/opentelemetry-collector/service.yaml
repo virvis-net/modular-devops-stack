@@ -14,3 +14,6 @@ spec:
     - name: otlp-http
       port: 4318
       targetPort: otlp-http
+    - name: otel-metrics
+      port: 9464
+      targetPort: otel-metrics

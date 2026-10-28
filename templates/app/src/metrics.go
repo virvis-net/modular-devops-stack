@@ -63,7 +63,7 @@ func normalizedMethod(method string) string {
 
 func (metrics *appMetrics) instrument(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
+		if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" || r.URL.Path == "/metrics" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -75,7 +75,9 @@ func (metrics *appMetrics) instrument(next http.Handler) http.Handler {
 			recorder.status = http.StatusOK
 		}
 
-		metrics.observe(normalizedMethod(r.Method), recorder.status, time.Since(start).Seconds())
+		duration := time.Since(start)
+		metrics.observe(normalizedMethod(r.Method), recorder.status, duration.Seconds())
+		logRequest(r, recorder.status, duration)
 	})
 }
 

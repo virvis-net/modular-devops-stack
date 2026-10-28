@@ -38,7 +38,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /livez
-              port: telemetry
+              port: http-metrics
           resources:
             requests:
               cpu: 50m

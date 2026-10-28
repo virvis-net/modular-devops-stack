@@ -29,6 +29,8 @@ spec:
               containerPort: 4317
             - name: otlp-http
               containerPort: 4318
+            - name: otel-metrics
+              containerPort: 9464
             - name: health
               containerPort: 13133
           livenessProbe:

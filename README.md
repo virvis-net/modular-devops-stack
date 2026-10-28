@@ -250,9 +250,9 @@ stops the providers; source data is stored in the provider `data/` directories.
 
 ## Observability roadmap
 
-The first four increments are in place: application health checks,
-application request/runtime metrics, Kubernetes/ingress metrics, and an
-OpenTelemetry Collector receiving OTLP from the example app.
+The first five increments are in place: application health checks,
+application request/runtime metrics, Kubernetes/ingress metrics, OTLP
+collection, and correlated logs and traces.
 The metrics example covers request count, status, and duration, along with
 selected Go runtime metrics (goroutines, memory, and garbage collection).
 
@@ -267,12 +267,12 @@ selected Go runtime metrics (goroutines, memory, and garbage collection).
    node and staging/production container CPU and memory usage from kubelet
    resource metrics.
 4. **OpenTelemetry collection — complete.** The Go example sends HTTP server
-   traces and metrics over OTLP to a backend-independent Collector. The
-   Collector uses a debug exporter so received telemetry can be inspected in
-   its logs; durable backends and Grafana integration remain the next step.
-5. **Logs and traces.** Add independently replaceable backends and connect
-   them to Grafana, with enough correlation to investigate a request across
-   metrics, logs, and traces.
+   traces, metrics, and structured logs over OTLP to a backend-independent
+   Collector.
+5. **Logs and traces — complete.** Loki stores logs and Tempo stores traces as
+   independently replaceable backends. Grafana links request logs to traces
+   and metric exemplars to traces; the app's request logs include trace and
+   span IDs for cross-signal investigation.
 6. **Events and alerts.** Collect Kubernetes events and define a few
    actionable alerts; add synthetic checks if they provide useful coverage.
 

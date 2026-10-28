@@ -45,11 +45,12 @@ excluded from the application request metrics. The same endpoint also exposes
 Go runtime goroutine, heap, stack, and garbage-collection metrics using the Go
 standard library.
 
-The HTTP server is also instrumented with OpenTelemetry and exports traces and
-HTTP server metrics over OTLP/HTTP to the Collector at
-`http://otel-collector.monitoring.svc:4318`. The Collector currently uses a
-debug exporter, so after sending requests to the app you can inspect received
-telemetry with `kubectl logs -n monitoring deployment/otel-collector`. Set
-`OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT` to use a different
-service name or Collector endpoint; instrumentation does not depend on a
-specific telemetry backend.
+The HTTP server is instrumented with OpenTelemetry and exports traces, HTTP
+server metrics, and structured request logs over OTLP/HTTP to the Collector at
+`http://otel-collector.monitoring.svc:4318`. Request logs include the active
+trace and span IDs. The monitoring provider routes traces to Tempo, logs to
+Loki, and metrics to Prometheus; the app instrumentation does not depend on
+these backends. In Grafana Explore, query Loki with
+`{service_name="example-app"} | trace_id != ""` and follow the TraceID link to
+Tempo. Set `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT` to use a
+different service name or Collector endpoint.
