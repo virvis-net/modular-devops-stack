@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.0 - OpenTelemetry collection
+- Added an OpenTelemetry Collector with OTLP/gRPC and OTLP/HTTP receivers
+- Instrumented the example Go HTTP server to export traces and metrics over OTLP
+- Added a debug exporter so received telemetry can be inspected in Collector logs
+
 ## 0.7.1 - Cluster and ingress metrics (live)
 - Added live node and staging/production container CPU and memory utilization from kubelet resource metrics
 

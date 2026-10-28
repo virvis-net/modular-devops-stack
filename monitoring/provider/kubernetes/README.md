@@ -5,10 +5,11 @@ Grafana. Its manifests are rendered by `scripts/copy-templates.sh` into the
 GitOps repository at `clusters/<K3D_CLUSTER_NAME>/monitoring/`. The cluster
 Kustomization includes that directory, and Flux applies the rendered resources.
 
-The provider deploys Prometheus, Grafana, and kube-state-metrics as separate
-workloads in the `monitoring` namespace. Prometheus discovers app metrics
-endpoints in staging and production, Kubernetes state from a least-privilege
-kube-state-metrics deployment, and ingress-nginx metrics. The app metrics
+The provider deploys Prometheus, Grafana, kube-state-metrics, and an
+OpenTelemetry Collector as separate workloads in the `monitoring` namespace.
+Prometheus discovers app metrics endpoints in staging and production,
+Kubernetes state from a least-privilege kube-state-metrics deployment,
+ingress-nginx metrics, and kubelet resource metrics. The app metrics
 include HTTP request counts, durations, and selected Go runtime data:
 goroutine count, heap and stack memory, and garbage-collection cycles. Grafana
 queries Prometheus through its in-cluster Service and is exposed at
@@ -26,6 +27,12 @@ container restarts, configured CPU and memory requests, live node CPU and
 memory working set, staging/production container CPU and memory working set,
 and ingress request rate, status, and p95 latency. Resource requests show
 configured capacity; kubelet resource metrics show observed usage.
+
+The Collector accepts OTLP over gRPC and HTTP on internal ClusterIP Service
+ports 4317 and 4318. Its debug exporter writes received traces and metrics to
+the Collector pod logs for this demonstration; no telemetry backend or
+persistent storage is configured yet. Inspect received telemetry with
+`kubectl logs -n monitoring deployment/otel-collector`.
 
 The ingress controller's metrics endpoint is enabled by
 `ingress/provider/nginx/enable-metrics.sh`; the provider includes a separate

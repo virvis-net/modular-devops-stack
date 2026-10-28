@@ -2,8 +2,9 @@
 FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
+COPY go.mod go.sum ./
 COPY src/ .
-RUN go build -o server main.go metrics.go
+RUN go build -o server .
 
 FROM alpine:3.19
 WORKDIR /app

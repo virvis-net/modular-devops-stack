@@ -250,9 +250,9 @@ stops the providers; source data is stored in the provider `data/` directories.
 
 ## Observability roadmap
 
-The first three increments are in place: application health checks,
-application request/runtime metrics, and Kubernetes/ingress metrics, with
-Prometheus scraping and Grafana dashboards.
+The first four increments are in place: application health checks,
+application request/runtime metrics, Kubernetes/ingress metrics, and an
+OpenTelemetry Collector receiving OTLP from the example app.
 The metrics example covers request count, status, and duration, along with
 selected Go runtime metrics (goroutines, memory, and garbage collection).
 
@@ -266,9 +266,10 @@ selected Go runtime metrics (goroutines, memory, and garbage collection).
    workload state and ingress traffic alongside app behavior, as well as live
    node and staging/production container CPU and memory usage from kubelet
    resource metrics.
-4. **OpenTelemetry collection — next.** Add an OpenTelemetry Collector and a generic
-   OTLP-instrumented app example, keeping instrumentation independent from a
-   particular telemetry backend.
+4. **OpenTelemetry collection — complete.** The Go example sends HTTP server
+   traces and metrics over OTLP to a backend-independent Collector. The
+   Collector uses a debug exporter so received telemetry can be inspected in
+   its logs; durable backends and Grafana integration remain the next step.
 5. **Logs and traces.** Add independently replaceable backends and connect
    them to Grafana, with enough correlation to investigate a request across
    metrics, logs, and traces.

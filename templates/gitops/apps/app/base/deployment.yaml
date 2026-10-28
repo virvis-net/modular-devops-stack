@@ -15,6 +15,13 @@ spec:
       containers:
         - name: app
           image: registry:5000/app:latest
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: example-app
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector.monitoring.svc:4318
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: http/protobuf
           ports:
             - name: http
               containerPort: 8080

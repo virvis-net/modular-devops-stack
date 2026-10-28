@@ -44,3 +44,12 @@ and is not routed by the app Ingress. Health and metrics scrape requests are
 excluded from the application request metrics. The same endpoint also exposes
 Go runtime goroutine, heap, stack, and garbage-collection metrics using the Go
 standard library.
+
+The HTTP server is also instrumented with OpenTelemetry and exports traces and
+HTTP server metrics over OTLP/HTTP to the Collector at
+`http://otel-collector.monitoring.svc:4318`. The Collector currently uses a
+debug exporter, so after sending requests to the app you can inspect received
+telemetry with `kubectl logs -n monitoring deployment/otel-collector`. Set
+`OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT` to use a different
+service name or Collector endpoint; instrumentation does not depend on a
+specific telemetry backend.

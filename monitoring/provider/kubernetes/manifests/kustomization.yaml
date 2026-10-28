@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
+  - opentelemetry-collector
   - kube-state-metrics
   - ingress
   - prometheus
