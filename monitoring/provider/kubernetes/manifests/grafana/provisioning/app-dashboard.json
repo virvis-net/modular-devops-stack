@@ -176,10 +176,268 @@
       ],
       "title": "Go garbage collections per second",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "sum by (namespace, phase) (kube_pod_status_phase{namespace=~\"staging|production\"})",
+          "legendFormat": "{{namespace}} {{phase}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Pods by phase",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "sum by (namespace) (kube_deployment_spec_replicas{namespace=~\"staging|production\"})",
+          "legendFormat": "{{namespace}} desired",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (namespace) (kube_deployment_status_replicas_available{namespace=~\"staging|production\"})",
+          "legendFormat": "{{namespace}} available",
+          "refId": "B"
+        }
+      ],
+      "title": "Deployment replicas: desired vs available",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cores"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "sum by (namespace) (kube_pod_container_resource_requests{namespace=~\"staging|production\",resource=\"cpu\",unit=\"core\"})",
+          "legendFormat": "{{namespace}} requested",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU requests by namespace",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "id": 10,
+      "targets": [
+        {
+          "expr": "sum by (namespace) (kube_pod_container_resource_requests{namespace=~\"staging|production\",resource=\"memory\",unit=\"byte\"})",
+          "legendFormat": "{{namespace}} requested",
+          "refId": "A"
+        }
+      ],
+      "title": "Memory requests by namespace",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "id": 11,
+      "targets": [
+        {
+          "expr": "sum by (namespace) (rate(kube_pod_container_status_restarts_total{namespace=~\"staging|production\"}[5m]))",
+          "legendFormat": "{{namespace}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Container restarts per second",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "id": 12,
+      "targets": [
+        {
+          "expr": "sum by (namespace, ingress) (rate(nginx_ingress_controller_requests{namespace=~\"staging|production\"}[5m]))",
+          "legendFormat": "{{namespace}}/{{ingress}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Ingress request rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "id": 13,
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(nginx_ingress_controller_requests{namespace=~\"staging|production\"}[5m]))",
+          "legendFormat": "HTTP {{status}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Ingress request rate by status",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "id": 14,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, namespace, ingress) (rate(nginx_ingress_controller_request_duration_seconds_bucket{namespace=~\"staging|production\"}[5m])))",
+          "legendFormat": "{{namespace}}/{{ingress}} p95",
+          "refId": "A"
+        }
+      ],
+      "title": "Ingress request duration p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 56
+      },
+      "id": 15,
+      "targets": [
+        {
+          "expr": "sum(kube_node_status_condition{condition=\"Ready\",status=\"true\"})",
+          "legendFormat": "Ready nodes",
+          "refId": "A"
+        }
+      ],
+      "title": "Ready Kubernetes nodes",
+      "type": "timeseries"
     }
   ],
   "schemaVersion": 39,
-  "title": "Application metrics",
+  "title": "Application and infrastructure metrics",
   "uid": "mds-app-metrics",
   "version": 1
 }

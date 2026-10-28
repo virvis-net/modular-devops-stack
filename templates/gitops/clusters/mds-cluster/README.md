@@ -42,7 +42,10 @@ The production namespace remains unused until the first promotion.
 
 Prometheus discovers the app Service's `metrics` port in the `staging` and
 `production` namespaces. The production target appears after production is
-enabled. Grafana has a provisioned application dashboard available at
+enabled. The dashboard also shows Kubernetes pod/deployment state, requested
+CPU and memory, and ingress traffic/latency. CPU and memory are configured
+requests, not live utilization. Grafana has a provisioned application and
+infrastructure dashboard available at
 `http://monitoring.localhost:__K3D_CLUSTER_PORT__/` through ingress-nginx.
 Prometheus remains internal to the cluster. Grafana allows anonymous
 read-only viewing, so keep this ingress limited to the trusted local lab.

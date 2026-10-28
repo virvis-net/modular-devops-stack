@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0 - Cluster and ingress metrics
+- Added kube-state-metrics for Kubernetes workload state and resource requests
+- Enabled ingress-nginx metrics scraping and added infrastructure dashboard panels
+- Made Prometheus configuration changes trigger an automatic rollout
+
 ## 0.6.1 - Application metrics (runtime)
 - Added Go runtime metrics for goroutines, memory use, stack use, and GC cycles
 - Configured Grafana provisioning changes to trigger automatic pod rollouts

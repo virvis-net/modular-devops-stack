@@ -36,8 +36,8 @@ ClusterIP Service. Grafana allows anonymous read-only access for this local
 demo, so do not expose this ingress outside a trusted local environment.
 Prometheus stores its seven-day retention window on ephemeral pod storage, so
 its metrics history is lost if the pod is recreated. This increment covers
-application metrics only; cluster, ingress, database, and cache telemetry
-remain future work.
+application, Kubernetes object-state, and ingress metrics; database and cache
+telemetry remain future work.
 The app also exports selected Go runtime metrics (goroutines, heap and stack
 memory, and garbage-collection cycles), which appear on the Grafana dashboard.
 
@@ -250,8 +250,9 @@ stops the providers; source data is stored in the provider `data/` directories.
 
 ## Observability roadmap
 
-The first two increments are in place: application health checks, followed by
-application request metrics with Prometheus scraping and a Grafana dashboard.
+The first three increments are in place: application health checks,
+application request/runtime metrics, and Kubernetes/ingress metrics, with
+Prometheus scraping and Grafana dashboards.
 The metrics example covers request count, status, and duration, along with
 selected Go runtime metrics (goroutines, memory, and garbage collection).
 
@@ -259,10 +260,13 @@ selected Go runtime metrics (goroutines, memory, and garbage collection).
    probes.
 2. **Application metrics — complete.** Expose and scrape request and selected
    Go runtime metrics, with a dashboard.
-3. **Cluster and ingress metrics — next.** Add cluster state/resource metrics
-   and ingress-controller metrics, then extend the dashboard to make workload
-   and traffic health visible alongside app behavior.
-4. **OpenTelemetry collection.** Add an OpenTelemetry Collector and a generic
+3. **Cluster and ingress metrics — initial increment complete.** Added
+   Kubernetes object-state and resource-request metrics via kube-state-metrics,
+   plus ingress-nginx request/status/latency metrics. The dashboard now shows
+   workload state and ingress traffic alongside app behavior. Live node and
+   container CPU/memory utilization via kubelet/cAdvisor remains a possible
+   follow-up.
+4. **OpenTelemetry collection — next.** Add an OpenTelemetry Collector and a generic
    OTLP-instrumented app example, keeping instrumentation independent from a
    particular telemetry backend.
 5. **Logs and traces.** Add independently replaceable backends and connect

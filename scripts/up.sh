@@ -26,6 +26,7 @@ fi
 ./ingress/provider/nginx/install.sh
 ./cluster/provider/k3d/configure-ingress-nginx.sh
 ./ingress/provider/nginx/wait-ready.sh
+./ingress/provider/nginx/enable-metrics.sh
 
 # Bootstrap Flux (idempotent)
 ./gitops/provider/flux/bootstrap.sh

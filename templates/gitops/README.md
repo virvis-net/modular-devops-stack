@@ -17,13 +17,16 @@ The framework's Kubernetes monitoring provider supplies the Prometheus and
 Grafana manifests. `scripts/copy-templates.sh` renders them into this
 repository's `clusters/__K3D_CLUSTER_NAME__/monitoring/` directory, where the
 cluster Kustomization includes them and Flux applies them. Prometheus discovers
-app metrics by Kubernetes Service and port; Grafana provisions a dashboard
-from the provider configuration. This initial increment covers application
-request metrics, not cluster, ingress, database, or cache metrics. Prometheus
-has read-only Kubernetes discovery permissions; its relabel rules retain only
-app Service endpoints from the staging and production namespaces. Prometheus
-and Grafana are separate workloads in the same cluster, with Grafana querying
-Prometheus through an internal Service. Grafana is available at
+app metrics by Kubernetes Service and port, Kubernetes object state through
+kube-state-metrics, and ingress-nginx metrics. Grafana provisions a dashboard
+from the provider configuration. Kubernetes metrics cover pod phases,
+deployment replica availability, container restarts, and CPU/memory requests;
+they do not yet include live node/container utilization. Prometheus has
+read-only discovery permissions; its app scrape is restricted to staging and
+production. Prometheus and Grafana are separate workloads in the same cluster,
+with Grafana querying Prometheus through an internal Service. The framework's
+ingress provider enables ingress-nginx metrics, while the monitoring provider
+adds its internal scrape Service. Grafana is available at
 `http://monitoring.localhost:__K3D_CLUSTER_PORT__/` through ingress-nginx;
 Prometheus is not exposed by Ingress. Because Grafana permits anonymous
 read-only access in this local demo, do not expose this host outside a trusted

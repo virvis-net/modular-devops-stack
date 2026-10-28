@@ -5,14 +5,27 @@ Grafana. Its manifests are rendered by `scripts/copy-templates.sh` into the
 GitOps repository at `clusters/<K3D_CLUSTER_NAME>/monitoring/`. The cluster
 Kustomization includes that directory, and Flux applies the rendered resources.
 
-The provider deploys Prometheus and Grafana as separate workloads in the
-`monitoring` namespace. Prometheus discovers only the app metrics endpoints
-in staging and production. The app metrics include HTTP request counts,
-durations, and selected Go runtime data: goroutine count, heap and stack
-memory, and garbage-collection cycles. Grafana queries Prometheus through its
-in-cluster Service and is exposed at
+The provider deploys Prometheus, Grafana, and kube-state-metrics as separate
+workloads in the `monitoring` namespace. Prometheus discovers app metrics
+endpoints in staging and production, Kubernetes state from a least-privilege
+kube-state-metrics deployment, and ingress-nginx metrics. The app metrics
+include HTTP request counts, durations, and selected Go runtime data:
+goroutine count, heap and stack memory, and garbage-collection cycles. Grafana
+queries Prometheus through its in-cluster Service and is exposed at
 `http://monitoring.localhost:<K3D_CLUSTER_PORT>/` through ingress-nginx. Its
 anonymous viewer access is intended only for the trusted local lab.
+
+The dashboard adds pod phases, desired versus available app replicas,
+container restarts, CPU and memory requests, and ingress request rate, status,
+and p95 latency. CPU and memory panels show Kubernetes resource requests, not
+live usage; node and container utilization via kubelet/cAdvisor is a possible
+follow-up.
+
+The ingress controller's metrics endpoint is enabled by
+`ingress/provider/nginx/enable-metrics.sh`; the provider includes a separate
+internal Service for scraping it. Prometheus scrape configuration is generated
+from `prometheus/config/prometheus.yml`, so changing scrape jobs updates its
+ConfigMap hash and rolls out Prometheus automatically.
 
 Grafana provisioning files are managed with Kustomize's ConfigMap generator.
 Their content hash is included in the generated ConfigMap name and referenced
