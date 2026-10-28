@@ -7,7 +7,8 @@ Kustomization includes that directory, and Flux applies the rendered resources.
 
 The provider deploys Prometheus, Grafana, kube-state-metrics, an
 OpenTelemetry Collector, Loki, and Tempo as separate workloads in the
-`monitoring` namespace.
+`monitoring` namespace. It also deploys a Kubernetes event exporter,
+Alertmanager, and Mailpit as a local email sink.
 Prometheus discovers app metrics endpoints in staging and production,
 Kubernetes state from a least-privilege kube-state-metrics deployment,
 ingress-nginx metrics, and kubelet resource metrics. The app metrics
@@ -45,6 +46,48 @@ Loki retains logs for seven days and Tempo retains traces for 48 hours. Each
 uses a 2Gi PVC, backed by the cluster's local-path storage in the local k3d
 setup. These are single-replica local backends, not highly available; PVCs
 provide persistence across pod restarts but are not backups.
+
+The event exporter has read-only access to Kubernetes Events and pushes them
+to Loki with the `job="kubernetes-events"` label. Query them in Grafana Explore
+with `{job="kubernetes-events"}`. The event exporter uses a 60-second event
+age cutoff, so it collects current events rather than serving as a durable
+Kubernetes event archive.
+
+Prometheus evaluates alerts for scrape targets that stay down, an elevated
+application 5xx rate, pod image-pull failures, and crash-looping containers.
+Alertmanager routes firing and resolved notifications to a local Mailpit SMTP
+inbox; no external notification service is configured. To inspect alerts and
+the test inbox, open `http://notifications.localhost:<K3D_CLUSTER_PORT>/` in
+your browser. The neutral `notifications.localhost` host routes only the
+Mailpit web UI; SMTP remains internal to the cluster. The inbox has no
+authentication, so keep it within the trusted local lab. Prometheus remains
+internal and is available for rule inspection with a port-forward:
+
+```bash
+kubectl port-forward -n monitoring service/prometheus 9090:9090
+```
+
+Open `http://localhost:9090/alerts` to see evaluated alert rules and
+`http://notifications.localhost:<K3D_CLUSTER_PORT>/` to inspect email
+notifications. To exercise event
+collection and the image-pull alert, create a temporary pod using a deliberately
+invalid image:
+
+```bash
+kubectl run observability-alert-test -n staging \
+  --image=example.invalid/observability-alert-test:missing --restart=Never
+```
+
+Wait at least two minutes for `KubernetesPodImagePullBackOff` to fire. Query
+Loki with `{job="kubernetes-events"} |= "observability-alert-test"` and check
+the alert in Prometheus and its email in Mailpit. Then remove the test pod:
+
+```bash
+kubectl delete pod observability-alert-test -n staging
+```
+
+Alertmanager and Mailpit are for this trusted local lab only. Mailpit is
+in-memory, receives no external mail, and loses messages when restarted.
 
 The ingress controller's metrics endpoint is enabled by
 `ingress/provider/nginx/enable-metrics.sh`; the provider includes a separate

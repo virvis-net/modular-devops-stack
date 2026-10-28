@@ -47,8 +47,11 @@ CPU and memory, and ingress traffic/latency. CPU and memory are configured
 requests, not live utilization. Grafana has a provisioned application and
 infrastructure dashboard available at
 `http://monitoring.localhost:__K3D_CLUSTER_PORT__/` through ingress-nginx.
-Prometheus remains internal to the cluster. Grafana allows anonymous
-read-only viewing, so keep this ingress limited to the trusted local lab.
+The alert notification inbox is available at
+`http://notifications.localhost:__K3D_CLUSTER_PORT__/`. Prometheus remains
+internal to the cluster; use `kubectl port-forward` when you need its UI.
+Grafana and the notification inbox have no login in this local demo, so keep
+these ingresses limited to the trusted local lab.
 Generate requests to the staging or production app to populate the dashboard.
 Prometheus stores metrics in ephemeral pod storage, so its history is lost if
 the pod is recreated.

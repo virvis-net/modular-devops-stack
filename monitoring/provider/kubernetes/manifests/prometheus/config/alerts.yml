@@ -1,0 +1,49 @@
+groups:
+  - name: modular-devops-stack
+    rules:
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus target is down"
+          description: "Target {{ $labels.job }} at {{ $labels.instance }} has been unreachable for more than 2 minutes."
+
+      - alert: AppRequestErrorRateHigh
+        expr: |
+          (
+            sum by (environment) (rate(app_http_requests_total{status=~"5.."}[5m]))
+            /
+            clamp_min(sum by (environment) (rate(app_http_requests_total[5m])), 0.001)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High application HTTP 5xx rate"
+          description: "More than 5% of requests in {{ $labels.environment }} returned 5xx responses for 5 minutes."
+
+      - alert: KubernetesPodImagePullBackOff
+        expr: |
+          max by (namespace, pod, container) (
+            kube_pod_container_status_waiting_reason{reason=~"ImagePullBackOff|ErrImagePull"} == 1
+          )
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod cannot pull its container image"
+          description: "Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} has been unable to pull its image for 2 minutes."
+
+      - alert: KubernetesPodCrashLooping
+        expr: |
+          max by (namespace, pod, container) (
+            kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"} == 1
+          )
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod is crash looping"
+          description: "Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} has been crash looping for 2 minutes."

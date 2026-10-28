@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0 - Events and alerts
+- Added a Kubernetes event exporter that ships cluster events to Loki
+- Added Prometheus alerts for target outages, high app 5xx rates, image-pull failures, and crash loops
+- Added Alertmanager and a local Mailpit inbox for testing firing and resolved notifications
+- Exposed the local alert inbox at the tool-agnostic `notifications.localhost` host
+
 ## 0.9.0 - Logs and traces
 - Added Loki and Tempo backends with local persistent storage and retention
 - Routed Collector logs and traces to Loki and Tempo, and exposed OTLP metrics to Prometheus

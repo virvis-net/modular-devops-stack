@@ -13,24 +13,29 @@ not a strong security boundary.
 Flux bootstrap files are generated dynamically by `flux bootstrap` and should
 not be copied from this template.
 
-The framework's Kubernetes monitoring provider supplies the Prometheus and
-Grafana manifests. `scripts/copy-templates.sh` renders them into this
+The framework's Kubernetes monitoring provider supplies the Prometheus,
+Grafana, Loki, Tempo, event-exporter, Alertmanager, and Mailpit manifests.
+`scripts/copy-templates.sh` renders them into this
 repository's `clusters/__K3D_CLUSTER_NAME__/monitoring/` directory, where the
 cluster Kustomization includes them and Flux applies them. Prometheus discovers
 app metrics by Kubernetes Service and port, Kubernetes object state through
 kube-state-metrics, and ingress-nginx metrics. Grafana provisions a dashboard
-from the provider configuration. Kubernetes metrics cover pod phases,
-deployment replica availability, container restarts, and CPU/memory requests;
-they do not yet include live node/container utilization. Prometheus has
-read-only discovery permissions; its app scrape is restricted to staging and
-production. Prometheus and Grafana are separate workloads in the same cluster,
-with Grafana querying Prometheus through an internal Service. The framework's
-ingress provider enables ingress-nginx metrics, while the monitoring provider
-adds its internal scrape Service. Grafana is available at
+from the provider configuration. The dashboard includes workload state,
+ingress metrics, live node and container utilization, and OpenTelemetry
+request latency. The Collector sends logs to Loki, traces to Tempo, and
+metrics to Prometheus; the event exporter also sends Kubernetes events to
+Loki. Prometheus evaluates target-health, application 5xx-rate, image-pull,
+and crash-loop alerts. Alertmanager sends notifications to the local Mailpit
+inbox for testing. Prometheus has read-only discovery permissions; its app
+scrape is restricted to staging and production. Grafana queries Prometheus
+through an internal Service. The framework's ingress provider enables
+ingress-nginx metrics, while the monitoring provider adds its internal scrape
+Service. Grafana and the Mailpit web inbox are available at
 `http://monitoring.localhost:__K3D_CLUSTER_PORT__/` through ingress-nginx;
-Prometheus is not exposed by Ingress. Because Grafana permits anonymous
-read-only access in this local demo, do not expose this host outside a trusted
-development environment.
+`http://notifications.localhost:__K3D_CLUSTER_PORT__/` serves the inbox.
+Prometheus remains internal and can be accessed with `kubectl port-forward`.
+Grafana and the Mailpit inbox have no login in this local demo; do not expose
+their hosts outside a trusted development environment.
 
 The Woodpecker app pipeline tests changes and, on pushes to `main`, builds and
 pushes an image tagged with the commit SHA. It records the pushed image digest

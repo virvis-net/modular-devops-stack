@@ -1,0 +1,17 @@
+global:
+  smtp_smarthost: mailpit.monitoring.svc:1025
+  smtp_from: alerts@modular-devops-stack.local
+  smtp_require_tls: false
+
+route:
+  receiver: local-mail
+  group_by: [alertname, namespace]
+  group_wait: 5s
+  group_interval: 1m
+  repeat_interval: 4h
+
+receivers:
+  - name: local-mail
+    email_configs:
+      - to: alerts@local.test
+        send_resolved: true

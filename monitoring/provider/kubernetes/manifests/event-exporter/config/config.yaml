@@ -1,0 +1,14 @@
+logLevel: info
+logFormat: json
+metricsNamePrefix: event_exporter_
+maxEventAgeSeconds: 60
+route:
+  routes:
+    - match:
+        - receiver: loki
+receivers:
+  - name: loki
+    loki:
+      url: http://loki.monitoring.svc:3100/loki/api/v1/push
+      streamLabels:
+        job: kubernetes-events

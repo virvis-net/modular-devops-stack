@@ -11,3 +11,4 @@ configMapGenerator:
     namespace: monitoring
     files:
       - config/prometheus.yml
+      - config/alerts.yml

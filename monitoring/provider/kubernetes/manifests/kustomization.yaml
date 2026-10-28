@@ -6,6 +6,8 @@ resources:
   - opentelemetry-collector
   - loki
   - tempo
+  - alertmanager
+  - event-exporter
   - kube-state-metrics
   - ingress
   - prometheus

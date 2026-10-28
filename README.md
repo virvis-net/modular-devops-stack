@@ -241,47 +241,44 @@ stops the providers; source data is stored in the provider `data/` directories.
 - `cluster/provider/k3d/` — k3d cluster and registry configuration
 - `ingress/provider/nginx/` — ingress-nginx install, readiness, and teardown
 - `gitops/provider/flux/` — Flux bootstrap and teardown
-- `monitoring/provider/kubernetes/` — Prometheus and Grafana provider
+- `monitoring/provider/kubernetes/` — Kubernetes observability provider
   configuration and manifests, rendered into GitOps for Flux to apply
 - `scripts/copy-templates.sh` — render templates from `.env` into empty Gitea
   clones
 - `templates/app/` and `templates/gitops/` — example repositories to copy into
   Gitea
 
-## Observability roadmap
+## Observability
 
-The first five increments are in place: application health checks,
-application request/runtime metrics, Kubernetes/ingress metrics, OTLP
-collection, and correlated logs and traces.
-The metrics example covers request count, status, and duration, along with
-selected Go runtime metrics (goroutines, memory, and garbage collection).
+The Kubernetes monitoring provider deploys Prometheus, Grafana, Loki, Tempo,
+an OpenTelemetry Collector, and supporting event and alert services. The
+example app exports request metrics, structured logs, and traces over OTLP.
+Prometheus collects app, cluster, node, ingress, and Collector metrics;
+Kubernetes events and app logs are stored in Loki, while traces are stored in
+Tempo. Grafana connects these signals so requests can be investigated across
+metrics, logs, and traces.
 
-1. **Health basics — complete.** App health/readiness endpoints and Kubernetes
-   probes.
-2. **Application metrics — complete.** Expose and scrape request and selected
-   Go runtime metrics, with a dashboard.
-3. **Cluster and ingress metrics — complete.** Added
-   Kubernetes object-state and resource-request metrics via kube-state-metrics,
-   plus ingress-nginx request/status/latency metrics. The dashboard now shows
-   workload state and ingress traffic alongside app behavior, as well as live
-   node and staging/production container CPU and memory usage from kubelet
-   resource metrics.
-4. **OpenTelemetry collection — complete.** The Go example sends HTTP server
-   traces, metrics, and structured logs over OTLP to a backend-independent
-   Collector.
-5. **Logs and traces — complete.** Loki stores logs and Tempo stores traces as
-   independently replaceable backends. Grafana links request logs to traces
-   and metric exemplars to traces; the app's request logs include trace and
-   span IDs for cross-signal investigation.
-6. **Events and alerts.** Collect Kubernetes events and define a few
-   actionable alerts; add synthetic checks if they provide useful coverage.
+After rendering the provider into GitOps and allowing Flux to reconcile:
 
-Prometheus and Grafana are currently implemented by the framework's
-Kubernetes monitoring provider; its manifests are rendered into the GitOps
-repository for Flux to apply. Provider selection across the stack remains a
-later modularity task. Persistence, availability, and access controls should
-also be revisited before treating this local demo configuration as production
-monitoring.
+- Open the provisioned dashboards and Explore at
+  `http://monitoring.localhost:<K3D_CLUSTER_PORT>/`.
+- Open the local alert notification inbox at
+  `http://notifications.localhost:<K3D_CLUSTER_PORT>/`.
+- Use Grafana Explore with Loki query
+  `{service_name="example-app"} | trace_id != ""` for app request logs, or
+  `{job="kubernetes-events"}` for Kubernetes events. Follow trace links to
+  Tempo and metric exemplars back to traces.
+- Prometheus remains internal. To inspect its alert rules or query metrics,
+  forward its Service with
+  `kubectl port-forward -n monitoring service/prometheus 9090:9090`, then open
+  `http://localhost:9090/alerts`.
+
+The provider README documents alert testing, retention, storage, and
+configuration details: [Kubernetes monitoring provider](monitoring/provider/kubernetes/README.md).
+This single-replica local setup is intended for a trusted development
+environment, not production. Grafana and the notification inbox have no login;
+Loki and Tempo use local PVCs with finite retention, and those volumes are not
+backups.
 
 ## Next steps
 
