@@ -3,22 +3,20 @@
 Modular DevOps Stack is a local-first **skeleton for simulating a complete
 DevOps system**. It provides a working example of how source control, CI,
 container images, Kubernetes, GitOps delivery, ingress, and observability fit
-together. Use it as a learning lab and as a starting point for replacing or
-extending components—not as a production-ready, provider-independent platform.
+together. Use it as a learning lab or as a starting point for replacing or
+extending components — not as a production-ready, provider-independent platform.
 
 The current example is built from Gitea, Woodpecker CI, a local Docker
 registry, k3d, Flux, ingress-nginx, and a Kubernetes observability stack. The
-delivery flow is described in terms of component responsibilities, so these
-tools can be replaced:
+delivery flow, described in terms of component responsibilities, is:
 
-1. A change to the application source triggers automated tests.
-2. An approved change to the release branch triggers the CI system to build
-   and publish an application image once, record its immutable digest, and
-   update the desired configuration for the staging environment.
+1. A change to the application source code triggers automated tests.
+2. A change to the release branch triggers the CI system, which builds and
+   publishes an application image, records its immutable digest, and updates
+   the desired configuration for staging.
 3. A GitOps reconciler applies that exact image digest to staging.
-4. A reviewed promotion updates production's desired configuration to the
-   same digest, which the reconciler then applies to the production
-   environment.
+4. To promote a validated image, update production's desired configuration to
+   use the same digest. The reconciler then applies that image to production.
 
 The stack is intentionally small and local. The components and example app
 form an end-to-end path that can be inspected, tested, and adapted.
@@ -32,9 +30,8 @@ form an end-to-end path that can be inspected, tested, and adapted.
   `K3D_CLUSTER_PORT_SSL` (`443`), `GITEA_SSH_PORT` (`2222`),
   `GITEA_HTTP_PORT` (`3000`), `REGISTRY_PORT` (`5000`), and
   `WOODPECKER_PORT` (`8000`)
-- A Gitea account with permission to create repositories and deploy keys
 
-The repository setup helper renders the app and GitOps templates using the
+A repository setup helper renders the app and GitOps templates using the
 relevant stack, registry, Gitea SSH, and cluster settings from `.env`.
 
 The CI agent mounts the host Docker socket so pipelines can build images. Only
@@ -48,12 +45,11 @@ activate trusted repositories whose code you control.
 cp .env.example .env
 ```
 
-Set `GITEA_ADMIN_USER` to the username you will create in Gitea. The example
-configuration uses that value for `WOODPECKER_ADMIN`, granting the matching
-Gitea account Woodpecker server-admin privileges. This does not create a Gitea
-user; create the account during Gitea's initial setup, using the same username.
-Review the remaining `.env` values and adjust them for your environment.
-Start the providers and cluster:
+Review `.env` and adjust any values as needed. Make sure the configured host
+ports are available; if a port is already in use, choose a different value.
+If the defaults are available, no changes are needed.
+
+Then start the providers and cluster:
 
 ```sh
 ./scripts/up.sh
@@ -68,13 +64,26 @@ complete.
 ### 2. Set up Gitea and the repositories
 
 Open Gitea at `http://localhost:<GITEA_HTTP_PORT>` (port `3000` by default),
-complete its initial setup, and create an organization matching `STACK_NAME`
-(`mds` by default) with two empty repositories named `app` and `gitops`.
+and complete its initial configuration. You can usually keep the default
+database and HTTP server settings. Docker maps the host HTTP port from `.env`
+to Gitea's internal port `3000`, and maps the configured SSH host port to
+Gitea's internal port `22`. If you want Gitea to show working SSH clone URLs,
+set its SSH domain to `host.docker.internal` and its advertised SSH port to
+the `GITEA_SSH_PORT` value from `.env` (`2222` by default). Create the initial
+Gitea account and set its username and password. Once signed in, create an
+organisation matching `STACK_NAME` (`mds` by default), then create two empty
+repositories in it named `app` and `gitops`.
 
-Use the ignored `workspace/` directory for local clones; these working copies
-will not be added to the Modular DevOps Stack repository. From the project
-root, source the environment, clone both repositories, then run the helper to
-copy and render the templates:
+Add the public key for the Flux deploy key as a **write-enabled deploy key**
+on the `gitops` repository. If `up.sh` generated a new key, copy the public
+key it prints. Otherwise, use the existing public key (by default
+`~/.ssh/flux_deploy_key.pub`; if `FLUX_PRIVATE_KEY` is set, use the matching
+`.pub` file). Flux bootstrap needs write access to commit its generated sync
+manifests.
+
+Use the ignored `workspace/` directory for local clones. From the project
+root, load the environment variables, clone both repositories, and run the
+helper script to copy and render the templates:
 
 ```sh
 source .env
@@ -88,24 +97,18 @@ and cluster name/port into the templates, and renames the GitOps cluster
 directory to match `K3D_CLUSTER_NAME`. It requires both clones to be empty
 repositories; create them without autogenerated files.
 
-Commit and push the rendered templates:
+Commit and push the rendered GitOps files:
 
 ```sh
-git -C workspace/app add .
-git -C workspace/app -c user.name="Your Name" -c user.email="you@example.com" \
-  commit -m "Add example app"
-git -C workspace/app push -u origin HEAD:main
-
 git -C workspace/gitops add .
 git -C workspace/gitops -c user.name="Your Name" -c user.email="you@example.com" \
   commit -m "Add cluster desired state"
 git -C workspace/gitops push -u origin HEAD:main
 ```
 
-Add the Flux public key printed by `up.sh` as a **write-enabled deploy key** on
-the `gitops` repository. Flux bootstrap needs write access to commit its
-generated sync manifests. Once the key and repositories are ready, return to
-the waiting terminal and press Enter.
+Once Gitea is set up, the deploy key is added and repositories are ready,
+return to the terminal if it is still waiting and press Enter. While the
+stack is built, continue configuring Gitea.
 
 ### 3. Configure Woodpecker OAuth
 
@@ -123,26 +126,34 @@ The `ci-server:8000` URL uses Woodpecker's fixed internal container port; it
 does not change when you change the host port.
 
 Copy the generated client ID and secret into `GITEA_CLIENT` and `GITEA_SECRET`
-in `.env`, then rerun:
+in `.env`. Set `GITEA_ADMIN_USER` to the username you used when setting
+up Gitea earlier, so
+Woodpecker grants that account server-admin privileges.
+
+Then rerun:
 
 ```sh
 ./scripts/up.sh
 ```
 
 This updates the running Woodpecker configuration and reruns the idempotent
-cluster/bootstrap steps.
+cluster/bootstrap steps. When the script finishes, the stack should now be
+operational. If you pull changes into your `gitops` respository, you should
+see two commits adding the necessary manifests.
+
+Now all we need to do is
+connect CI with Source Control and we're good to go.
 
 ### 4. Enable the CI workflow
 
 Open `http://localhost:<WOODPECKER_PORT>/login` (default port `8000`), sign in
-through Gitea, and activate the `mds/app` repository in Woodpecker. In the
-repository settings, ensure push events are enabled. The test step runs for
-pushes to every branch; only pushes to `main` build and publish an image and
-update staging. The example pipeline requires trusted volumes for its Docker
-socket mount.
-The Trusted option is only shown to Woodpecker server admins. If it is missing,
-confirm that `GITEA_ADMIN_USER` in `.env` exactly matches the signed-in Gitea
-username, then rerun `./scripts/up.sh` and reload the settings page.
+through Gitea, and activate the `<STACK_NAME>/app` repository in Woodpecker.
+In its settings, enable **Volumes** under **Trusted**. The example pipeline
+requires trusted volumes for its Docker socket mount.
+
+> The Trusted option is only shown to Woodpecker server admins. If it is missing,
+> confirm that `GITEA_ADMIN_USER` in `.env` exactly matches the signed-in Gitea
+> username, then rerun `./scripts/up.sh` and reload the settings page.
 
 The Flux deploy key was created in step 1 and its public key was added to the
 GitOps repository in step 2. In the Woodpecker `app` repository settings, add
@@ -153,17 +164,34 @@ instead. Keep the private key secret; do not commit it to either repository.
 
 ### 5. Verify the end-to-end flow
 
-Push an app change to any branch and confirm that the Woodpecker test step
-passes. When a change is pushed to `main`, Woodpecker should also build and
-push the image, then update the staging digest in GitOps. Flux should deploy
-that revision to the `staging` namespace. Check Flux and staging with:
+Push the rendered app repository to start the end-to-end delivery flow:
+
+```sh
+git -C workspace/app add .
+git -C workspace/app -c user.name="Your Name" -c user.email="you@example.com" \
+  commit -m "Add example app"
+git -C workspace/app push -u origin HEAD:main
+```
+
+The push will trigger the CI pipeline which runs the tests and then builds
+the image and pushes it to the registry. CD picks up the new digest and deploys
+it in the staging environment of the cluster.
+
+After the push confirm that the Woodpecker test step passes. Since we pushed
+to `main`, Woodpecker should also build and push the image, then update the
+staging digest in GitOps. If you pull changes into your `gitops` repository,
+you will see a commit with a message similar to
+`ci: deploy app digest sha256:... to staging`.
+
+Flux should now deploy that revision to the `staging` namespace. Check Flux
+and staging with:
 
 ```sh
 kubectl get kustomization flux-system -n flux-system
 kubectl get pods,services,ingress -n staging
 ```
 
-When the staging Pod is Ready, open
+When the staging pod is ready, open
 `http://staging.localhost:<K3D_CLUSTER_PORT>/` (default port `80`). The sample
 app should display its greeting.
 
@@ -202,15 +230,19 @@ After reconciliation, verify production with
 `kubectl get pods,services,ingress -n production` and open
 `http://production.localhost:<K3D_CLUSTER_PORT>/`.
 
-The two environments have separate namespaces, app Deployments, Services,
-Ingresses, and Kubernetes namespaced configuration. Future databases, caches,
-Secrets, and persistent volume claims should be instantiated independently
-under each environment. Both environments still share one local k3d cluster
-and host, so namespaces provide logical separation, not a strong security
-boundary. Use separate clusters where stronger isolation is required.
+Staging and production each run in a separate Kubernetes namespace, with
+their own app Deployments, Services, Ingresses, and configuration. If the app
+later adds stateful dependencies such as databases or caches, give each
+environment its own instance, credentials, and storage. In Kubernetes, a
+PersistentVolumeClaim (PVC) is a request for storage that a workload can use;
+create a separate claim for each environment when the app needs persistent
+data. The environments still share one local k3d cluster and host, so
+namespaces provide logical separation, not a strong security boundary. Use
+separate clusters where stronger isolation is required.
 
 To stop the lab, run `./scripts/down.sh`. This deletes the k3d cluster and
-stops the providers; source data is stored in the provider `data/` directories.
+stops the providers. Source data is stored in the provider `data/` directories,
+so running `./scripts/up.sh` again later will recover the stack as it was.
 
 ## Observability
 
@@ -251,7 +283,7 @@ backups. Prometheus data uses ephemeral pod storage.
 
 ## Extendability
 
-The framework is organized around providers so infrastructure implementations
+The framework is organised around providers so infrastructure implementations
 can be replaced or added as the lab grows. The current template-rendering
 workflow includes the example app, GitOps repository, and Kubernetes
 observability manifests. Edit the source templates and provider manifests in
