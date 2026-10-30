@@ -371,6 +371,13 @@ the staging image. Compare the staging and production `digest` values and
 confirm that production uses the already-tested image rather than rebuilding
 it.
 
+## Restarting after a host or Docker restart
+
+Run `./scripts/up.sh` to resume the stack. It starts the Compose providers,
+starts the existing k3d cluster if needed, selects its kubectl context, and
+waits for all cluster nodes to become Ready before applying ingress and
+bootstrapping Flux.
+
 ## Extendability
 
 The framework is organised around providers so infrastructure implementations

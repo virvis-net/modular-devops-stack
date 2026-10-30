@@ -181,10 +181,17 @@ docker compose -p "$STACK_NAME-providers" \
   -f ./stack/ci/provider/woodpecker/docker-compose.yaml \
   up -d
 
-# Create k3d cluster using its configured definition
+# Create or start the k3d cluster using its configured definition.
 if ! k3d cluster list "$K3D_CLUSTER_NAME" >/dev/null 2>&1; then
   k3d cluster create --config ./stack/cluster/provider/k3d/cluster.yaml
+else
+  info "Starting k3d cluster \"$K3D_CLUSTER_NAME\"..."
+  k3d cluster start "$K3D_CLUSTER_NAME"
 fi
+
+kubectl config use-context "k3d-${K3D_CLUSTER_NAME}" >/dev/null
+info "Waiting for all k3d nodes to become Ready..."
+kubectl wait --for=condition=Ready nodes --all --timeout=120s
 
 # Install and configure ingress-nginx for the k3d cluster
 ./stack/ingress/provider/nginx/install.sh

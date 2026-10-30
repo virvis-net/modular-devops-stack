@@ -111,7 +111,8 @@ docker run --rm \
     --branch="$GIT_BRANCH" \
     --path="$GIT_PATH" \
     --private-key-file=/flux-conf/ssh-private_key \
-    --components-extra=image-reflector-controller,image-automation-controller
+    --components-extra=image-reflector-controller,image-automation-controller \
+    --silent
 
 info "Flux bootstrap (container) finished. Verify controllers in namespace flux-system."
 kubectl get pods -n flux-system
