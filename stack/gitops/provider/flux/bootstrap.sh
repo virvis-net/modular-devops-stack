@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd -- "$SCRIPT_DIR/../../../.." && pwd)"
+
 # --- Configurable values (override with env vars) ---
 GIT_URL="${GITOPS_REPO_URL:-ssh://git@host.docker.internal:2222/mds/gitops.git}"
 GIT_BRANCH="${GITOPS_BRANCH:-main}"
 GIT_PATH="${GITOPS_PATH:-clusters/mds-cluster}"
 SSH_DOMAIN="${GITEA_SSH_DOMAIN:-host.docker.internal}"
 SSH_PORT="${GITEA_SSH_PORT:-2222}"
-SSH_KEY="${FLUX_PRIVATE_KEY:-$HOME/.ssh/flux_deploy_key}"
-KNOWN_HOSTS="$HOME/.ssh/known_hosts.flux"
+SSH_STATE_DIR="$ROOT_DIR/stack/.state/ssh"
+SSH_KEY="${FLUX_PRIVATE_KEY:-$SSH_STATE_DIR/flux_deploy_key}"
+KNOWN_HOSTS="$SSH_STATE_DIR/known_hosts.flux"
 FLUX_IMAGE="${FLUX_IMAGE:-ghcr.io/fluxcd/flux-cli:v0.38.0}"
 FLUX_BOOTSTRAP_TIMEOUT="${FLUX_BOOTSTRAP_TIMEOUT:-15m}"
 KUBE_CONFIG_SRC="${KUBE_DIR:-$HOME/.kube}/config"
@@ -61,6 +65,7 @@ fi
 
 # If the Flux-specific known_hosts does not contain the Gitea entry, add it
 if [ ! -f "$KNOWN_HOSTS" ] || ! ssh-keygen -F "[${GITEA_SSH_DOMAIN}]:${GITEA_SSH_PORT}" -f "$KNOWN_HOSTS" >/dev/null 2>&1; then
+  mkdir -p "$(dirname "$KNOWN_HOSTS")"
   info "Adding Gitea host key to Flux-specific known_hosts at $KNOWN_HOSTS"
   TMP_KEYSCAN=$(ssh-keyscan -p "$GITEA_SSH_PORT" localhost 2>/dev/null || true)
   if [ -n "$TMP_KEYSCAN" ]; then
@@ -106,8 +111,7 @@ docker run --rm \
     --branch="$GIT_BRANCH" \
     --path="$GIT_PATH" \
     --private-key-file=/flux-conf/ssh-private_key \
-    --components-extra=image-reflector-controller,image-automation-controller \
-    --silent
+    --components-extra=image-reflector-controller,image-automation-controller
 
 info "Flux bootstrap (container) finished. Verify controllers in namespace flux-system."
 kubectl get pods -n flux-system

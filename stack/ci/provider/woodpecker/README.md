@@ -18,5 +18,7 @@ This folder contains the Woodpecker CI implementation of the CI layer.
 The example agent mounts the host Docker socket. Only enable trusted
 repositories whose pipeline code you control. The app pipeline also needs a
 Woodpecker repository secret named `GIT_SSH_KEY`. Use the private key created
-for Flux bootstrap (by default `~/.ssh/flux_deploy_key`); its public key must
-have write access to the GitOps repository. Keep the private key out of Git.
+for Flux bootstrap (by default `stack/.state/ssh/flux_deploy_key`); its public
+key must have write access to the GitOps repository. The key and Flux
+`known_hosts` file are kept in the ignored `stack/.state/ssh/` directory, not
+in the home `.ssh` directory. Keep the private key out of Git.

@@ -141,18 +141,16 @@ rerun `./scripts/up.sh` to resume; it will repeat the setup checks without
 restarting the installation from scratch. With the default storage settings,
 the first run creates fresh named volumes.
 
-After the script completes, the registry and Woodpecker start, the Kubernetes
-cluster is created, ingress is configured, and Flux is bootstrapped.
+After the script completes, check the Gitea commit history: Flux has pushed
+the bootstrap manifests to the configured cluster path using the deploy key
+you added.
 
-If you now pull changes into your `gitops` respository, you should see two
-commits adding the necessary manifests.
-
-Now all we need to do is connect CI and Source Control and we're good to go.
+Now all you need to do is connect CI and Source Control and you're good to go.
 
 ### 3. Enable the CI workflow
 
 Open `http://localhost:<WOODPECKER_PORT>/login` (default port `8000`), sign
-in through Gitea, activate the application, and add the `<GITEA_ORG>/app`
+in through Gitea, authorise the application, and add the `<GITEA_ORG>/app`
 repository in Woodpecker (+ / Add repository > Enable). In the repository
 settings, enable **Volumes** under **Trusted**. The example pipeline requires
 trusted volumes for its Docker socket mount.
@@ -163,10 +161,10 @@ trusted volumes for its Docker socket mount.
 > settings page.
 
 In the same repository settings, open the Secrets tab and add the contents of
-the Flux private key file (by default `~/.ssh/flux_deploy_key`) as a repository
-secret named `GIT_SSH_KEY`. If `FLUX_PRIVATE_KEY` is set in `.env`, use the
-file at that path instead. Keep the private key secret; do not commit it to
-either repository.
+the Flux private key file (by default `stack/.state/ssh/flux_deploy_key`) as a
+repository secret named `GIT_SSH_KEY`. If `FLUX_PRIVATE_KEY` is set in `.env`,
+use the file at that path instead. Keep the private key secret; do not commit
+it to either repository.
 
 > The setup script sets the key's permissions to `0644` so the Flux bootstrap
 > container can read it. Other users on the host can also read it, so use this
@@ -187,14 +185,13 @@ The push triggers the CI pipeline, which runs the tests and, on `main`, builds
 and pushes the image to the registry. The pipeline records the new image
 digest in GitOps, and Flux deploys it to the staging environment.
 
-Confirm that the Woodpecker test step passes. Since the push was to `main`,
+In Woodpecker confirm that the test step passes. Since the push was to `main`,
 Woodpecker also builds and pushes the image, then updates the staging digest
-in GitOps. Pull the latest changes into your local `gitops` clone to see a
-commit with a message similar to
+in GitOps. Check Gitea to see a commit with a message similar to
 `ci: deploy app digest sha256:... to staging`.
 
-Flux should now deploy that revision to the `staging` namespace. Check Flux
-and staging with:
+Flux should now deploy that revision to the `staging` namespace. You can check
+Flux and staging with:
 
 ```sh
 kubectl get kustomization flux-system -n flux-system
@@ -209,6 +206,11 @@ After Flux reconciles the monitoring resources, generate some app traffic and
 open Grafana at `http://monitoring.localhost:<K3D_CLUSTER_PORT>/`. Prometheus
 scrapes every 15 seconds; the request-rate and latency panels need traffic to
 show meaningful values.
+
+Finally, open Mailpit at `http://notifications.localhost:<K3D_CLUSTER_PORT>/`.
+You might see some notifications with 'FIRING' in their subject line, which
+alert of problems in the staging environment, and their respective 'RESOLVED'
+notifications, which show that the issues have been resolved.
 
 ## Normal usage
 

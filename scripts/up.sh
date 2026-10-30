@@ -26,7 +26,7 @@ load_environment() {
   source "$ENV_FILE"
   set +a
 
-  SSH_KEY="${FLUX_PRIVATE_KEY:-$HOME/.ssh/flux_deploy_key}"
+  SSH_KEY="${FLUX_PRIVATE_KEY:-$ROOT_DIR/stack/.state/ssh/flux_deploy_key}"
 }
 
 ensure_shared_network() {

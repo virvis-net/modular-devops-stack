@@ -3,6 +3,8 @@
 ## 1.0.0 - First stable release
 - Added resumable first-run setup that starts Gitea first and continues after
   account, OAuth, and GitOps configuration.
+- Storing generated Flux SSH key and `known_hosts` file in ignored local
+  stack state instead of the home `.ssh` directory.
 - Grouped runtime providers under `stack/` while keeping provider
   implementations modular.
 - Switched Gitea, Woodpecker, registry, and k3d local-path storage to named
