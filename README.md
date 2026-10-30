@@ -326,6 +326,9 @@ must survive container or cluster recreation.
   Docker volumes where appropriate. Document backup and migration steps, and
   distinguish ephemeral container data from state that must survive
   container recreation.
+- Consider running the Python-based setup and Kubernetes helper scripts in a
+  container, removing the host Python 3 prerequisite while accounting for the
+  additional image, bind mounts, and generated-file ownership.
 
 ## Project layout
 
