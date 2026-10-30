@@ -101,7 +101,7 @@ wait_for_gitops_repository() {
     return 1
   fi
 
-  local local_gitops_url="ssh://git@localhost:${GITEA_SSH_PORT}/${STACK_NAME}/gitops.git"
+  local local_gitops_url="ssh://git@localhost:${GITEA_SSH_PORT}/${GITEA_ORG}/gitops.git"
   local ssh_command
   printf -v ssh_command \
     'ssh -i "%s" -o IdentitiesOnly=yes -o UserKnownHostsFile="%s" -o StrictHostKeyChecking=yes -p %s' \

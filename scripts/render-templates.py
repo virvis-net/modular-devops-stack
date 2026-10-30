@@ -87,8 +87,8 @@ def main() -> int:
 
     try:
         values = {
-            "STACK_NAME": required_setting(
-                "STACK_NAME", r"[A-Za-z0-9][A-Za-z0-9._-]*"
+            "GITEA_ORG": required_setting(
+                "GITEA_ORG", r"[A-Za-z0-9][A-Za-z0-9._-]*"
             ),
             "REGISTRY_PORT": required_setting("REGISTRY_PORT", r"\d+"),
             "K3D_CLUSTER_PORT": required_setting("K3D_CLUSTER_PORT", r"\d+"),

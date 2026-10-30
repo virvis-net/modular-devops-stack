@@ -49,5 +49,5 @@ the cluster Kustomization. Merging that reviewed change makes Flux deploy the
 same image digest to production. Do not rebuild the image for promotion.
 
 For the initial setup, push this template's contents to the Gitea
-`__STACK_NAME__/gitops` repository on branch `main` before allowing Flux
+`__GITEA_ORG__/gitops` repository on branch `main` before allowing Flux
 bootstrap to continue.

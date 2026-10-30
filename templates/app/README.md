@@ -19,14 +19,14 @@ rebuilding it.
 
 ## Setup
 
-1. Push the contents of this directory to the Gitea `__STACK_NAME__/app`
+1. Push the contents of this directory to the Gitea `__GITEA_ORG__/app`
    repository.
-2. In Woodpecker, activate `__STACK_NAME__/app` and mark it as trusted because
+2. In Woodpecker, activate `__GITEA_ORG__/app` and mark it as trusted because
    the build mounts the Docker socket.
 3. Add the contents of the Flux deploy key's private key file (by default
-   `~/.ssh/flux_deploy_key`) to the `__STACK_NAME__/app` repository secrets in
+   `~/.ssh/flux_deploy_key`) to the `__GITEA_ORG__/app` repository secrets in
    Woodpecker as `GIT_SSH_KEY`. Its public key must already be configured
-   with write access to `__STACK_NAME__/gitops`. Do not commit the private key.
+   with write access to `__GITEA_ORG__/gitops`. Do not commit the private key.
 4. Merge an app change to `main` and confirm that the pipeline publishes an
    image and updates staging in the GitOps repository.
 
