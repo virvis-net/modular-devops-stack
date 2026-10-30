@@ -5,7 +5,7 @@ Modular DevOps Stack lab.
 
 ## Delivery flow
 
-For every pipeline, `.woodpecker.yml`:
+The pipeline in `.woodpecker.yml`:
 
 1. Runs the Go test suite.
 2. On a push to `main`, builds and pushes an image tagged with the commit SHA.

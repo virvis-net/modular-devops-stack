@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.0 - First stable release
+- Added resumable first-run setup that starts Gitea first and continues after
+  account, OAuth, and GitOps configuration.
+- Grouped runtime providers under `stack/` while keeping provider
+  implementations modular.
+- Switched Gitea, Woodpecker, registry, and k3d local-path storage to named
+  Docker volumes by default, with bind-mount alternatives for host-visible
+  data.
+- Completed installation, storage, and provider documentation for the local
+  end-to-end learning stack.
+
 ## 0.10.0 - Events and alerts
 - Added a Kubernetes event exporter that ships cluster events to Loki
 - Added Prometheus alerts for target outages, high app 5xx rates, image-pull failures, and crash loops
@@ -30,7 +41,7 @@
 - Configured Grafana provisioning changes to trigger automatic pod rollouts
 
 ## 0.6.0 - Application metrics
-- Added monitoring deployment configuration to the framework as a provider which will be rendered it into the GitOps repository during init, ready for Flux to apply
+- Added monitoring deployment configuration as a provider, rendered into the GitOps repository during setup for Flux to apply
 - Exposed application request counters and duration histograms for Prometheus
 - Added GitOps-managed Prometheus scraping and a provisioned Grafana dashboard
 - Exposed the local Grafana dashboard through ingress-nginx

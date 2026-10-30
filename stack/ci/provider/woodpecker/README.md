@@ -12,8 +12,8 @@ This folder contains the Woodpecker CI implementation of the CI layer.
 ## Integration
 - Gitea is used as the source-control provider
 - Registry is used for image storage
-- The sample pipeline builds and pushes the app image, then commits the new tag
-  to the GitOps repository for Flux to deploy.
+- The sample pipeline builds and pushes the app image, then commits the
+  immutable image digest to the GitOps repository for Flux to deploy.
 
 The example agent mounts the host Docker socket. Only enable trusted
 repositories whose pipeline code you control. The app pipeline also needs a
