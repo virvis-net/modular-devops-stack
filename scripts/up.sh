@@ -17,8 +17,8 @@ docker compose -p "$STACK_NAME-providers" \
   -f ./ci/provider/woodpecker/docker-compose.yaml \
   up -d
 
-# Create k3d cluster using your config
-if ! k3d cluster list | grep -q "$K3D_CLUSTER_NAME"; then
+# Create k3d cluster using its configured definition
+if ! k3d cluster list "$K3D_CLUSTER_NAME" >/dev/null 2>&1; then
   k3d cluster create --config ./cluster/provider/k3d/cluster.yaml
 fi
 
