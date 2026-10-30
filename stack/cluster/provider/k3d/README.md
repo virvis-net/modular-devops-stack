@@ -5,8 +5,17 @@ This folder contains the k3d implementation of the cluster provider.
 ## Components
 - cluster.yaml — declarative cluster definition
 - registries.yaml — configures k3d nodes to pull from the local HTTP registry
-- `data/` — host-mounted storage for k3s runtime state; it remains on disk
-  when the cluster is deleted
+- `<K3D_CLUSTER_NAME>-storage` Docker volume — persistent local-path storage
+  mounted on every k3d node
+- `cluster.yaml` includes a commented bind-mount alternative under `data/` for
+  users who prefer to inspect files directly
+
+The named volume persists after cluster deletion. Kubernetes metadata is not
+restored with a new cluster, so data remaining in the volume is not
+automatically reattached. Remove it with `docker volume rm` only when you
+intend to delete its contents. The named-volume and bind-mount options are
+independent; switching does not copy or migrate data, and the cluster must be
+recreated to change its storage mount.
 
 The registry mirror points to `http://registry:5000`, the registry service
 name and port on the shared Docker network. k3d copies this configuration into

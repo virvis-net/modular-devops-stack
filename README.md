@@ -259,14 +259,17 @@ Docker-managed named volumes, which `down.sh` leaves intact. Running
 The volumes are named `<STACK_NAME>-gitea-data`, `<STACK_NAME>-woodpecker-data`,
 and `<STACK_NAME>-registry-data` (with `mds` as the default stack name).
 Remove them explicitly with `docker volume rm` only if you intend to delete
-that provider's data. The k3d cluster's storage is not managed by Compose: it
-is currently host-mounted at `stack/cluster/provider/k3d/data` and remains on
-disk when the cluster is deleted.
+that provider's data. k3d local-path storage uses one Docker named volume,
+`<K3D_CLUSTER_NAME>-storage`, mounted on every cluster node. It remains after
+cluster deletion, but a deleted cluster's Kubernetes metadata is not restored
+when creating a new cluster. Remove it explicitly with `docker volume rm` only
+if you intend to delete its contents.
 
-The Compose files also show a commented bind-mount alternative for each
-provider. To make data visible in the repository, replace the named-volume
-entry with its corresponding commented host-folder mount. Each storage option
-has its own data; changing between them does not copy or migrate existing data.
+The Compose files show a commented bind-mount alternative for each provider.
+k3d's `cluster.yaml` also includes a commented host-folder alternative. To make
+data visible in the repository, replace the named-volume entry with the
+corresponding bind-mount entry. Each storage option has its own data; changing
+between them does not copy or migrate existing data.
 
 ## Observability
 

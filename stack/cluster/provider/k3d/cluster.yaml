@@ -17,9 +17,13 @@ ports:
       - loadbalancer
 
 volumes:
-  - volume: ${PWD}/stack/cluster/provider/k3d/data:/var/lib/rancher/k3s/storage
+  - volume: ${K3D_CLUSTER_NAME}-storage:/var/lib/rancher/k3s/storage
     nodeFilters:
       - all
+  # For visible host-folder storage, replace the named volume above with:
+  # - volume: ${PWD}/stack/cluster/provider/k3d/data:/var/lib/rancher/k3s/storage
+  #   nodeFilters:
+  #     - all
 
 network: ${NETWORK_NAME}
 
