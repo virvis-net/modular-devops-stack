@@ -17,7 +17,8 @@ network. Its HTTP API is available at
 `http://localhost:<REGISTRY_PORT>` (`5000` by default):
 
 ```sh
-curl http://localhost:5000/v2/_catalog
+source .env
+curl "http://localhost:${REGISTRY_PORT:-5000}/v2/_catalog"
 ```
 
 The k3d nodes pull images from this registry through the mirror configured in

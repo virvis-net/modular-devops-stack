@@ -16,7 +16,8 @@ include HTTP request counts, durations, and selected Go runtime data:
 goroutine count, heap and stack memory, and garbage-collection cycles. Grafana
 queries Prometheus through its in-cluster Service and is exposed at
 `http://monitoring.localhost:<K3D_CLUSTER_PORT>/` through ingress-nginx. Its
-anonymous viewer access is intended only for the trusted local lab.
+anonymous viewer access allows dashboard viewing without signing in; Grafana
+Explore requires a login. Keep both uses within the trusted local lab.
 
 Prometheus also scrapes kubelet resource metrics through the Kubernetes API
 server's node proxy. The Prometheus service account can discover nodes and
@@ -69,8 +70,9 @@ kubectl port-forward -n monitoring service/prometheus 9090:9090
 
 Open `http://localhost:9090/alerts` to see evaluated alert rules and
 `http://notifications.localhost:<K3D_CLUSTER_PORT>/` to inspect email
-notifications. To exercise event
-collection and the image-pull alert, create a temporary pod using a deliberately
+notifications. A clean install may leave firing and resolved notifications
+for transient startup alerts in the inbox. To exercise event collection and
+the image-pull alert again, create a temporary pod using a deliberately
 invalid image:
 
 ```bash

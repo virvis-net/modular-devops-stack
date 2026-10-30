@@ -10,5 +10,7 @@ This folder contains the Gitea service used by the current local stack.
   `data/` for users who prefer to inspect files directly.
 
 The stack uses Gitea to host the `app` and `gitops` repositories. Woodpecker
-uses Gitea OAuth for sign-in, while Flux and the app pipeline use SSH deploy
-keys to read and update the GitOps repository.
+uses Gitea OAuth for sign-in. Flux and the app pipeline use the same SSH
+deploy key to update the GitOps repository; add its public key as a
+write-enabled deploy key during setup. See the [main
+README](../../../../README.md) for initial account and repository setup.

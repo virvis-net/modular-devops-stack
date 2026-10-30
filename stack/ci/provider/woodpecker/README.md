@@ -12,8 +12,9 @@ This folder contains the Woodpecker CI implementation of the CI layer.
 ## Integration
 - Gitea is used as the source-control provider
 - Registry is used for image storage
-- The sample pipeline builds and pushes the app image, then commits the
-  immutable image digest to the GitOps repository for Flux to deploy.
+- The sample pipeline runs tests on branch pushes. On pushes to `main`, it
+  also builds and pushes the app image, then commits the immutable image
+  digest to the GitOps repository for Flux to deploy.
 
 The example agent mounts the host Docker socket. Only enable trusted
 repositories whose pipeline code you control. The app pipeline also needs a
@@ -21,4 +22,7 @@ Woodpecker repository secret named `GIT_SSH_KEY`. Use the private key created
 for Flux bootstrap (by default `stack/.state/ssh/flux_deploy_key`); its public
 key must have write access to the GitOps repository. The key and Flux
 `known_hosts` file are kept in the ignored `stack/.state/ssh/` directory, not
-in the home `.ssh` directory. Keep the private key out of Git.
+in the home `.ssh` directory. If `FLUX_PRIVATE_KEY` is set in `.env`, use that
+file instead. Newly generated keys are set to `0644` so the bootstrap
+container can read them; other users on the host can read them too. Keep the
+key private, use it only on a trusted machine, and do not commit it to Git.

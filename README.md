@@ -208,9 +208,11 @@ scrapes every 15 seconds; the request-rate and latency panels need traffic to
 show meaningful values.
 
 Finally, open Mailpit at `http://notifications.localhost:<K3D_CLUSTER_PORT>/`.
-You might see some notifications with 'FIRING' in their subject line, which
-alert of problems in the staging environment, and their respective 'RESOLVED'
-notifications, which show that the issues have been resolved.
+On a fresh install, expect to see 'FIRING' notifications followed by their
+corresponding 'RESOLVED' notifications. These startup alerts are reassuring:
+they show that Prometheus detected temporary conditions while services were
+starting, and that Alertmanager delivered both the alert and its resolution
+to Mailpit. If an alert remains firing after startup, investigate it.
 
 ## Normal usage
 
@@ -220,9 +222,9 @@ the Woodpecker pipeline and wait for Flux to deploy the image before testing
 the staging app. Generate traffic to populate the metrics dashboard and use
 Grafana Explore to inspect logs, traces, and Kubernetes events.
 
-> To access Grafana's Explore page, you need to sign in: use the default
-> username and password (admin/admin) - it will ask you for a new password
-> on first login.
+> Grafana dashboards are available without signing in. To use Explore, sign
+> in with the default username and password (`admin` / `admin`). Grafana may
+> ask you to change the password on first login.
 
 #### Release to production
 
@@ -312,7 +314,8 @@ documentation](stack/monitoring/provider/kubernetes/README.md) includes alert
 testing steps, Loki queries, retention, storage, and configuration details.
 
 This single-replica local setup is intended for a trusted development
-environment, not production. Grafana and the notification inbox have no login;
+environment, not production. Grafana dashboards are viewable without signing
+in, but Explore requires a login; the Mailpit inbox has no authentication.
 Loki and Tempo use local PVCs with finite retention, and those volumes are not
 backups. Prometheus data uses ephemeral pod storage.
 

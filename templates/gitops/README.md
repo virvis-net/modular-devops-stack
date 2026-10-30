@@ -11,7 +11,9 @@ logical separation for namespaced services, configuration, and secrets; it is
 not a strong security boundary.
 
 Flux bootstrap files are generated dynamically by `flux bootstrap` and should
-not be copied from this template.
+not be copied from this template. During setup, watch the framework terminal
+for Flux CLI progress; bootstrap commits its reconciliation manifests to the
+configured cluster path. You can inspect those commits in Gitea.
 
 The framework's Kubernetes monitoring provider supplies the Prometheus,
 Grafana, Loki, Tempo, event-exporter, Alertmanager, and Mailpit manifests.
@@ -25,8 +27,8 @@ ingress metrics, live node and container utilization, and OpenTelemetry
 request latency. The Collector sends logs to Loki, traces to Tempo, and
 metrics to Prometheus; the event exporter also sends Kubernetes events to
 Loki. Prometheus evaluates target-health, application 5xx-rate, image-pull,
-and crash-loop alerts. Alertmanager sends notifications to the local Mailpit
-inbox for testing. Prometheus has read-only discovery permissions; its app
+and crash-loop alerts. Alertmanager sends firing and resolved notifications
+to the local Mailpit inbox. Prometheus has read-only discovery permissions; its app
 scrape is restricted to staging and production. Grafana queries Prometheus
 through an internal Service. The framework's ingress provider enables
 ingress-nginx metrics, while the monitoring provider adds its internal scrape
@@ -34,19 +36,23 @@ Service. Grafana and the Mailpit web inbox are available at
 `http://monitoring.localhost:__K3D_CLUSTER_PORT__/` through ingress-nginx;
 `http://notifications.localhost:__K3D_CLUSTER_PORT__/` serves the inbox.
 Prometheus remains internal and can be accessed with `kubectl port-forward`.
-Grafana and the Mailpit inbox have no login in this local demo; do not expose
-their hosts outside a trusted development environment.
+Grafana dashboards can be viewed anonymously, but sign in to use Explore. The
+Mailpit inbox has no authentication; do not expose these hosts outside a
+trusted development environment. A clean install may leave firing and resolved
+emails for startup alerts in the inbox; subsequent messages depend on alert
+activity.
 
 The Woodpecker app pipeline tests changes and, on pushes to `main`, builds and
 pushes an image tagged with the commit SHA. It records the pushed image digest
 in `apps/app/overlays/staging/kustomization.yaml`;
 Flux then deploys that exact image to staging.
 
-To promote a release, use a GitOps pull request: copy the staging `digest`
-value from `apps/app/overlays/staging/kustomization.yaml` into the production
-overlay's `digest` field, then add `environments/production` to
-the cluster Kustomization. Merging that reviewed change makes Flux deploy the
-same image digest to production. Do not rebuild the image for promotion.
+To promote a release, copy the staging `digest` value from
+`apps/app/overlays/staging/kustomization.yaml` into the production overlay's
+`digest` field, then add `environments/production` to the cluster
+Kustomization. Push the change to `main` or use a pull request for review;
+Flux then deploys the same image digest to production. Do not rebuild the
+image for promotion.
 
 For the initial setup, push this template's contents to the Gitea
 `__GITEA_ORG__/gitops` repository on branch `main` before allowing Flux

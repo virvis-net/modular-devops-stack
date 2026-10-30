@@ -7,15 +7,16 @@ Modular DevOps Stack lab.
 
 The pipeline in `.woodpecker.yml`:
 
-1. Runs the Go test suite.
+1. Runs the Go test suite on each branch push.
 2. On a push to `main`, builds and pushes an image tagged with the commit SHA.
 3. Records the registry's immutable image digest in the staging GitOps overlay.
 4. Flux deploys the image to the staging namespace.
 
-Production promotion is a separate GitOps pull request that copies the tested
+Production promotion is a separate GitOps change that copies the tested
 staging digest into the production overlay and enables the production
-environment in the cluster Kustomization. This promotes the same image without
-rebuilding it.
+environment in the cluster Kustomization. You can make the change directly on
+`main` or use a pull request for review. Either way, this promotes the same
+image without rebuilding it.
 
 ## Setup
 
@@ -23,11 +24,12 @@ rebuilding it.
    repository.
 2. In Woodpecker, activate `__GITEA_ORG__/app` and mark it as trusted because
    the build mounts the Docker socket.
-3. Add the contents of the Flux deploy key's private key file (by default
-   `stack/.state/ssh/flux_deploy_key`) to the `__GITEA_ORG__/app` repository
-   secrets in Woodpecker as `GIT_SSH_KEY`. Its public key must already be
-   configured with write access to `__GITEA_ORG__/gitops`. Do not commit the
-   private key.
+3. From the framework repository, add the contents of the Flux deploy key's
+   private key file (by default `stack/.state/ssh/flux_deploy_key`) to the
+   `__GITEA_ORG__/app` repository secrets in Woodpecker as `GIT_SSH_KEY`. If
+   `FLUX_PRIVATE_KEY` is set in the framework's `.env`, use that path instead.
+   The key's public half must already have write access to
+   `__GITEA_ORG__/gitops`. Do not commit or share the private key.
 4. Merge an app change to `main` and confirm that the pipeline publishes an
    image and updates staging in the GitOps repository.
 

@@ -15,7 +15,8 @@ staging is available through ingress-nginx:
 
 http://staging.localhost:__K3D_CLUSTER_PORT__/
 
-After a production promotion PR is merged, production is available at:
+After production is enabled in the cluster Kustomization and Flux reconciles
+the change, production is available at:
 
 http://production.localhost:__K3D_CLUSTER_PORT__/
 
@@ -44,17 +45,19 @@ Prometheus discovers the app Service's `metrics` port in the `staging` and
 `production` namespaces. The production target appears after production is
 enabled. The dashboard shows Kubernetes pod and deployment state, configured
 resource requests, live node and container CPU/memory utilization, and ingress
-traffic and latency. Grafana has provisioned application and infrastructure
-dashboards available at
+traffic and latency. Grafana's application and infrastructure dashboard is at
 `http://monitoring.localhost:__K3D_CLUSTER_PORT__/` through ingress-nginx.
 The alert notification inbox is available at
 `http://notifications.localhost:__K3D_CLUSTER_PORT__/`. Prometheus remains
 internal to the cluster; use `kubectl port-forward` when you need its UI.
-Grafana and the notification inbox allow unauthenticated access in this local
-demo, so keep these ingresses limited to the trusted local lab.
+Grafana dashboards are viewable anonymously, but Explore requires sign-in.
+The notification inbox has no authentication, so keep these ingresses limited
+to the trusted local lab.
 Generate requests to the staging or production app to populate the dashboard.
 Prometheus stores metrics in ephemeral pod storage, so its history is lost if
-the pod is recreated.
+the pod is recreated. A clean install may produce firing and resolved
+notifications for transient startup alerts; follow the monitoring provider
+guide to trigger a test alert and see the notification flow again.
 
 ### Expected response
 
