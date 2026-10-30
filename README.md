@@ -39,7 +39,7 @@ activate trusted repositories whose code you control.
 
 ## Initial installation
 
-### 1. Configure and start the stack
+### 1. Configure the environment and start setup
 
 ```sh
 cp .env.example .env
@@ -49,19 +49,21 @@ Review `.env` and adjust any values as needed. Make sure the configured host
 ports are available; if a port is already in use, choose a different value.
 If the defaults are available, no changes are needed.
 
-Then start the providers and cluster:
+Start the setup script:
 
 ```sh
 ./scripts/up.sh
 ```
 
-On first start, the script may pause after generating a Flux SSH deploy key.
-Leave it waiting while you complete the Gitea and GitOps setup below.
-If it does not pause (for example, if the key already exists), finish Gitea
-and repository setup, then rerun `./scripts/up.sh` if Flux bootstrap did not
-complete.
+On a new installation, the script starts **only Gitea**, generates or reuses
+the Flux SSH deploy key, waits for Gitea to become available, then pauses.
+Leave it running while you complete the next step. The registry, CI providers,
+Kubernetes cluster, and Flux are not started until the initial Gitea and
+GitOps setup is verified.
 
 ### 2. Set up Gitea and the repositories
+
+#### Gitea setup
 
 Open Gitea at `http://localhost:<GITEA_HTTP_PORT>` (port `3000` by default),
 and complete its initial configuration. You can usually keep the default
@@ -70,16 +72,18 @@ to Gitea's internal port `3000`, and maps the configured SSH host port to
 Gitea's internal port `22`. If you want Gitea to show working SSH clone URLs,
 set its SSH domain to `host.docker.internal` and its advertised SSH port to
 the `GITEA_SSH_PORT` value from `.env` (`2222` by default). Create the initial
-Gitea account and set its username and password. Once signed in, create an
-organisation matching `STACK_NAME` (`mds` by default), then create two empty
-repositories in it named `app` and `gitops`.
+Gitea account and set its username and password. Once signed in, create two
+empty repositories named `app` and `gitops`.
 
-Add the public key for the Flux deploy key as a **write-enabled deploy key**
-on the `gitops` repository. If `up.sh` generated a new key, copy the public
-key it prints. Otherwise, use the existing public key (by default
-`~/.ssh/flux_deploy_key.pub`; if `FLUX_PRIVATE_KEY` is set, use the matching
-`.pub` file). Flux bootstrap needs write access to commit its generated sync
-manifests.
+In the `.env` file set `GITEA_ADMIN_USER` to the username you used just now,
+and if you created the repositories under a different namespace, adapt
+`GITEA_ORG` accordingly.
+
+Add the public key printed by `up.sh` as a **write-enabled deploy key** on the
+`gitops` repository. Flux bootstrap needs write access to commit its generated
+sync manifests.
+
+#### Clone repositories
 
 Use the ignored `workspace/` directory for local clones. From the project
 root, load the environment variables, clone both repositories, and run the
@@ -87,8 +91,8 @@ helper script to copy and render the templates:
 
 ```sh
 source .env
-git clone "http://localhost:${GITEA_HTTP_PORT}/${STACK_NAME}/app.git" workspace/app
-git clone "http://localhost:${GITEA_HTTP_PORT}/${STACK_NAME}/gitops.git" workspace/gitops
+git clone "http://localhost:${GITEA_HTTP_PORT}/${GITEA_ORG}/app.git" workspace/app
+git clone "http://localhost:${GITEA_HTTP_PORT}/${GITEA_ORG}/gitops.git" workspace/gitops
 ./scripts/copy-templates.sh
 ```
 
@@ -106,15 +110,11 @@ git -C workspace/gitops -c user.name="Your Name" -c user.email="you@example.com"
 git -C workspace/gitops push -u origin HEAD:main
 ```
 
-Once Gitea is set up, the deploy key is added and repositories are ready,
-return to the terminal if it is still waiting and press Enter. While the
-stack is built, continue configuring Gitea.
+#### Configure Woodpecker OAuth
 
-### 3. Configure Woodpecker OAuth
-
-In Gitea, create an OAuth2 application for Woodpecker. Use these callback URLs,
-replacing `<WOODPECKER_PORT>` with the value configured in `.env` (default
-`8000`):
+In Gitea, create an OAuth2 application for Woodpecker. Use these callback
+URLs, replacing `<WOODPECKER_PORT>` with the value configured in `.env`
+(default `8000`):
 
 ```text
 http://localhost:<WOODPECKER_PORT>/authorize
@@ -126,43 +126,42 @@ The `ci-server:8000` URL uses Woodpecker's fixed internal container port; it
 does not change when you change the host port.
 
 Copy the generated client ID and secret into `GITEA_CLIENT` and `GITEA_SECRET`
-in `.env`. Set `GITEA_ADMIN_USER` to the username you used when setting
-up Gitea earlier, so
-Woodpecker grants that account server-admin privileges.
+in `.env`. Make sure `GITEA_ADMIN_USER` is set to the username you used when
+setting up Gitea, so Woodpecker grants that account server-admin privileges.
 
-Then rerun:
+Return to the waiting terminal and press Enter. The script reloads `.env` and
+checks that the OAuth settings are configured and the GitOps branch is
+accessible with the Flux deploy key. If you stopped the script instead,
+rerun `./scripts/up.sh` to resume; it will repeat the setup checks without
+restarting the installation from scratch.
 
-```sh
-./scripts/up.sh
-```
+After the script completes, the registry and Woodpecker start, the Kubernetes
+cluster is created, ingress is configured, and Flux is bootstrapped.
 
-This updates the running Woodpecker configuration and reruns the idempotent
-cluster/bootstrap steps. When the script finishes, the stack should now be
-operational. If you pull changes into your `gitops` respository, you should
-see two commits adding the necessary manifests.
+If you now pull changes into your `gitops` respository, you should see two
+commits adding the necessary manifests.
 
-Now all we need to do is
-connect CI with Source Control and we're good to go.
+Now all we need to do is connect CI and Source Control and we're good to go.
 
-### 4. Enable the CI workflow
+### 3. Enable the CI workflow
 
 Open `http://localhost:<WOODPECKER_PORT>/login` (default port `8000`), sign in
-through Gitea, and activate the `<STACK_NAME>/app` repository in Woodpecker.
+through Gitea, and activate the `<GITEA_ORG>/app` repository in Woodpecker.
 In its settings, enable **Volumes** under **Trusted**. The example pipeline
 requires trusted volumes for its Docker socket mount.
 
 > The Trusted option is only shown to Woodpecker server admins. If it is missing,
 > confirm that `GITEA_ADMIN_USER` in `.env` exactly matches the signed-in Gitea
-> username, then rerun `./scripts/up.sh` and reload the settings page.
+> username, then restart the stack with `./scripts/up.sh` and reload the
+> settings page.
 
-The Flux deploy key was created in step 1 and its public key was added to the
-GitOps repository in step 2. In the Woodpecker `app` repository settings, add
-the contents of the matching private key file (by default
-`~/.ssh/flux_deploy_key`) as a repository secret named `GIT_SSH_KEY`. If
-`FLUX_PRIVATE_KEY` is set in your environment, use the file at that path
-instead. Keep the private key secret; do not commit it to either repository.
+In the Woodpecker `app` repository settings, add the contents of the Flux
+private key file (by default `~/.ssh/flux_deploy_key`) as a repository secret
+named `GIT_SSH_KEY`. If `FLUX_PRIVATE_KEY` is set in `.env`, use the file at
+that path instead. Keep the private key secret; do not commit it to either
+repository.
 
-### 5. Verify the end-to-end flow
+### 4. Verify the end-to-end flow
 
 Push the rendered app repository to start the end-to-end delivery flow:
 
