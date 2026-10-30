@@ -253,8 +253,20 @@ separate clusters where stronger isolation is required.
 #### Shutting down the stack
 
 To stop the lab, run `./scripts/down.sh`. This deletes the k3d cluster and
-stops the providers. Source data is stored in the provider `data/` directories,
-so running `./scripts/up.sh` again later will recover the stack as it was.
+stops the Compose providers. Gitea, Woodpecker, and registry data live in
+Docker-managed named volumes, which `down.sh` leaves intact. Running
+`./scripts/up.sh` starts the providers again with their existing volume data.
+The volumes are named `<STACK_NAME>-gitea-data`, `<STACK_NAME>-woodpecker-data`,
+and `<STACK_NAME>-registry-data` (with `mds` as the default stack name).
+Remove them explicitly with `docker volume rm` only if you intend to delete
+that provider's data. The k3d cluster's storage is not managed by Compose: it
+is currently host-mounted at `stack/cluster/provider/k3d/data` and remains on
+disk when the cluster is deleted.
+
+The Compose files also show a commented bind-mount alternative for each
+provider. To make data visible in the repository, replace the named-volume
+entry with its corresponding commented host-folder mount. Each storage option
+has its own data; changing between them does not copy or migrate existing data.
 
 ## Observability
 
@@ -322,10 +334,8 @@ must survive container or cluster recreation.
 
 - Define provider interfaces and configuration so components can be selected
   or replaced without rewriting the end-to-end workflow.
-- Review persistent storage across Docker Compose providers and use named
-  Docker volumes where appropriate. Document backup and migration steps, and
-  distinguish ephemeral container data from state that must survive
-  container recreation.
+- Define a durable, portable backup and restore workflow for the Compose
+  provider volumes and k3d cluster storage.
 - Consider running the Python-based setup and Kubernetes helper scripts in a
   container, removing the host Python 3 prerequisite while accounting for the
   additional image, bind mounts, and generated-file ownership.

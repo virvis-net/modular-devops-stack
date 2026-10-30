@@ -26,3 +26,6 @@ secrets/
 # Workspace folder
 workspace/*
 !workspace/.gitkeep
+
+# Local setup state
+stack/.state/

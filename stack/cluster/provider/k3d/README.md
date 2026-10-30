@@ -5,7 +5,8 @@ This folder contains the k3d implementation of the cluster provider.
 ## Components
 - cluster.yaml — declarative cluster definition
 - registries.yaml — configures k3d nodes to pull from the local HTTP registry
-- data/ — persistent storage for k3s runtime state
+- `data/` — host-mounted storage for k3s runtime state; it remains on disk
+  when the cluster is deleted
 
 The registry mirror points to `http://registry:5000`, the registry service
 name and port on the shared Docker network. k3d copies this configuration into

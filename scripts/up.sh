@@ -5,7 +5,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 ENV_FILE="$ROOT_DIR/.env"
-SETUP_MARKER="$ROOT_DIR/stack/source-control/provider/gitea/data/.setup-complete"
+SETUP_MARKER="$ROOT_DIR/stack/.state/.setup-complete"
 
 info() {
   printf '\033[1;34m[info]\033[0m %s\n' "$*"
@@ -160,6 +160,7 @@ first_run_setup() {
     info "The configured GitOps branch is not accessible yet. Confirm the repository, deploy key, and branch, then press Enter to retry."
   done
 
+  mkdir -p "$(dirname "$SETUP_MARKER")"
   touch "$SETUP_MARKER"
   info "First-run setup verified. Starting the remaining stack components."
 }

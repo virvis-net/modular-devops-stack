@@ -5,6 +5,12 @@ services:
     ports:
       - "${REGISTRY_PORT}:5000"
     volumes:
-      - ${PWD}/stack/registry/provider/local/data:/var/lib/registry
+      - registry-data:/var/lib/registry
+      # For visible host-folder storage, replace the named volume above with:
+      # - ${PWD}/stack/registry/provider/local/data:/var/lib/registry
     networks:
       - shared
+
+volumes:
+  registry-data:
+    name: ${STACK_NAME}-registry-data

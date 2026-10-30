@@ -8,7 +8,9 @@ services:
       - GITEA__server__ROOT_URL=${GITEA_ROOT_URL}
       - GITEA__webhook__ALLOWED_HOST_LIST=${GITEA_ALLOWED_HOSTS}
     volumes:
-      - ${PWD}/stack/source-control/provider/gitea/data:/data
+      - gitea-data:/data
+      # For visible host-folder storage, replace the named volume above with:
+      # - ${PWD}/stack/source-control/provider/gitea/data:/data
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -16,3 +18,7 @@ services:
       - "${GITEA_SSH_PORT}:22"      # SSH
     networks:
       - shared
+
+volumes:
+  gitea-data:
+    name: ${STACK_NAME}-gitea-data

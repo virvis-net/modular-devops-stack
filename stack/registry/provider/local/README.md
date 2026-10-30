@@ -4,7 +4,10 @@ This folder contains the local Docker registry implementation of the registry la
 
 ## Components
 - docker-compose.yaml — starts registry:2
-- data/ — persistent storage for registry images
+- `mds-registry-data` Docker volume — persistent storage for registry images
+  (the prefix follows `STACK_NAME`)
+- The Compose file includes a commented bind-mount alternative under
+  `data/` for users who prefer to inspect files directly.
 
 ## Usage
 

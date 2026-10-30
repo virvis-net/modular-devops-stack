@@ -14,7 +14,9 @@ services:
       - WOODPECKER_AGENT_SECRET=${WOODPECKER_AGENT_SECRET}
       - WOODPECKER_PLUGINS_PRIVILEGED=woodpeckerci/plugin-docker-buildx
     volumes:
-      - ${PWD}/stack/ci/provider/woodpecker/data:/var/lib/woodpecker
+      - woodpecker-data:/var/lib/woodpecker
+      # For visible host-folder storage, replace the named volume above with:
+      # - ${PWD}/stack/ci/provider/woodpecker/data:/var/lib/woodpecker
     ports:
       - "${WOODPECKER_PORT}:8000"
     networks:
@@ -32,3 +34,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - shared
+
+volumes:
+  woodpecker-data:
+    name: ${STACK_NAME}-woodpecker-data
