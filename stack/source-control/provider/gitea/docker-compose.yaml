@@ -8,7 +8,7 @@ services:
       - GITEA__server__ROOT_URL=${GITEA_ROOT_URL}
       - GITEA__webhook__ALLOWED_HOST_LIST=${GITEA_ALLOWED_HOSTS}
     volumes:
-      - ${PWD}/source-control/provider/gitea/data:/data
+      - ${PWD}/stack/source-control/provider/gitea/data:/data
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     ports:

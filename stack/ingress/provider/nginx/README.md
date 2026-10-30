@@ -6,11 +6,11 @@ certificate Jobs and admission endpoint before Flux reconciles Ingress
 resources.
 
 The k3d-specific host-port adjustment lives in
-`cluster/provider/k3d/configure-ingress-nginx.sh`, since it depends on the
+`stack/cluster/provider/k3d/configure-ingress-nginx.sh`, since it depends on the
 cluster's LoadBalancer networking.
 
 The stack enables the controller's `/metrics` endpoint after the controller is
 ready. The monitoring provider supplies an internal ClusterIP Service for
 Prometheus to scrape; the metrics endpoint is not exposed outside the cluster.
-For an existing cluster, run `./ingress/provider/nginx/enable-metrics.sh` once
+For an existing cluster, run `./stack/ingress/provider/nginx/enable-metrics.sh` once
 from the framework repository root. `scripts/up.sh` runs it automatically.

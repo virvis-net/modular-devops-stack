@@ -285,7 +285,7 @@ After rendering the provider into GitOps and allowing Flux to reconcile:
 Prometheus alerts on scrape targets remaining down, elevated app 5xx rates,
 image-pull failures, and crash loops. Alertmanager sends firing and resolved
 notifications to the local Mailpit inbox. The [monitoring provider
-documentation](monitoring/provider/kubernetes/README.md) includes alert
+documentation](stack/monitoring/provider/kubernetes/README.md) includes alert
 testing steps, Loki queries, retention, storage, and configuration details.
 
 This single-replica local setup is intended for a trusted development
@@ -332,14 +332,15 @@ must survive container or cluster recreation.
 
 ## Project layout
 
-- `source-control/provider/gitea/` — Gitea
-- `ci/provider/woodpecker/` — Woodpecker server and agent
-- `registry/provider/local/` — local container registry
-- `cluster/provider/k3d/` — k3d cluster and registry configuration
-- `ingress/provider/nginx/` — ingress-nginx install, readiness, and teardown
-- `gitops/provider/flux/` — Flux bootstrap and teardown
-- `monitoring/provider/kubernetes/` — observability provider configuration
-  and manifests, rendered into GitOps for Flux to apply
+- `stack/` — runtime components and shared Docker Compose network configuration
+  - `stack/source-control/provider/gitea/` — Gitea
+  - `stack/ci/provider/woodpecker/` — Woodpecker server and agent
+  - `stack/registry/provider/local/` — local container registry
+  - `stack/cluster/provider/k3d/` — k3d cluster and registry configuration
+  - `stack/ingress/provider/nginx/` — ingress-nginx install, readiness, and teardown
+  - `stack/gitops/provider/flux/` — Flux bootstrap and teardown
+  - `stack/monitoring/provider/kubernetes/` — observability provider configuration
+    and manifests, rendered into GitOps for Flux to apply
 - `scripts/copy-templates.sh` — render templates from `.env` into empty Gitea
   clones
 - `templates/app/` and `templates/gitops/` — example repositories rendered

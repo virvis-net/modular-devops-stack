@@ -17,14 +17,14 @@ ports:
       - loadbalancer
 
 volumes:
-  - volume: ${PWD}/cluster/provider/k3d/data:/var/lib/rancher/k3s/storage
+  - volume: ${PWD}/stack/cluster/provider/k3d/data:/var/lib/rancher/k3s/storage
     nodeFilters:
       - all
 
 network: ${NETWORK_NAME}
 
 registries:
-  config: ${PWD}/cluster/provider/k3d/registries.yaml
+  config: ${PWD}/stack/cluster/provider/k3d/registries.yaml
 
 options:
   k3s:

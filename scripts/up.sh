@@ -5,7 +5,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 ENV_FILE="$ROOT_DIR/.env"
-SETUP_MARKER="$ROOT_DIR/source-control/provider/gitea/data/.setup-complete"
+SETUP_MARKER="$ROOT_DIR/stack/source-control/provider/gitea/data/.setup-complete"
 
 info() {
   printf '\033[1;34m[info]\033[0m %s\n' "$*"
@@ -37,7 +37,7 @@ ensure_shared_network() {
 compose_gitea() {
   docker compose -p "$STACK_NAME-providers" \
     -f ./stack/docker-compose.yaml \
-    -f ./source-control/provider/gitea/docker-compose.yaml "$@"
+    -f ./stack/source-control/provider/gitea/docker-compose.yaml "$@"
 }
 
 gitea_is_ready() {
@@ -175,21 +175,21 @@ ensure_shared_network
 # Start the full stack after first-run Gitea setup is complete.
 docker compose -p "$STACK_NAME-providers" \
   -f ./stack/docker-compose.yaml \
-  -f ./registry/provider/local/docker-compose.yaml \
-  -f ./source-control/provider/gitea/docker-compose.yaml \
-  -f ./ci/provider/woodpecker/docker-compose.yaml \
+  -f ./stack/registry/provider/local/docker-compose.yaml \
+  -f ./stack/source-control/provider/gitea/docker-compose.yaml \
+  -f ./stack/ci/provider/woodpecker/docker-compose.yaml \
   up -d
 
 # Create k3d cluster using its configured definition
 if ! k3d cluster list "$K3D_CLUSTER_NAME" >/dev/null 2>&1; then
-  k3d cluster create --config ./cluster/provider/k3d/cluster.yaml
+  k3d cluster create --config ./stack/cluster/provider/k3d/cluster.yaml
 fi
 
 # Install and configure ingress-nginx for the k3d cluster
-./ingress/provider/nginx/install.sh
-./cluster/provider/k3d/configure-ingress-nginx.sh
-./ingress/provider/nginx/wait-ready.sh
-./ingress/provider/nginx/enable-metrics.sh
+./stack/ingress/provider/nginx/install.sh
+./stack/cluster/provider/k3d/configure-ingress-nginx.sh
+./stack/ingress/provider/nginx/wait-ready.sh
+./stack/ingress/provider/nginx/enable-metrics.sh
 
 # Bootstrap Flux (idempotent)
-./gitops/provider/flux/bootstrap.sh
+./stack/gitops/provider/flux/bootstrap.sh

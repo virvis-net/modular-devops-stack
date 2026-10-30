@@ -17,4 +17,4 @@ curl http://localhost:5000/v2/_catalog
 ```
 
 The k3d nodes pull images from this registry through the mirror configured in
-`cluster/provider/k3d/registries.yaml`.
+`stack/cluster/provider/k3d/registries.yaml`.

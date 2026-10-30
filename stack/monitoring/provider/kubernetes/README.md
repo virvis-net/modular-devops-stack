@@ -90,7 +90,7 @@ Alertmanager and Mailpit are for this trusted local lab only. Mailpit is
 in-memory, receives no external mail, and loses messages when restarted.
 
 The ingress controller's metrics endpoint is enabled by
-`ingress/provider/nginx/enable-metrics.sh`; the provider includes a separate
+`stack/ingress/provider/nginx/enable-metrics.sh`; the provider includes a separate
 internal Service for scraping it. Prometheus scrape configuration is generated
 from `prometheus/config/prometheus.yml`, so changing scrape jobs updates its
 ConfigMap hash and rolls out Prometheus automatically.

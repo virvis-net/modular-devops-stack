@@ -107,7 +107,7 @@ def main() -> int:
         copy_rendered_tree(root / "templates/app", app_repo, values)
         copy_rendered_tree(root / "templates/gitops", gitops_repo, values)
         copy_rendered_tree(
-            root / "monitoring/provider/kubernetes/manifests",
+            root / "stack/monitoring/provider/kubernetes/manifests",
             gitops_repo / "clusters" / values["K3D_CLUSTER_NAME"] / "monitoring",
             values,
         )
