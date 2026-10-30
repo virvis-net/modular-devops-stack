@@ -319,6 +319,58 @@ in, but Explore requires a login; the Mailpit inbox has no authentication.
 Loki and Tempo use local PVCs with finite retention, and those volumes are not
 backups. Prometheus data uses ephemeral pod storage.
 
+## Guided exercises (optional)
+
+Try these after the initial installation to follow a request through the
+stack, see alerting in action, and practice promoting an image.
+
+### Trace a request
+
+Generate a few requests to staging:
+
+```sh
+source .env
+for i in 1 2 3 4 5; do
+  curl -sS -o /dev/null "http://staging.localhost:${K3D_CLUSTER_PORT}/"
+done
+```
+
+In Grafana, sign in and open Explore. Select Loki and run
+`{service_name="example-app"} | trace_id != ""`. Open a result and follow its
+trace link to Tempo. This follows the request from the app's structured log to
+its distributed trace.
+
+### Trigger and resolve an alert
+
+Create a temporary staging pod with an invalid image:
+
+```sh
+kubectl run observability-alert-test -n staging \
+  --image=example.invalid/observability-alert-test:missing --restart=Never
+```
+
+After the pod has been unable to pull its image for at least two minutes,
+check Prometheus at `http://localhost:9090/alerts` (use the
+`kubectl port-forward` command in the Observability section) and look for the
+`KubernetesPodImagePullBackOff` alert. Check Mailpit for the firing
+notification. Then remove the test pod:
+
+```sh
+kubectl delete pod observability-alert-test -n staging
+```
+
+After Prometheus observes that the condition has cleared, check Mailpit for
+the resolved notification. The [monitoring provider
+guide](stack/monitoring/provider/kubernetes/README.md) has more detail on this
+exercise and the related Kubernetes events.
+
+### Promote an image by digest
+
+Follow the [Release to production](#release-to-production) steps to promote
+the staging image. Compare the staging and production `digest` values and
+confirm that production uses the already-tested image rather than rebuilding
+it.
+
 ## Extendability
 
 The framework is organised around providers so infrastructure implementations
