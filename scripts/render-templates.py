@@ -150,7 +150,22 @@ def main() -> int:
             app_template_root / "gitops",
             gitops_repo / "apps/app/base/app-template",
             values,
+            excluded_paths={Path("cluster"), Path("migration")},
         )
+        copy_rendered_tree(
+            app_template_root / "gitops/cluster",
+            gitops_repo / "clusters" / values["K3D_CLUSTER_NAME"],
+            values,
+        )
+        for environment in ("staging", "production"):
+            copy_rendered_tree(
+                app_template_root / "gitops/migration",
+                gitops_repo
+                / "apps/app/overlays"
+                / environment
+                / "migration",
+                values,
+            )
         copy_rendered_tree(
             root / "stack/monitoring/provider/kubernetes/manifests",
             gitops_repo / "clusters" / values["K3D_CLUSTER_NAME"] / "monitoring",

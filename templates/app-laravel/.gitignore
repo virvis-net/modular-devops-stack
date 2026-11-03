@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+!gitops/runtime.env
 /vendor
 /storage/logs/*
 /storage/logs/.gitignore

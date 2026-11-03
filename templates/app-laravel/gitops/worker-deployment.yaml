@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: queue-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: queue-worker
+  template:
+    metadata:
+      labels:
+        app: queue-worker
+    spec:
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: worker
+          image: registry:5000/app:latest
+          command:
+            - php
+          args:
+            - artisan
+            - queue:work
+            - redis
+            - --queue=$(QUEUE_WORKER_QUEUES)
+            - --sleep=$(QUEUE_WORKER_SLEEP)
+            - --tries=$(QUEUE_WORKER_TRIES)
+            - --timeout=$(QUEUE_WORKER_TIMEOUT)
+            - --max-time=$(QUEUE_WORKER_MAX_TIME)
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: app-worker
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector.monitoring.svc:4318
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: http/protobuf
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-database
+                  key: password
+          envFrom:
+            - configMapRef:
+                name: app-runtime-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

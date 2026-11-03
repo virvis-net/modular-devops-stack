@@ -268,6 +268,9 @@ the tested staging image:
    `apps/app/overlays/staging/kustomization.yaml` into the `images` section of
    `apps/app/overlays/production/kustomization.yaml`, replacing its initial
    `newTag: "latest"` entry with `digest`.
+   If you selected Laravel, follow its README to set the migration image
+   digest, release-specific Job suffix, and Flux dependency before enabling
+   production.
 3. Add `- environments/production` to the `resources` list in
    `clusters/${K3D_CLUSTER_NAME}/kustomization.yaml`.
 4. Confirm that the staging and production overlays specify the same digest,
@@ -286,11 +289,13 @@ Staging and production each run in a separate Kubernetes namespace, with
 their own app Deployments, Services, Ingresses, and configuration. The Laravel
 template also provisions a MariaDB database and Redis cache independently in
 each environment; its application README describes the required Kubernetes
-Secret setup. Other app templates can add environment-specific dependencies
-the same way. In Kubernetes, a PersistentVolumeClaim (PVC) is a request for
-storage that a workload can use; stateful services should have a separate
-claim for each environment. The environments still share one local k3d cluster
-and host, so namespaces provide logical separation, not a strong security
+Secret setup and database migration. It also deploys a separate Redis-backed
+queue worker, configured through the template's GitOps component. Other app
+templates can add environment-specific dependencies and workloads the same
+way. In Kubernetes, a PersistentVolumeClaim (PVC) is a request for storage
+that a workload can use; stateful services should have a separate claim for
+each environment. The environments still share one local k3d cluster and
+host, so namespaces provide logical separation, not a strong security
 boundary. Use separate clusters where stronger isolation is required.
 
 #### Shutting down the stack

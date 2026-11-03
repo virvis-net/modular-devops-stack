@@ -2,7 +2,7 @@ FROM php:8.3-cli-bookworm AS app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libonig-dev libsqlite3-dev libzip-dev \
-    && docker-php-ext-install mbstring pdo_mysql pdo_sqlite zip \
+    && docker-php-ext-install mbstring pcntl pdo_mysql pdo_sqlite zip \
     && pecl install opentelemetry \
     && docker-php-ext-enable opentelemetry \
     && rm -rf /var/lib/apt/lists/*
