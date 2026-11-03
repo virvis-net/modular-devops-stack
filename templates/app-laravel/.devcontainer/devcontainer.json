@@ -8,7 +8,7 @@
   "runServices": [
     "app"
   ],
-  "workspaceFolder": "/workspace",
+  "workspaceFolder": "/var/www/html",
   "forwardPorts": [
     8080,
     9090
