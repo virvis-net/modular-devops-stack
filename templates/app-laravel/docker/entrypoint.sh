@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-php -S 0.0.0.0:8080 -t public public/index.php &
+frankenphp run \
+    --config /var/www/html/Caddyfile \
+    --adapter caddyfile &
 app_pid=$!
 php -S 0.0.0.0:9090 -t public docker/metrics-router.php &
 metrics_pid=$!

@@ -7,18 +7,21 @@ rendering the repositories with `./scripts/copy-templates.sh laravel`.
 
 The starter includes a JSON endpoint at `/api/hello`, liveness at `/healthz`,
 readiness at `/readyz`, and Prometheus metrics at `/metrics` on the internal
-metrics port `9090`. That port is not routed by the app Ingress. Its HTTP
-request counter and duration histogram use technology-neutral metric names
-and are scraped by the monitoring stack. Health and scrape requests are
-excluded. The SQLite file at `storage/framework/cache/http-metrics.sqlite` is
-used only to aggregate Prometheus request and PHP runtime metrics across
-separate PHP requests; it is not the application's database. Metric data
-resets when the container is replaced and is intended for this single-replica
-local lab.
+metrics port `9090`. HTTP requests are served by FrankenPHP and Caddy; the
+metrics endpoint runs on a separate PHP built-in server listener. The built-in
+server is limited to this internal, unrouted metrics port and does not serve
+application traffic.
+Port `9090` is not routed by the app Ingress. The HTTP request counter and
+duration histogram use technology-neutral metric names and are scraped by the
+monitoring stack. Health and scrape requests are excluded. The SQLite file at
+`storage/framework/cache/http-metrics.sqlite` is used only to aggregate
+Prometheus request and PHP runtime metrics across requests; it is not the
+application database. Metric data resets when the container is replaced and
+is intended for this single-replica local lab.
 The `/metrics` output also includes PHP memory usage and peak memory from the
 last application request, plus garbage-collection counters and buffered roots.
-These runtime samples are updated after application requests and are specific
-to the single-process PHP built-in server used here.
+These runtime samples are updated after application requests and reflect the
+last request served by the PHP application runtime.
 
 The image installs the OpenTelemetry PHP extension, SDK, OTLP exporter, and
 official Laravel auto-instrumentation package. With
@@ -175,8 +178,11 @@ For local development, copy `.env.example` to `.env`, install dependencies
 with Composer, and run `php artisan key:generate` before using encrypted
 cookies, sessions, or other application encryption.
 
-The image uses PHP's built-in development server, which is suitable for this
-local lab, not a production web server. For production, replace it with a
-maintained PHP application-server setup and shared metrics storage
-appropriate for multiple workers. Review runtime, secrets, database,
-migrations, storage, and backup requirements.
+The image uses FrankenPHP and Caddy for HTTP serving. The separate metrics
+listener remains a lightweight PHP listener on an internal, unrouted port.
+The Caddy configuration caps PHP request execution at four concurrent
+threads and recycles each thread after 500 requests.
+Request metrics are aggregated in a local SQLite file, which is suitable for
+this single-replica learning stack; use shared metrics storage before scaling
+the web Deployment to multiple pods. Review runtime, secrets, database,
+migrations, storage, and backup requirements before production use.

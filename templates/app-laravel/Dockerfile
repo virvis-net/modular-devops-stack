@@ -1,11 +1,7 @@
-FROM php:8.3-cli-bookworm AS app
+FROM dunglas/frankenphp:1-php8.3-bookworm AS app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libonig-dev libsqlite3-dev libzip-dev \
-    && docker-php-ext-install mbstring pcntl pdo_mysql pdo_sqlite zip \
-    && pecl install opentelemetry \
-    && docker-php-ext-enable opentelemetry \
-    && rm -rf /var/lib/apt/lists/*
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
+    && install-php-extensions mbstring opcache pcntl pdo_mysql pdo_sqlite zip opentelemetry
 
 WORKDIR /var/www/html
 
@@ -29,11 +25,15 @@ FROM app AS runtime
 ENV APP_ENV=production \
     APP_DEBUG=false \
     LOG_CHANNEL=stderr \
-    OTEL_PHP_AUTOLOAD_ENABLED=true
+    OTEL_PHP_AUTOLOAD_ENABLED=true \
+    XDG_CONFIG_HOME=/tmp/caddy/config \
+    XDG_DATA_HOME=/tmp/caddy/data
 
 WORKDIR /var/www/html
 COPY --from=build --chown=www-data:www-data /var/www/html ./
+RUN mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" \
+    && chown -R www-data:www-data "$XDG_CONFIG_HOME" "$XDG_DATA_HOME"
 USER www-data
 EXPOSE 8080
 EXPOSE 9090
-CMD ["bash", "docker/entrypoint.sh"]
+ENTRYPOINT ["bash", "docker/entrypoint.sh"]
