@@ -62,7 +62,10 @@ def copy_rendered_tree(
         excluded_paths = set()
     for source_path in source.rglob("*"):
         relative = source_path.relative_to(source)
-        if relative in excluded_paths:
+        if any(
+            relative == excluded or excluded in relative.parents
+            for excluded in excluded_paths
+        ):
             continue
         relative = Path(
             *(values["K3D_CLUSTER_NAME"] if part == "mds-cluster" else part
@@ -131,10 +134,23 @@ def main() -> int:
         require_empty_git_repo(gitops_repo)
 
         root = Path(__file__).resolve().parent.parent
+        app_template_root = root / "templates" / app_templates[app_template]
         copy_rendered_tree(
-            root / "templates" / app_templates[app_template], app_repo, values
+            app_template_root,
+            app_repo,
+            values,
+            excluded_paths={Path("gitops")},
         )
-        copy_rendered_tree(root / "templates/gitops", gitops_repo, values)
+        copy_rendered_tree(
+            root / "templates/gitops",
+            gitops_repo,
+            values,
+        )
+        copy_rendered_tree(
+            app_template_root / "gitops",
+            gitops_repo / "apps/app/base/app-template",
+            values,
+        )
         copy_rendered_tree(
             root / "stack/monitoring/provider/kubernetes/manifests",
             gitops_repo / "clusters" / values["K3D_CLUSTER_NAME"] / "monitoring",
