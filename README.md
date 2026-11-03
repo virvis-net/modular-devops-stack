@@ -161,6 +161,9 @@ Copy the generated client ID and secret into `GITEA_CLIENT` and `GITEA_SECRET`
 in `.env`. Make sure `GITEA_ADMIN_USER` is set to the username you used when
 setting up Gitea, so Woodpecker grants that account server-admin privileges.
 
+Optionally add your personal SSH key to Gitea so you won't be asked for the
+username and password when you push or pull the repos.
+
 Return to the waiting terminal and press Enter. The script reloads `.env` and
 checks that the OAuth settings are configured and the GitOps branch is
 accessible with the Flux deploy key. If you stopped the script instead,
