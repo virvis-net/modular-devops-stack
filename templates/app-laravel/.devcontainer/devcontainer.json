@@ -1,0 +1,31 @@
+{
+  "name": "Modular DevOps Stack Laravel App",
+  "dockerComposeFile": [
+    "compose.yaml",
+    "compose.infra.yaml"
+  ],
+  "service": "app",
+  "runServices": [
+    "app"
+  ],
+  "workspaceFolder": "/workspace",
+  "forwardPorts": [
+    8080,
+    9090
+  ],
+  "portsAttributes": {
+    "8080": {
+      "label": "Laravel app"
+    },
+    "9090": {
+      "label": "Prometheus metrics"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bmewburn.vscode-intelephense-client"
+      ]
+    }
+  }
+}

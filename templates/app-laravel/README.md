@@ -61,6 +61,19 @@ production. The sample routes are stateless; provide `APP_KEY` as a secret
 before adding features that use encrypted cookies, sessions, or other
 application encryption. Do not commit keys or credentials to GitOps.
 
+## Local development with Dev Containers
+
+Open the app repository in VS Code and choose **Dev Containers: Reopen in
+Container**. The devcontainer runs FrankenPHP and the metrics listener with
+Laravel's local/debug settings, and forwards HTTP on `8080` and metrics on
+`9090`. On startup it installs Composer dependencies, creates `.env` if needed,
+and generates a local application key.
+
+The Laravel `.devcontainer/compose.infra.yaml` provides a local MariaDB and
+Redis for this app only. These are development-only services and credentials,
+separate from the MariaDB and Redis deployed by this template in Kubernetes.
+Compose keeps this data and network separate from the Modular DevOps Stack.
+
 The Laravel GitOps component also deploys one Redis-backed queue worker per
 environment. It runs `php artisan queue:work` as its container's main process;
 Kubernetes restarts it and controls its replica count, so Supervisor is not

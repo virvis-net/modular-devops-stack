@@ -20,6 +20,12 @@ RUN mkdir -p storage/framework/cache/data storage/framework/sessions \
     --optimize-autoloader
 RUN php artisan package:discover --ansi
 
+FROM app AS devcontainer
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+ENV APP_ENV=local \
+    APP_DEBUG=true
+
 FROM app AS runtime
 
 ENV APP_ENV=production \

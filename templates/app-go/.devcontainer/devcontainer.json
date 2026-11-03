@@ -1,0 +1,28 @@
+{
+  "name": "Modular DevOps Stack Go App",
+  "dockerComposeFile": "compose.yaml",
+  "service": "app",
+  "runServices": [
+    "app"
+  ],
+  "workspaceFolder": "/workspace",
+  "forwardPorts": [
+    8080,
+    9090
+  ],
+  "portsAttributes": {
+    "8080": {
+      "label": "Go app"
+    },
+    "9090": {
+      "label": "Prometheus metrics"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go"
+      ]
+    }
+  }
+}

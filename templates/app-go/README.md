@@ -58,3 +58,13 @@ these backends. In Grafana Explore, query Loki with
 `{service_name="app"} | trace_id != ""` and follow the TraceID link to
 Tempo. Set `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT` to use a
 different service name or Collector endpoint.
+
+## Local development with Dev Containers
+
+Open the app repository in VS Code and choose **Dev Containers: Reopen in
+Container**. The Go app runs with `go run ./src`; use the forwarded port `8080`
+for HTTP and `9090` for metrics.
+
+The Go devcontainer has no MariaDB or Redis services because the Go app does
+not depend on them. Its separate Compose project and private default network
+keep it from joining or changing the Modular DevOps Stack network.

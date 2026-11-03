@@ -117,6 +117,12 @@ The Go template uses Go 1.22, and the Laravel template uses Laravel 12 and PHP
 shared GitOps delivery flow and technology-agnostic application dashboard.
 The setup also installs the selected option's runtime-specific Grafana
 dashboard. Cluster, ingress, and infrastructure monitoring are shared.
+Each generated app repository also includes a VS Code Dev Container. Open
+`workspace/app` in VS Code and choose **Dev Containers: Reopen in Container**
+to run the app locally. The Laravel template also starts local MariaDB and
+Redis services for its development dependencies; the Go template does not
+include them. Each app's Compose project and network is separate from the
+stack's infrastructure.
 
 The helper reads `.env`, renders the Gitea owner, registry port, GitOps SSH
 URL, and cluster name/port into the templates, and renames the GitOps cluster
