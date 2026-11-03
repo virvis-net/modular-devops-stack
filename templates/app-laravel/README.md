@@ -61,6 +61,41 @@ production. The sample routes are stateless; provide `APP_KEY` as a secret
 before adding features that use encrypted cookies, sessions, or other
 application encryption. Do not commit keys or credentials to GitOps.
 
+### Connecting to a Kubernetes database
+
+You can use HeidiSQL to inspect either environment without exposing MariaDB
+outside the cluster. In a terminal with the correct Kubernetes context, start
+a local port-forward. Keep this command running while HeidiSQL is connected:
+
+```sh
+# Staging
+kubectl port-forward --namespace staging service/mariadb 3308:3306
+
+# Production
+kubectl port-forward --namespace production service/mariadb 3309:3306
+```
+
+The database user and database name are both `app`. Retrieve the password for
+the chosen namespace from its Kubernetes Secret:
+
+```sh
+# Replace staging with production when connecting to production.
+kubectl get secret app-database --namespace staging \
+  --output jsonpath='{.data.password}' | base64 --decode
+echo
+```
+
+In HeidiSQL, create a MariaDB/MySQL session with host `127.0.0.1`, port
+`3308` or `3309`, user `app`, database `app`, and the decoded password. The Kubernetes
+user running `kubectl` must be allowed to read the Secret and port-forward to
+the database pod. Stop the port-forward with Ctrl-C when finished.
+
+Production database access should be exceptional and authorized. Use the
+production context and Secret only when needed, avoid saving the production
+password in HeidiSQL, and do not paste it into chat or store it in Git. The
+`app` account is the application's database account, not a read-only account;
+avoid running queries that modify production data.
+
 ## Local development with Dev Containers
 
 Open the app repository in VS Code and choose **Dev Containers: Reopen in
