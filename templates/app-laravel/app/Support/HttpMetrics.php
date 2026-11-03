@@ -42,6 +42,16 @@ class HttpMetrics
                 PRIMARY KEY (method, status)
             )'
         );
+        $this->database->exec(
+            'CREATE TABLE IF NOT EXISTS php_runtime_metrics (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                memory_usage_bytes INTEGER NOT NULL,
+                memory_peak_bytes INTEGER NOT NULL,
+                gc_runs_total INTEGER NOT NULL,
+                gc_collected_total INTEGER NOT NULL,
+                gc_roots INTEGER NOT NULL
+            )'
+        );
     }
 
     public function observe(string $method, int $status, float $duration): void
@@ -73,6 +83,29 @@ class HttpMetrics
         );
         $statement = $this->database->prepare($sql);
         $statement->execute([$method, $status, 1, $duration, ...$bucketCounts]);
+    }
+
+    public function observePhpRuntime(int $memoryUsage, int $memoryPeak, array $gcStatus): void
+    {
+        $statement = $this->database->prepare(
+            'INSERT INTO php_runtime_metrics (
+                id, memory_usage_bytes, memory_peak_bytes, gc_runs_total,
+                gc_collected_total, gc_roots
+            ) VALUES (1, ?, ?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET
+                memory_usage_bytes = excluded.memory_usage_bytes,
+                memory_peak_bytes = excluded.memory_peak_bytes,
+                gc_runs_total = excluded.gc_runs_total,
+                gc_collected_total = excluded.gc_collected_total,
+                gc_roots = excluded.gc_roots'
+        );
+        $statement->execute([
+            $memoryUsage,
+            $memoryPeak,
+            (int) ($gcStatus['runs'] ?? 0),
+            (int) ($gcStatus['collected'] ?? 0),
+            (int) ($gcStatus['roots'] ?? 0),
+        ]);
     }
 
     public function render(): string
@@ -123,12 +156,34 @@ class HttpMetrics
             );
         }
 
+        $runtime = $this->database->query(
+            'SELECT * FROM php_runtime_metrics WHERE id = 1'
+        )->fetch(PDO::FETCH_ASSOC);
+        $output .= "# HELP php_memory_usage_bytes PHP memory in use at the end of the last application request.\n";
+        $output .= "# TYPE php_memory_usage_bytes gauge\n";
+        $output .= "# HELP php_memory_peak_bytes Peak PHP memory in use during the last application request.\n";
+        $output .= "# TYPE php_memory_peak_bytes gauge\n";
+        $output .= "# HELP php_gc_runs_total PHP garbage collection runs since the worker started.\n";
+        $output .= "# TYPE php_gc_runs_total counter\n";
+        $output .= "# HELP php_gc_collected_total PHP values collected since the worker started.\n";
+        $output .= "# TYPE php_gc_collected_total counter\n";
+        $output .= "# HELP php_gc_roots PHP values currently buffered for garbage collection.\n";
+        $output .= "# TYPE php_gc_roots gauge\n";
+        if ($runtime !== false) {
+            $output .= sprintf("php_memory_usage_bytes %d\n", $runtime['memory_usage_bytes']);
+            $output .= sprintf("php_memory_peak_bytes %d\n", $runtime['memory_peak_bytes']);
+            $output .= sprintf("php_gc_runs_total %d\n", $runtime['gc_runs_total']);
+            $output .= sprintf("php_gc_collected_total %d\n", $runtime['gc_collected_total']);
+            $output .= sprintf("php_gc_roots %d\n", $runtime['gc_roots']);
+        }
+
         return $output;
     }
 
     public function reset(): void
     {
         $this->database->exec('DELETE FROM http_request_metrics');
+        $this->database->exec('DELETE FROM php_runtime_metrics');
     }
 
     private function normalizeMethod(string $method): string

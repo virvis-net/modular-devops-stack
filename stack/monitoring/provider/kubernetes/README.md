@@ -11,13 +11,21 @@ OpenTelemetry Collector, Loki, and Tempo as separate workloads in the
 Alertmanager, and Mailpit as a local email sink.
 Prometheus discovers app metrics endpoints in staging and production,
 Kubernetes state from a least-privilege kube-state-metrics deployment,
-ingress-nginx metrics, and kubelet resource metrics. The app metrics
-include HTTP request counts, durations, and selected Go runtime data:
-goroutine count, heap and stack memory, and garbage-collection cycles. Grafana
-queries Prometheus through its in-cluster Service and is exposed at
+ingress-nginx metrics, and kubelet resource metrics. App metrics include HTTP
+request counts and durations. Grafana queries Prometheus through its in-cluster
+Service and is exposed at
 `http://monitoring.localhost:<K3D_CLUSTER_PORT>/` through ingress-nginx. Its
 anonymous viewer access allows dashboard viewing without signing in; Grafana
 Explore requires a login. Keep both uses within the trusted local lab.
+
+Grafana provisions a technology-agnostic application and infrastructure
+dashboard and the runtime dashboard matching the app template selected during
+setup. The Go dashboard shows goroutines, heap and stack memory, and garbage-
+collection cycles. The Laravel/PHP dashboard shows memory observed at the end
+of the last application request and PHP garbage-collection activity. These
+per-request runtime observations are specific to the local PHP built-in server
+used by the Laravel example and should be revisited if its application server
+or worker model changes.
 
 Prometheus also scrapes kubelet resource metrics through the Kubernetes API
 server's node proxy. The Prometheus service account can discover nodes and

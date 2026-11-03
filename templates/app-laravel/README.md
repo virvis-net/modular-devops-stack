@@ -13,6 +13,10 @@ names as the Go example and are scraped by the existing monitoring stack.
 Health and scrape requests are excluded. Laravel metrics are stored in a
 local SQLite file so they aggregate across PHP requests; they reset when the
 container is replaced and are intended for this single-replica local lab.
+The `/metrics` output also includes PHP memory usage and peak memory from the
+last application request, plus garbage-collection counters and buffered roots.
+These runtime samples are updated after application requests and are specific
+to the single-process PHP built-in server used here.
 
 The image installs the OpenTelemetry PHP extension, SDK, OTLP exporter, and
 official Laravel auto-instrumentation package. With

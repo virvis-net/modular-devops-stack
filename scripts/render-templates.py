@@ -4,7 +4,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional, Set
 
 
 def required_setting(name: str, pattern=None) -> str:
@@ -52,9 +52,18 @@ def require_empty_git_repo(path: Path) -> None:
         )
 
 
-def copy_rendered_tree(source: Path, destination: Path, values: Dict[str, str]) -> None:
+def copy_rendered_tree(
+    source: Path,
+    destination: Path,
+    values: Dict[str, str],
+    excluded_paths: Optional[Set[Path]] = None,
+) -> None:
+    if excluded_paths is None:
+        excluded_paths = set()
     for source_path in source.rglob("*"):
         relative = source_path.relative_to(source)
+        if relative in excluded_paths:
+            continue
         relative = Path(
             *(values["K3D_CLUSTER_NAME"] if part == "mds-cluster" else part
               for part in relative.parts)
@@ -115,6 +124,7 @@ def main() -> int:
             "GITOPS_REPO_URL": required_setting(
                 "GITOPS_REPO_URL", r"ssh://[A-Za-z0-9@._:-]+/[A-Za-z0-9._/-]+"
             ),
+            "RUNTIME_DASHBOARD": f"{app_template}-runtime-dashboard.json",
         }
         app_repo, gitops_repo = (Path(arg).resolve() for arg in sys.argv[1:3])
         require_empty_git_repo(app_repo)
@@ -129,6 +139,12 @@ def main() -> int:
             root / "stack/monitoring/provider/kubernetes/manifests",
             gitops_repo / "clusters" / values["K3D_CLUSTER_NAME"] / "monitoring",
             values,
+            excluded_paths={
+                Path("grafana/provisioning/go-runtime-dashboard.json"),
+                Path("grafana/provisioning/laravel-runtime-dashboard.json"),
+            } - {
+                Path("grafana/provisioning") / values["RUNTIME_DASHBOARD"]
+            },
         )
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"Template setup failed: {error}", file=sys.stderr)

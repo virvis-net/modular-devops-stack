@@ -58,6 +58,10 @@ spec:
               mountPath: /etc/grafana/provisioning/dashboards/app-dashboard.json
               subPath: app-dashboard.json
               readOnly: true
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/dashboards/__RUNTIME_DASHBOARD__
+              subPath: __RUNTIME_DASHBOARD__
+              readOnly: true
             - name: data
               mountPath: /var/lib/grafana
       volumes:

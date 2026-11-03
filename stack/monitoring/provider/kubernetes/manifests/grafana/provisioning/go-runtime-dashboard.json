@@ -1,0 +1,168 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Number of Go goroutines currently running in the application process.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "sum by (environment) (go_goroutines{job=\"app\"})",
+          "legendFormat": "{{environment}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Go goroutines",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "sum by (environment) (go_memstats_alloc_bytes{job=\"app\"})",
+          "legendFormat": "{{environment}} allocated",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (environment) (go_memstats_heap_inuse_bytes{job=\"app\"})",
+          "legendFormat": "{{environment}} heap in use",
+          "refId": "B"
+        }
+      ],
+      "title": "Go allocated and in-use heap",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "sum by (environment) (go_memstats_heap_sys_bytes{job=\"app\"})",
+          "legendFormat": "{{environment}} heap obtained from OS",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (environment) (go_memstats_stack_inuse_bytes{job=\"app\"})",
+          "legendFormat": "{{environment}} stack in use",
+          "refId": "B"
+        }
+      ],
+      "title": "Go heap and stack memory",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "sum by (environment) (go_gc_cycles_total{job=\"app\"})",
+          "legendFormat": "{{environment}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Go garbage-collection cycles",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "sum by (environment) (rate(go_gc_cycles_total{job=\"app\"}[5m]))",
+          "legendFormat": "{{environment}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Go garbage-collection cycle rate",
+      "type": "timeseries"
+    }
+  ],
+  "schemaVersion": 39,
+  "title": "Go runtime metrics",
+  "uid": "mds-go-runtime",
+  "version": 1
+}

@@ -21,6 +21,7 @@ class RecordHttpMetrics
             return $next($request);
         }
 
+        memory_reset_peak_usage();
         $start = hrtime(true);
         $status = Response::HTTP_INTERNAL_SERVER_ERROR;
 
@@ -40,6 +41,11 @@ class RecordHttpMetrics
                 $request->method(),
                 $status,
                 (hrtime(true) - $start) / 1_000_000_000
+            );
+            $this->metrics->observePhpRuntime(
+                memory_get_usage(true),
+                memory_get_peak_usage(true),
+                gc_status()
             );
         }
     }

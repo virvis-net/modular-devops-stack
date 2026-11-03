@@ -110,7 +110,8 @@ Both choices use the same `app` and `gitops` repositories, manifests, and
 image-build, registry, staging, and production flow. The Laravel starter uses
 PHP 8.3 and Laravel 12. Both templates expose the same technology-neutral HTTP
 request and duration metrics for the shared Grafana dashboard and alerts. The
-Go template additionally exposes Go runtime-specific metrics. Cluster,
+setup also installs only the selected app's runtime-specific Grafana dashboard:
+Go metrics for the default Go template, or PHP metrics for Laravel. Cluster,
 ingress, and infrastructure monitoring are shared.
 
 The helper reads `.env`, renders the Gitea owner, registry port, GitOps SSH
