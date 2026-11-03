@@ -37,7 +37,7 @@ its Prometheus exporter, which Prometheus scrapes. Tempo's metrics generator
 also remote-writes span and service-graph metrics to Prometheus.
 
 Grafana provisions Prometheus, Loki, and Tempo data sources. Use Grafana
-Explore with Loki and the query `{service_name="example-app"} | trace_id != ""`
+Explore with Loki and the query `{service_name="app"} | trace_id != ""`
 to find correlated app request logs; the `TraceID` link opens the trace in
 Tempo. Tempo's trace-to-logs link filters Loki by service and trace ID, and
 Prometheus exemplars link applicable metric samples back to Tempo. The

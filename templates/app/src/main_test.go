@@ -75,18 +75,18 @@ func TestMetricsRecordRequestsAndDurations(t *testing.T) {
 		t.Errorf("metrics content type = %q", response.Header().Get("Content-Type"))
 	}
 	for _, want := range []string{
-		"# TYPE app_http_requests_total counter",
-		"# TYPE app_http_request_duration_seconds histogram",
+		"# TYPE http_server_requests_total counter",
+		"# TYPE http_server_request_duration_seconds histogram",
 		"# TYPE go_goroutines gauge",
 		"# TYPE go_memstats_alloc_bytes gauge",
 		"# TYPE go_memstats_heap_inuse_bytes gauge",
 		"# TYPE go_memstats_heap_sys_bytes gauge",
 		"# TYPE go_memstats_stack_inuse_bytes gauge",
 		"# TYPE go_gc_cycles_total counter",
-		`app_http_requests_total{method="GET",status="200"} 1`,
-		`app_http_requests_total{method="GET",status="404"} 1`,
-		`app_http_request_duration_seconds_bucket{method="GET",status="200",le="+Inf"} 1`,
-		`app_http_request_duration_seconds_count{method="GET",status="404"} 1`,
+		`http_server_requests_total{method="GET",status="200"} 1`,
+		`http_server_requests_total{method="GET",status="404"} 1`,
+		`http_server_request_duration_seconds_bucket{method="GET",status="200",le="+Inf"} 1`,
+		`http_server_request_duration_seconds_count{method="GET",status="404"} 1`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("metrics response does not contain %q:\n%s", want, body)

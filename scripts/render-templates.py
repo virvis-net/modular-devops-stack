@@ -69,7 +69,11 @@ def copy_rendered_tree(source: Path, destination: Path, values: Dict[str, str]) 
         for token, value in values.items():
             content = content.replace(f"__{token}__", value)
 
-        unresolved = re.search(r"__[A-Z0-9_]+__", content)
+        unresolved = re.search(
+            r"__(?!(?:CLASS|DIR|FILE|FUNCTION|LINE|METHOD|NAMESPACE|TRAIT)__)"
+            r"[A-Z0-9_]+__",
+            content,
+        )
         if unresolved:
             raise ValueError(f"Unresolved template value {unresolved.group()} in {source_path}")
 
@@ -78,9 +82,22 @@ def copy_rendered_tree(source: Path, destination: Path, values: Dict[str, str]) 
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         print(
-            f"Usage: {Path(sys.argv[0]).name} APP_REPO GITOPS_REPO",
+            f"Usage: {Path(sys.argv[0]).name} APP_REPO GITOPS_REPO [go|laravel]",
+            file=sys.stderr,
+        )
+        return 2
+
+    app_template = sys.argv[3] if len(sys.argv) == 4 else "go"
+    app_templates = {
+        "go": "app",
+        "laravel": "app-laravel",
+    }
+    if app_template not in app_templates:
+        print(
+            f"Template setup failed: unsupported app template {app_template!r}; "
+            "choose 'go' or 'laravel'.",
             file=sys.stderr,
         )
         return 2
@@ -99,12 +116,14 @@ def main() -> int:
                 "GITOPS_REPO_URL", r"ssh://[A-Za-z0-9@._:-]+/[A-Za-z0-9._/-]+"
             ),
         }
-        app_repo, gitops_repo = (Path(arg).resolve() for arg in sys.argv[1:])
+        app_repo, gitops_repo = (Path(arg).resolve() for arg in sys.argv[1:3])
         require_empty_git_repo(app_repo)
         require_empty_git_repo(gitops_repo)
 
         root = Path(__file__).resolve().parent.parent
-        copy_rendered_tree(root / "templates/app", app_repo, values)
+        copy_rendered_tree(
+            root / "templates" / app_templates[app_template], app_repo, values
+        )
         copy_rendered_tree(root / "templates/gitops", gitops_repo, values)
         copy_rendered_tree(
             root / "stack/monitoring/provider/kubernetes/manifests",
@@ -115,7 +134,7 @@ def main() -> int:
         print(f"Template setup failed: {error}", file=sys.stderr)
         return 1
 
-    print(f"Rendered app template into {app_repo}")
+    print(f"Rendered {app_template} app template into {app_repo}")
     print(f"Rendered GitOps template into {gitops_repo}")
     print(f"Rendered Kubernetes monitoring provider into {gitops_repo}")
     return 0

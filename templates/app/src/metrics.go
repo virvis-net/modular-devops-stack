@@ -128,10 +128,10 @@ func (metrics *appMetrics) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		return labels[i].method < labels[j].method
 	})
 
-	fmt.Fprintln(w, "# HELP app_http_requests_total Total HTTP requests handled by the app.")
-	fmt.Fprintln(w, "# TYPE app_http_requests_total counter")
-	fmt.Fprintln(w, "# HELP app_http_request_duration_seconds HTTP request duration in seconds.")
-	fmt.Fprintln(w, "# TYPE app_http_request_duration_seconds histogram")
+	fmt.Fprintln(w, "# HELP http_server_requests_total Total HTTP server requests.")
+	fmt.Fprintln(w, "# TYPE http_server_requests_total counter")
+	fmt.Fprintln(w, "# HELP http_server_request_duration_seconds HTTP server request duration in seconds.")
+	fmt.Fprintln(w, "# TYPE http_server_request_duration_seconds histogram")
 	fmt.Fprintln(w, "# HELP go_goroutines Number of goroutines that currently exist.")
 	fmt.Fprintln(w, "# TYPE go_goroutines gauge")
 	fmt.Fprintf(w, "go_goroutines %d\n", runtime.NumGoroutine())
@@ -154,19 +154,19 @@ func (metrics *appMetrics) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, label := range labels {
 		observation := observations[label]
 		labelSet := fmt.Sprintf(`method="%s",status="%d"`, label.method, label.status)
-		fmt.Fprintf(w, "app_http_requests_total{%s} %d\n", labelSet, observation.count)
+		fmt.Fprintf(w, "http_server_requests_total{%s} %d\n", labelSet, observation.count)
 
 		for index, boundary := range durationBuckets {
 			fmt.Fprintf(
 				w,
-				`app_http_request_duration_seconds_bucket{%s,le="%g"} %d`+"\n",
+				`http_server_request_duration_seconds_bucket{%s,le="%g"} %d`+"\n",
 				labelSet,
 				boundary,
 				observation.buckets[index],
 			)
 		}
-		fmt.Fprintf(w, `app_http_request_duration_seconds_bucket{%s,le="+Inf"} %d`+"\n", labelSet, observation.count)
-		fmt.Fprintf(w, "app_http_request_duration_seconds_sum{%s} %g\n", labelSet, observation.durationSum)
-		fmt.Fprintf(w, "app_http_request_duration_seconds_count{%s} %d\n", labelSet, observation.count)
+		fmt.Fprintf(w, `http_server_request_duration_seconds_bucket{%s,le="+Inf"} %d`+"\n", labelSet, observation.count)
+		fmt.Fprintf(w, "http_server_request_duration_seconds_sum{%s} %g\n", labelSet, observation.durationSum)
+		fmt.Fprintf(w, "http_server_request_duration_seconds_count{%s} %d\n", labelSet, observation.count)
 	}
 }

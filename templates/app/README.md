@@ -41,12 +41,12 @@ these endpoints for liveness and readiness probes in both staging and
 production. Readiness currently matches liveness because the sample app has no
 external dependencies.
 
-The app exposes request counters and request-duration histograms in Prometheus
-text format at port `9090` on `/metrics`. That port is internal to the cluster
-and is not routed by the app Ingress. Health and metrics scrape requests are
-excluded from the application request metrics. The same endpoint also exposes
-Go runtime goroutine, heap, stack, and garbage-collection metrics using the Go
-standard library.
+The app exposes technology-neutral HTTP request counters and
+request-duration histograms in Prometheus text format at `/metrics` on
+internal port `9090`. The endpoint is not routed by the app Ingress. Health
+and metrics scrape requests are excluded from the HTTP request metrics. The
+endpoint also exposes Go runtime goroutine, heap, stack, and garbage-collection
+metrics using the Go standard library.
 
 The HTTP server is instrumented with OpenTelemetry and exports traces, HTTP
 server metrics, and structured request logs over OTLP/HTTP to the Collector at
@@ -54,6 +54,6 @@ server metrics, and structured request logs over OTLP/HTTP to the Collector at
 trace and span IDs. The monitoring provider routes traces to Tempo, logs to
 Loki, and metrics to Prometheus; the app instrumentation does not depend on
 these backends. In Grafana Explore, query Loki with
-`{service_name="example-app"} | trace_id != ""` and follow the TraceID link to
+`{service_name="app"} | trace_id != ""` and follow the TraceID link to
 Tempo. Set `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT` to use a
 different service name or Collector endpoint.

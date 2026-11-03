@@ -99,6 +99,20 @@ git clone "http://localhost:${GITEA_HTTP_PORT}/${GITEA_ORG}/gitops.git" workspac
 ./scripts/copy-templates.sh
 ```
 
+The helper uses the Go example by default. To use the Laravel API starter
+instead, pass `laravel`:
+
+```sh
+./scripts/copy-templates.sh laravel
+```
+
+Both choices use the same `app` and `gitops` repositories, manifests, and
+image-build, registry, staging, and production flow. The Laravel starter uses
+PHP 8.3 and Laravel 12. Both templates expose the same technology-neutral HTTP
+request and duration metrics for the shared Grafana dashboard and alerts. The
+Go template additionally exposes Go runtime-specific metrics. Cluster,
+ingress, and infrastructure monitoring are shared.
+
 The helper reads `.env`, renders the Gitea owner, registry port, GitOps SSH
 URL, and cluster name/port into the templates, and renames the GitOps cluster
 directory to match `K3D_CLUSTER_NAME`. It requires both clones to be empty
@@ -299,7 +313,7 @@ After rendering the provider into GitOps and allowing Flux to reconcile:
 - Open the local alert notification inbox at
   `http://notifications.localhost:<K3D_CLUSTER_PORT>/`.
 - Use Grafana Explore with Loki query
-  `{service_name="example-app"} | trace_id != ""` for app request logs, or
+  `{service_name="app"} | trace_id != ""` for app request logs, or
   `{job="kubernetes-events"}` for Kubernetes events. Follow trace links to
   Tempo and metric exemplars back to traces.
 - Prometheus remains internal. To inspect its alert rules or query metrics,
@@ -336,7 +350,7 @@ done
 ```
 
 In Grafana, sign in and open Explore. Select Loki and run
-`{service_name="example-app"} | trace_id != ""`. Open a result and follow its
+`{service_name="app"} | trace_id != ""`. Open a result and follow its
 trace link to Tempo. This follows the request from the app's structured log to
 its distributed trace.
 

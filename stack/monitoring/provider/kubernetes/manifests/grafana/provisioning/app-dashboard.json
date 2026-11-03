@@ -24,7 +24,7 @@
       "id": 1,
       "targets": [
         {
-          "expr": "sum by (environment) (rate(app_http_requests_total[5m]))",
+          "expr": "sum by (environment) (rate(http_server_requests_total[5m]))",
           "legendFormat": "{{environment}}",
           "refId": "A"
         }
@@ -52,7 +52,7 @@
       "id": 2,
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, environment) (rate(app_http_request_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, environment) (rate(http_server_request_duration_seconds_bucket[5m])))",
           "legendFormat": "{{environment}} p95",
           "refId": "A"
         }
@@ -80,7 +80,7 @@
       "id": 3,
       "targets": [
         {
-          "expr": "sum by (environment, status) (rate(app_http_requests_total[5m]))",
+          "expr": "sum by (environment, status) (rate(http_server_requests_total[5m]))",
           "legendFormat": "{{environment}} HTTP {{status}}",
           "refId": "A"
         }
@@ -95,95 +95,6 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 16
-      },
-      "id": 4,
-      "targets": [
-        {
-          "expr": "go_memstats_alloc_bytes",
-          "legendFormat": "{{environment}} heap allocated",
-          "refId": "A"
-        },
-        {
-          "expr": "go_memstats_heap_inuse_bytes",
-          "legendFormat": "{{environment}} heap in use",
-          "refId": "B"
-        }
-      ],
-      "title": "Go heap memory",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 16
-      },
-      "id": 5,
-      "targets": [
-        {
-          "expr": "go_goroutines",
-          "legendFormat": "{{environment}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Go goroutines",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 16
-      },
-      "id": 6,
-      "targets": [
-        {
-          "expr": "rate(go_gc_cycles_total[5m])",
-          "legendFormat": "{{environment}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Go garbage collections per second",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
           "unit": "short"
         },
         "overrides": []
@@ -192,7 +103,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 16
       },
       "id": 7,
       "targets": [
@@ -220,7 +131,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 16
       },
       "id": 8,
       "targets": [
@@ -253,7 +164,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 24
       },
       "id": 9,
       "targets": [
@@ -281,7 +192,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 24
       },
       "id": 10,
       "targets": [
@@ -309,7 +220,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 40
+        "y": 32
       },
       "id": 11,
       "targets": [
@@ -337,7 +248,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 40
+        "y": 32
       },
       "id": 12,
       "targets": [
@@ -365,7 +276,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 40
       },
       "id": 13,
       "targets": [
@@ -393,7 +304,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 48
+        "y": 40
       },
       "id": 14,
       "targets": [
@@ -422,7 +333,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 56
+        "y": 48
       },
       "id": 15,
       "targets": [
@@ -451,7 +362,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 64
+        "y": 56
       },
       "id": 16,
       "targets": [
@@ -480,7 +391,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 64
+        "y": 56
       },
       "id": 17,
       "targets": [
@@ -509,7 +420,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 72
+        "y": 64
       },
       "id": 18,
       "targets": [
@@ -538,7 +449,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 72
+        "y": 64
       },
       "id": 19,
       "targets": [
@@ -566,7 +477,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 80
+        "y": 72
       },
       "id": 20,
       "targets": [

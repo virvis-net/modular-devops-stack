@@ -23,7 +23,7 @@ import (
 func initTelemetry(ctx context.Context) (func(context.Context) error, error) {
 	serviceName := os.Getenv("OTEL_SERVICE_NAME")
 	if serviceName == "" {
-		serviceName = "example-app"
+		serviceName = "app"
 	}
 
 	appResource, err := resource.New(
@@ -89,5 +89,5 @@ func initTelemetry(ctx context.Context) (func(context.Context) error, error) {
 }
 
 func createOTelSlogHandler() *otelslog.Handler {
-	return otelslog.NewHandler("example-app")
+	return otelslog.NewHandler("app")
 }
