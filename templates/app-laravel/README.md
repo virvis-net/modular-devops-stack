@@ -109,18 +109,50 @@ set the Kustomization name to `production-app-migration-<release-id>`. In
 `production-app-migration-<release-id>` value. Make these changes before
 enabling production.
 
-For an application rollback, revert the GitOps release commit. This restores
-the previous image digest and its matching migration Job/dependency. The Job
-runs `php artisan migrate`, which applies pending migrations but does not call
-their `down()` methods; consequently, the database schema remains at its
-newer version. Laravel migrations commonly define `down()` methods, and
-`php artisan migrate:rollback` can execute them, but that is a separate
-database operation—not part of reverting an app image. Reversing schema or
-data changes may be destructive, and a rollback batch can include multiple
-migrations. Write migrations using an expand/contract approach so old and new
-app versions can operate against the schema during rollout and rollback.
-Prefer a forward fix; run a reviewed migration rollback only when its impact
-is understood, with a database backup before destructive recovery.
+### Production rollback
+
+A production image downgrade by itself is not a database rollback. The normal
+migration Job runs `php artisan migrate`, which applies pending migrations but
+does not call migrations' `down()` methods. Laravel's
+`php artisan migrate:rollback` does call `down()`, but it is a separate
+operation. The current template does not automate reverse migrations: do not
+try to initiate this workflow just by changing the production image digest.
+
+A database-aware rollback must be an explicit, gated operation that reverses
+the deployment sequence:
+
+1. Record the current production image digest and the target previous digest.
+   The currently deployed image must remain available because it contains the
+   migration files whose `down()` methods will be run. Identify and review the
+   exact migration batch or number of steps to reverse; Laravel's default
+   rollback can reverse multiple migrations from a batch.
+2. Pause the ordinary forward migration and workload reconciliations so they
+   cannot race with rollback. Stop new web traffic and scale the web and queue
+   worker workloads to zero. Wait for pods to terminate and workers to finish
+   in-flight jobs; the worker's termination grace period is 120 seconds.
+3. Run a one-off rollback Job using the **currently deployed image** and the
+   reviewed rollback scope. Wait for successful Job completion before
+   proceeding. If draining or the Job fails, stop and recover deliberately;
+   do not deploy the target image against an uncertain schema.
+4. Only after rollback succeeds, set the web and worker image to the previous
+   digest, and reconcile those workloads. Verify readiness and application
+   behavior before restoring normal forward-deploy reconciliation.
+5. Close the rollback operation and ensure the production migration and
+   workload configuration agree on the target release before resuming normal
+   releases.
+
+This sequence should be implemented as a dedicated rollback mode or workflow
+with explicit current and target digests, rollback scope, and success gates.
+A plain Git revert or digest edit is insufficient: Flux must not apply the
+target image until the rollback Job succeeds. If the database rollback loses
+data, fails partway, or leaves the schema uncertain, keep the app stopped and
+use the reviewed recovery plan, which may require restoring a backup or
+applying a forward fix.
+
+Reverse migrations can be destructive. Prefer expand/contract migrations so
+the previous app can run against the newer schema; use database rollback only
+when the affected `down()` methods and data impact have been reviewed and a
+backup is available.
 
 The CI job installs Composer dependencies and runs `php artisan test` before
 building the image. Generate and commit `composer.lock` with Composer before
