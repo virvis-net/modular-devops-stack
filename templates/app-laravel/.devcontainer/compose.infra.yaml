@@ -1,6 +1,8 @@
 services:
   mariadb:
     image: mariadb:11.4
+    ports:
+      - "127.0.0.1:3307:3306"
     environment:
       MARIADB_DATABASE: app
       MARIADB_USER: app

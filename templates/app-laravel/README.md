@@ -73,6 +73,10 @@ The Laravel `.devcontainer/compose.infra.yaml` provides a local MariaDB and
 Redis for this app only. These are development-only services and credentials,
 separate from the MariaDB and Redis deployed by this template in Kubernetes.
 Compose keeps this data and network separate from the Modular DevOps Stack.
+MariaDB is published only on localhost port `3307` for desktop database
+clients. In HeidiSQL, connect to host `127.0.0.1`, port `3307`, user `app`,
+password `app`, and database `app`. These credentials are for local
+development only.
 
 The Laravel GitOps component also deploys one Redis-backed queue worker per
 environment. It runs `php artisan queue:work` as its container's main process;
