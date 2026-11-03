@@ -1,18 +1,18 @@
-# Laravel API Starter
+# Laravel API Template
 
-This is an optional Laravel 12 / PHP 8.3 backend template for the Modular
-DevOps Stack. It keeps the existing `app` image name, container port, health
+This Laravel 12 / PHP 8.3 backend template is an application option for the
+Modular DevOps Stack. It uses the `app` image name, container port, health
 checks, CI image publishing, and Flux staging/production flow. Select it when
 rendering the repositories with `./scripts/copy-templates.sh laravel`.
 
 The starter includes a JSON endpoint at `/api/hello`, liveness at `/healthz`,
 readiness at `/readyz`, and Prometheus metrics at `/metrics` on the internal
 metrics port `9090`. That port is not routed by the app Ingress. Its HTTP
-request counter and duration histogram use the same technology-neutral metric
-names as the Go example and are scraped by the existing monitoring stack.
-Health and scrape requests are excluded. Laravel metrics are stored in a
-local SQLite file so they aggregate across PHP requests; they reset when the
-container is replaced and are intended for this single-replica local lab.
+request counter and duration histogram use technology-neutral metric names
+and are scraped by the monitoring stack. Health and scrape requests are
+excluded. Laravel metrics are stored in a local SQLite file so they aggregate
+across PHP requests; they reset when the container is replaced and are
+intended for this single-replica local lab.
 The `/metrics` output also includes PHP memory usage and peak memory from the
 last application request, plus garbage-collection counters and buffered roots.
 These runtime samples are updated after application requests and are specific

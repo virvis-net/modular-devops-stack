@@ -1,7 +1,8 @@
-# Example App Repository
+# Go Application Template
 
-This repository is a minimal Go application and Woodpecker pipeline for the
-Modular DevOps Stack lab.
+This repository contains a Go application and Woodpecker pipeline for the
+Modular DevOps Stack lab. Select it when rendering the repositories with
+`./scripts/copy-templates.sh` or `./scripts/copy-templates.sh go`.
 
 ## Delivery flow
 

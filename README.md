@@ -99,20 +99,24 @@ git clone "http://localhost:${GITEA_HTTP_PORT}/${GITEA_ORG}/gitops.git" workspac
 ./scripts/copy-templates.sh
 ```
 
-The helper uses the Go example by default. To use the Laravel API starter
-instead, pass `laravel`:
+Choose the application template when rendering the repositories. The Go
+template is selected by default:
+
+```sh
+./scripts/copy-templates.sh
+```
+
+To select the Laravel template, pass `laravel`:
 
 ```sh
 ./scripts/copy-templates.sh laravel
 ```
 
-Both choices use the same `app` and `gitops` repositories, manifests, and
-image-build, registry, staging, and production flow. The Laravel starter uses
-PHP 8.3 and Laravel 12. Both templates expose the same technology-neutral HTTP
-request and duration metrics for the shared Grafana dashboard and alerts. The
-setup also installs only the selected app's runtime-specific Grafana dashboard:
-Go metrics for the default Go template, or PHP metrics for Laravel. Cluster,
-ingress, and infrastructure monitoring are shared.
+The Go template uses Go 1.22, and the Laravel template uses Laravel 12 and PHP
+8.3. Each option is rendered into the `app` repository and uses the stack's
+shared GitOps delivery flow and technology-agnostic application dashboard.
+The setup also installs the selected option's runtime-specific Grafana
+dashboard. Cluster, ingress, and infrastructure monitoring are shared.
 
 The helper reads `.env`, renders the Gitea owner, registry port, GitOps SSH
 URL, and cluster name/port into the templates, and renames the GitOps cluster
@@ -441,5 +445,5 @@ must survive container or cluster recreation.
     and manifests, rendered into GitOps for Flux to apply
 - `scripts/copy-templates.sh` — render templates from `.env` into empty Gitea
   clones
-- `templates/app/` and `templates/gitops/` — example repositories rendered
-  into Gitea
+- `templates/app-go/` and `templates/app-laravel/` — application templates
+- `templates/gitops/` — GitOps repository template rendered into Gitea

@@ -100,7 +100,7 @@ def main() -> int:
 
     app_template = sys.argv[3] if len(sys.argv) == 4 else "go"
     app_templates = {
-        "go": "app",
+        "go": "app-go",
         "laravel": "app-laravel",
     }
     if app_template not in app_templates:
