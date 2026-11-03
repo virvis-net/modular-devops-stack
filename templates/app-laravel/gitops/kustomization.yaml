@@ -11,3 +11,4 @@ patches:
 
 resources:
   - worker-deployment.yaml
+  - scheduler-cronjob.yaml

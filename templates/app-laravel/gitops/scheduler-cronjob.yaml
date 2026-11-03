@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: app-scheduler
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 60
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 300
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: app-scheduler
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: scheduler
+              image: registry:5000/app:latest
+              command:
+                - php
+              args:
+                - artisan
+                - schedule:run
+              env:
+                - name: OTEL_SERVICE_NAME
+                  value: app-scheduler
+                - name: OTEL_EXPORTER_OTLP_ENDPOINT
+                  value: http://otel-collector.monitoring.svc:4318
+                - name: OTEL_EXPORTER_OTLP_PROTOCOL
+                  value: http/protobuf
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: app-database
+                      key: password
+              envFrom:
+                - configMapRef:
+                    name: app-runtime-config
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi

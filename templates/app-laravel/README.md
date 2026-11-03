@@ -91,6 +91,18 @@ failure blocks that release's workloads and must be fixed before deployment
 continues. The template does not yet enqueue jobs; add dispatching as
 application features require it.
 
+The GitOps component also installs a Kubernetes CronJob that runs
+`php artisan schedule:run` every minute. Define scheduled tasks in
+`routes/console.php`; code and schedule changes are delivered with the app
+image. The CronJob uses the same runtime ConfigMap and database Secret as the
+app and worker, and scheduler traces use the service name `app-scheduler`.
+`concurrencyPolicy: Forbid` prevents overlapping scheduler runs, while a
+five-minute active deadline bounds a stuck run. If a run is still active at
+the next tick, Kubernetes skips that tick. Keep scheduled work short or
+dispatch long-running work to the queue. For tasks that need cross-run
+exclusion, use Laravel's `withoutOverlapping()` or `onOneServer()` scheduling
+locks; the configured Redis cache provides the shared lock store.
+
 Each Laravel environment has separate Flux reconciliations for its database
 dependencies, migrations, and workloads. The staging CI job updates the image
 digest in both the staging workload and migration overlays, and creates a
