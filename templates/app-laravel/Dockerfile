@@ -1,4 +1,4 @@
-FROM dunglas/frankenphp:1-php8.3-bookworm AS app
+FROM dunglas/frankenphp:1-php8.5-bookworm AS app
 
 RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
     && install-php-extensions mbstring opcache pcntl pdo_mysql pdo_sqlite zip opentelemetry

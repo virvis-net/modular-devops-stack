@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Cookie\Middleware\EncryptCookies;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
@@ -10,7 +10,7 @@ $stateless = [
     EncryptCookies::class,
     StartSession::class,
     ShareErrorsFromSession::class,
-    ValidateCsrfToken::class,
+    PreventRequestForgery::class,
 ];
 
 Route::get('/', function () {

@@ -112,8 +112,9 @@ To select the Laravel template, pass `laravel`:
 ./scripts/copy-templates.sh laravel
 ```
 
-The Go template uses Go 1.22, and the Laravel template uses Laravel 12 and PHP
-8.3. Each option is rendered into the `app` repository and uses the stack's
+The Go template uses Go 1.22, and the Laravel template uses Laravel 13 and PHP
+8.5, with MariaDB 13.0 and Redis 8.10 for its app dependencies. Each option is
+rendered into the `app` repository and uses the stack's
 shared GitOps delivery flow and technology-agnostic application dashboard.
 The setup also installs the selected option's runtime-specific Grafana
 dashboard. Cluster, ingress, and infrastructure monitoring are shared.

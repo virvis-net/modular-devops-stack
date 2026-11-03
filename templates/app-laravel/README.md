@@ -1,6 +1,6 @@
 # Laravel API Template
 
-This Laravel 12 / PHP 8.3 backend template is an application option for the
+This Laravel 13 / PHP 8.5 backend template is an application option for the
 Modular DevOps Stack. It uses the `app` image name, container port, health
 checks, CI image publishing, and Flux staging/production flow. Select it when
 rendering the repositories with `./scripts/copy-templates.sh laravel`.
@@ -33,15 +33,15 @@ the request traces. The starter does not export Laravel logs over OTLP, so
 trace-to-logs correlation is not enabled for this template.
 
 The application has Laravel's database and cache integrations configured for
-MariaDB and Redis, which are deployed with the Laravel GitOps template in each
-environment. The sample API has not yet added application-specific models,
-migrations, or queries; add those as application features require them. The
-template includes a migration only for Laravel's failed-job table. MariaDB
-data is stored in a per-environment persistent volume, while Redis is an
-ephemeral cache. Create the `app-database` Kubernetes Secret in both `staging` and
-`production` before deploying to those namespaces. Production is opt-in, so
-create its Secret when enabling that environment. Generate separate
-credentials for each namespace:
+MariaDB 13.0 and Redis 8.10, which are deployed with the Laravel GitOps
+template in each environment. The sample API has not yet added
+application-specific models, migrations, or queries; add those as application
+features require them. The template includes a migration only for Laravel's
+failed-job table. MariaDB data is stored in a per-environment persistent
+volume, while Redis is an ephemeral cache. Create the `app-database`
+Kubernetes Secret in both `staging` and `production` before deploying to those
+namespaces. Production is opt-in, so create its Secret when enabling that
+environment. Generate separate credentials for each namespace:
 
 ```sh
 kubectl create secret generic app-database --namespace staging \
@@ -106,7 +106,7 @@ and generates a local application key.
 
 The Laravel `.devcontainer/compose.infra.yaml` provides a local MariaDB and
 Redis for this app only. These are development-only services and credentials,
-separate from the MariaDB and Redis deployed by this template in Kubernetes.
+separate from MariaDB 13.0 and Redis 8.10 deployed by this template in Kubernetes.
 Compose keeps this data and network separate from the Modular DevOps Stack.
 MariaDB is published only on localhost port `3307` for desktop database
 clients. In HeidiSQL, connect to host `127.0.0.1`, port `3307`, user `app`,
