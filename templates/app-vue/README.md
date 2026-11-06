@@ -79,3 +79,28 @@ to `main` to publish the image and update staging.
 The generated frontend image is a static UI host, not an API backend. Browser
 requests go directly to the Laravel API. The Node host's only forwarding
 route is for browser telemetry to the local Collector.
+
+## Develop in a Dev Container
+
+Open the generated Vue app repository in VS Code with the Dev Containers
+extension and choose **Reopen in Container**. The container uses Node.js 22,
+runs `npm ci` after creation, and forwards Vite's port `5173`. Start the UI
+from the integrated terminal with:
+
+```sh
+npm run dev
+```
+
+The Vite dev server provides `/runtime-config.json` and defaults the API
+origin to `http://staging.localhost:8080`. Override it when starting Vite if
+your Laravel API uses another browser-accessible origin:
+
+```sh
+VITE_BACKEND_API_URL=http://localhost:8000 npm run dev
+```
+
+For API calls from the Vite page at `http://localhost:5173`, Laravel must
+allow that origin in `CORS_ALLOWED_ORIGINS`. The Dev Container is for editing
+and running the UI; browser spans reach the Collector through the deployed
+Node host's telemetry relay, so the full trace demo still uses the deployed
+frontend and API stacks.
