@@ -11,6 +11,8 @@ spec:
             - configMapRef:
                 name: app-runtime-config
           env:
+            - name: OTEL_LOGS_EXPORTER
+              value: otlp
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:

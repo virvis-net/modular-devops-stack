@@ -389,6 +389,12 @@ In Grafana, sign in and open Explore. Select Loki and run
 trace link to Tempo. This follows the request from the app's structured log to
 its distributed trace.
 
+### Trace a frontend-to-backend request across two stacks
+
+Run the [cross-stack frontend/backend exercise](stack/monitoring/provider/kubernetes/README.md#cross-stack-frontend-backend-exercise)
+to connect a Go frontend in one local k3d stack to a Laravel API in another,
+then inspect their correlated trace and logs in the API stack's Grafana.
+
 ### Trigger and resolve an alert
 
 Create a temporary staging pod with an invalid image:

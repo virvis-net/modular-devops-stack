@@ -11,6 +11,11 @@ processors:
     check_interval: 1s
     limit_mib: 192
     spike_limit_mib: 48
+  resource/cluster:
+    attributes:
+      - key: k8s.cluster.name
+        value: __K3D_CLUSTER_NAME__
+        action: insert
   batch:
 
 exporters:
@@ -18,6 +23,11 @@ exporters:
     endpoint: http://tempo.monitoring.svc:4318
   otlphttp/loki:
     endpoint: http://loki.monitoring.svc:3100/otlp
+  otlphttp/central:
+    endpoint: __OTEL_CENTRAL_EXPORT_ENDPOINT__
+    headers:
+      Authorization: ${env:OTEL_CENTRAL_AUTHORIZATION:-}
+__OTEL_CENTRAL_EXPORT_TLS_CONFIG__
   prometheus:
     endpoint: 0.0.0.0:9464
     enable_open_metrics: true
@@ -32,13 +42,13 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [otlphttp/tempo]
+      processors: [memory_limiter, resource/cluster, batch]
+      exporters: [__OTEL_TRACES_EXPORTER__]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
       exporters: [prometheus]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [otlphttp/loki]
+      processors: [memory_limiter, resource/cluster, batch]
+      exporters: [__OTEL_LOGS_EXPORTER__]

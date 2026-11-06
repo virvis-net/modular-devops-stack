@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, Optional, Set
+from urllib.parse import urlsplit
 
 
 def required_setting(name: str, pattern=None) -> str:
@@ -14,6 +15,115 @@ def required_setting(name: str, pattern=None) -> str:
     if pattern and not re.fullmatch(pattern, value):
         raise ValueError(f"{name} has an invalid value: {value!r}")
     return value
+
+
+def optional_setting(name: str) -> str:
+    value = os.environ.get(name, "")
+    if "\n" in value or "\r" in value:
+        raise ValueError(f"{name} must be a single-line value in .env")
+    return value.strip()
+
+
+def central_telemetry_settings() -> Dict[str, str]:
+    ingest_enabled_value = (
+        optional_setting("OTEL_CENTRAL_INGEST_ENABLED") or "false"
+    ).lower()
+    if ingest_enabled_value not in {"true", "false"}:
+        raise ValueError("OTEL_CENTRAL_INGEST_ENABLED must be true or false")
+    ingest_enabled = ingest_enabled_value == "true"
+    export_mode = optional_setting("OTEL_CENTRAL_EXPORT_MODE") or "local"
+    collector_endpoint = optional_setting("OTEL_CENTRAL_COLLECTOR_ENDPOINT")
+
+    if export_mode not in {"local", "forward", "both"}:
+        raise ValueError(
+            "OTEL_CENTRAL_EXPORT_MODE must be one of: local, forward, both"
+        )
+    if export_mode in {"forward", "both"} and not collector_endpoint:
+        raise ValueError(
+            "OTEL_CENTRAL_COLLECTOR_ENDPOINT is required when "
+            "OTEL_CENTRAL_EXPORT_MODE is forward or both"
+        )
+    if export_mode in {"forward", "both"} and ingest_enabled:
+        raise ValueError(
+            "Use OTEL_CENTRAL_INGEST_ENABLED=false on forwarding stacks; "
+            "a stack cannot receive and forward with this simple configuration"
+        )
+    if ingest_enabled and not collector_endpoint:
+        raise ValueError(
+            "OTEL_CENTRAL_COLLECTOR_ENDPOINT is required when "
+            "OTEL_CENTRAL_INGEST_ENABLED=true"
+        )
+
+    endpoint_host = ""
+    endpoint_scheme = ""
+    if collector_endpoint:
+        parsed = urlsplit(collector_endpoint)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.path not in ("", "/")
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError(
+                "OTEL_CENTRAL_COLLECTOR_ENDPOINT must be an HTTP or HTTPS origin without a path"
+            )
+        if parsed.port is not None and not 1 <= parsed.port <= 65535:
+            raise ValueError(
+                "OTEL_CENTRAL_COLLECTOR_ENDPOINT has an invalid port"
+            )
+        endpoint_host = parsed.hostname
+        endpoint_scheme = parsed.scheme
+        if not re.fullmatch(
+            r"(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*"
+            r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?",
+            endpoint_host,
+        ):
+            raise ValueError(
+                "OTEL_CENTRAL_COLLECTOR_ENDPOINT must use a DNS hostname"
+            )
+
+    traces_exporters = {
+        "local": "otlphttp/tempo",
+        "forward": "otlphttp/central",
+        "both": "otlphttp/tempo, otlphttp/central",
+    }[export_mode]
+    logs_exporters = {
+        "local": "otlphttp/loki",
+        "forward": "otlphttp/central",
+        "both": "otlphttp/loki, otlphttp/central",
+    }[export_mode]
+    ingress_tls_block = ""
+    if ingest_enabled and endpoint_scheme == "https":
+        ingress_tls_block = (
+            "  tls:\n"
+            "    - hosts:\n"
+            f"        - {endpoint_host}\n"
+            "      secretName: otel-central-ingest-tls\n"
+        )
+    export_tls_config = ""
+    if export_mode in {"forward", "both"} and endpoint_scheme == "https":
+        export_tls_config = (
+            "    tls:\n"
+            "      ca_file: /etc/otelcol-contrib/central-auth/ca.crt\n"
+        )
+    return {
+        "OTEL_CENTRAL_INGEST_HOST": endpoint_host,
+        "OTEL_CENTRAL_INGRESS_TLS_BLOCK": ingress_tls_block,
+        "OTEL_CENTRAL_EXPORT_TLS_CONFIG": export_tls_config,
+        "OTEL_CENTRAL_EXPORT_MODE": export_mode,
+        "OTEL_CENTRAL_INGEST_ENABLED": ingest_enabled_value,
+        "OTEL_CENTRAL_COLLECTOR_ENDPOINT": collector_endpoint,
+        "OTEL_CENTRAL_EXPORT_ENDPOINT": (
+            collector_endpoint
+            if export_mode in {"forward", "both"}
+            else "http://otel-collector.monitoring.svc:4318"
+        ),
+        "OTEL_TRACES_EXPORTER": traces_exporters,
+        "OTEL_LOGS_EXPORTER": logs_exporters,
+    }
 
 
 def require_empty_git_repo(path: Path) -> None:
@@ -129,6 +239,7 @@ def main() -> int:
             ),
             "RUNTIME_DASHBOARD": f"{app_template}-runtime-dashboard.json",
         }
+        values.update(central_telemetry_settings())
         app_repo, gitops_repo = (Path(arg).resolve() for arg in sys.argv[1:3])
         require_empty_git_repo(app_repo)
         require_empty_git_repo(gitops_repo)
@@ -166,17 +277,40 @@ def main() -> int:
                 / "migration",
                 values,
             )
+        monitoring_source = root / "stack/monitoring/provider/kubernetes/manifests"
+        monitoring_destination = (
+            gitops_repo / "clusters" / values["K3D_CLUSTER_NAME"] / "monitoring"
+        )
         copy_rendered_tree(
-            root / "stack/monitoring/provider/kubernetes/manifests",
-            gitops_repo / "clusters" / values["K3D_CLUSTER_NAME"] / "monitoring",
+            monitoring_source,
+            monitoring_destination,
             values,
             excluded_paths={
                 Path("grafana/provisioning/go-runtime-dashboard.json"),
                 Path("grafana/provisioning/laravel-runtime-dashboard.json"),
+                Path("opentelemetry-collector/central-ingress"),
             } - {
                 Path("grafana/provisioning") / values["RUNTIME_DASHBOARD"]
             },
         )
+        if values["OTEL_CENTRAL_INGEST_ENABLED"] == "true":
+            copy_rendered_tree(
+                monitoring_source / "opentelemetry-collector/central-ingress",
+                monitoring_destination
+                / "opentelemetry-collector/central-ingress",
+                values,
+            )
+            collector_kustomization = (
+                monitoring_destination
+                / "opentelemetry-collector/kustomization.yaml"
+            )
+            content = collector_kustomization.read_text(encoding="utf-8")
+            content = content.replace(
+                "resources:\n",
+                "resources:\n  - central-ingress\n",
+                1,
+            )
+            collector_kustomization.write_text(content, encoding="utf-8")
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"Template setup failed: {error}", file=sys.stderr)
         return 1
@@ -184,6 +318,16 @@ def main() -> int:
     print(f"Rendered {app_template} app template into {app_repo}")
     print(f"Rendered GitOps template into {gitops_repo}")
     print(f"Rendered Kubernetes monitoring provider into {gitops_repo}")
+    if values["OTEL_CENTRAL_INGEST_ENABLED"] == "true":
+        print(
+            "Enabled central OTLP ingestion at "
+            f"{values['OTEL_CENTRAL_COLLECTOR_ENDPOINT']}"
+        )
+    if values["OTEL_CENTRAL_EXPORT_MODE"] in {"forward", "both"}:
+        print(
+            f"OTLP export mode {values['OTEL_CENTRAL_EXPORT_MODE']}: sending traces and logs to "
+            f"{values['OTEL_CENTRAL_COLLECTOR_ENDPOINT']}"
+        )
     return 0
 
 

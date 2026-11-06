@@ -24,6 +24,13 @@ spec:
           image: otel/opentelemetry-collector-contrib:0.120.0
           args:
             - --config=/etc/otelcol-contrib/collector.yaml
+          env:
+            - name: OTEL_CENTRAL_AUTHORIZATION
+              valueFrom:
+                secretKeyRef:
+                  name: otel-central-client-auth
+                  key: authorization
+                  optional: true
           ports:
             - name: otlp-grpc
               containerPort: 4317
@@ -58,7 +65,14 @@ spec:
             - name: config
               mountPath: /etc/otelcol-contrib
               readOnly: true
+            - name: central-auth
+              mountPath: /etc/otelcol-contrib/central-auth
+              readOnly: true
       volumes:
         - name: config
           configMap:
             name: otel-collector-config
+        - name: central-auth
+          secret:
+            secretName: otel-central-client-auth
+            optional: true
