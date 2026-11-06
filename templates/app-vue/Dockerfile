@@ -1,13 +1,13 @@
-FROM node:22-alpine AS frontend-build
+FROM node:26-alpine AS frontend-build
 
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package*.json ./
+RUN test -f package-lock.json && npm ci
 COPY index.html vite.config.js ./
 COPY src ./src
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 
 ENV NODE_ENV=production \
     PORT=8080 \

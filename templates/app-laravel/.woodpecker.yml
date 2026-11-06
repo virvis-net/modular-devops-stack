@@ -2,6 +2,11 @@ steps:
   test:
     image: composer:2
     commands:
+      - |
+        if [ ! -f composer.lock ]; then
+          echo "composer.lock missing; start the Dev Container and commit the generated lockfile"
+          exit 1
+        fi
       - cp .env.example .env
       - composer install --no-interaction --prefer-dist
       - php artisan test

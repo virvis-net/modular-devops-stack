@@ -238,10 +238,10 @@ the previous app can run against the newer schema; use database rollback only
 when the affected `down()` methods and data impact have been reviewed and a
 backup is available.
 
-The CI job installs Composer dependencies and runs `php artisan test` before
-building the image. Generate and commit `composer.lock` with Composer before
-using this as a long-lived application so dependency resolution is
-reproducible.
+The Dev Container runs `composer install` on startup, which creates
+`composer.lock` if it is absent. Commit that generated file before the first
+push. CI and the production image require the lock and use `composer install`
+so they share the same resolved dependency versions.
 
 For local development, copy `.env.example` to `.env`, install dependencies
 with Composer, and run `php artisan key:generate` before using encrypted

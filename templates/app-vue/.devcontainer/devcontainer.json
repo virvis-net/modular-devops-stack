@@ -1,9 +1,9 @@
 {
   "name": "Vue frontend",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:26-bookworm",
   "remoteUser": "node",
   "updateRemoteUserUID": true,
-  "postCreateCommand": "npm ci",
+  "postCreateCommand": "npm install",
   "forwardPorts": [5173],
   "portsAttributes": {
     "5173": {

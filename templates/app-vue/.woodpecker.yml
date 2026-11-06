@@ -1,9 +1,14 @@
 steps:
   build_frontend:
-    image: node:22-alpine
+    image: node:26-alpine
     commands:
-      - npm ci
-      - npm run build
+      - |
+        if [ ! -f package-lock.json ]; then
+          echo "package-lock.json missing; start the Dev Container and commit the generated lockfile"
+          exit 1
+        fi
+        npm ci
+        npm run build
     when:
       event:
         - push

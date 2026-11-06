@@ -80,11 +80,17 @@ The generated frontend image is a static UI host, not an API backend. Browser
 requests go directly to the Laravel API. The Node host's only forwarding
 route is for browser telemetry to the local Collector.
 
+Like the Laravel template, this starter does not include a dependency lock
+file. Creating its Dev Container runs `npm install`, which creates
+`package-lock.json` in the generated app repository. Commit that file before
+the first push: CI and Docker use `npm ci` and require the lockfile. The Vue
+range starts at `3.5.45`; the generated lock records the exact release used.
+
 ## Develop in a Dev Container
 
 Open the generated Vue app repository in VS Code with the Dev Containers
-extension and choose **Reopen in Container**. The container uses Node.js 22,
-runs `npm ci` after creation, and forwards Vite's port `5173`. Start the UI
+extension and choose **Reopen in Container**. The container uses Node.js 26,
+runs `npm install` after creation, and forwards Vite's port `5173`. Start the UI
 from the integrated terminal with:
 
 ```sh

@@ -11,6 +11,7 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY . .
 RUN mkdir -p storage/framework/cache/data storage/framework/sessions \
         storage/framework/views storage/logs bootstrap/cache \
+    && test -f composer.lock \
     && composer install \
     --no-dev \
     --no-interaction \
