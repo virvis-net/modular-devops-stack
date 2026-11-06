@@ -90,7 +90,8 @@ to commit its generated sync manifests.
 Use the ignored `workspace/` directory for local clones. From the project
 root, load the environment variables, clone both repositories, and run the
 helper script to copy and render the templates. In a new terminal execute
-the following:
+the following (when using SSH, replace `http://localhost:${GITEA_HTTP_PORT}` with
+`ssh://git@localhost:${GITEA_SSH_PORT}`):
 
 ```sh
 source .env
