@@ -13,6 +13,7 @@ return [
         'stderr' => [
             'driver' => 'monolog',
             'level' => env('LOG_LEVEL', 'info'),
+            'tap' => [App\Logging\OpenTelemetryMonologTap::class],
             'handler' => StreamHandler::class,
             'with' => [
                 'stream' => 'php://stderr',

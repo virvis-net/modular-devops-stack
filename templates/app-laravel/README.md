@@ -28,9 +28,12 @@ official Laravel auto-instrumentation package. With
 `OTEL_PHP_AUTOLOAD_ENABLED=true`, Laravel request spans are exported over
 OTLP/HTTP to the configured Collector endpoint. The shared deployment sets
 `OTEL_SERVICE_NAME=app` and points the exporter at the in-cluster Collector.
-In Grafana, open Explore, select Tempo, and search for service `app` to inspect
-the request traces. The starter does not export Laravel logs over OTLP, so
-trace-to-logs correlation is not enabled for this template.
+The Laravel Monolog channel also exports structured logs over OTLP. Logs keep
+the active trace and span IDs, so Grafana can link between Tempo traces and Loki
+logs. In Grafana, open Explore, select Tempo, and search for service `app` to
+inspect request traces; choose a span and use its Logs link to find matching
+Loki entries. Avoid logging lead form values, credentials, or other sensitive
+data because the same log record is sent to both container stderr and Loki.
 
 The application has Laravel's database and cache integrations configured for
 MariaDB 13.0 and Redis 8.10, which are deployed with the Laravel GitOps
