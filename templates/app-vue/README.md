@@ -96,12 +96,12 @@ npm install
 
 Open the generated Vue app repository in VS Code with the Dev Containers
 extension and choose **Reopen in Container**. The container uses Node.js 26,
-runs `npm install` after creation, and forwards Vite's port `5173`. Start the UI
-from the integrated terminal with:
-
-```sh
-npm run dev
-```
+runs `npm install` once after creation (creating the lock file), starts the Vite
+dev server each time the container starts, and forwards port `5173`. VS Code
+should open the forwarded app automatically. If it does not,
+open `http://localhost:5173` or select port `5173` in the VS Code **Ports**
+panel and choose **Open in Browser**. Vite output is written to
+`/tmp/vite-dev-server.log` in the container.
 
 The Vite dev server provides `/runtime-config.json` and defaults the API
 origin to `http://staging.localhost:8080`. Override it when starting Vite if

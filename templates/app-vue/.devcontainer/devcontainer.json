@@ -4,6 +4,7 @@
   "remoteUser": "node",
   "updateRemoteUserUID": true,
   "postCreateCommand": "npm install",
+  "postStartCommand": "sh .devcontainer/start.sh",
   "forwardPorts": [5173],
   "portsAttributes": {
     "5173": {
