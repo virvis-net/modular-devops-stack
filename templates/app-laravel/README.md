@@ -35,6 +35,20 @@ inspect request traces; choose a span and use its Logs link to find matching
 Loki entries. Avoid logging lead form values, credentials, or other sensitive
 data because the same log record is sent to both container stderr and Loki.
 
+The `config/cors.php` configuration supports the separate Vue frontend
+template. Set `CORS_ALLOWED_ORIGINS` to the exact browser origin. For the
+frontend's default HTTP port `80`, use `http://staging.localhost`; add a port
+such as `:8081` only when the frontend uses a non-default HTTP port. Browsers
+omit the default `:80` when serializing an origin. CORS allows the W3C
+`traceparent`, `tracestate`, and `baggage` headers so the browser's trace
+context can reach Laravel. The generated runtime configuration enables the
+`tracecontext,baggage` propagators. CORS does not authenticate requests; keep
+the allowlist narrow and do not log submitted personal data.
+
+In the two-stack Vue/Laravel exercise, this API stack forwards its traces and
+OTLP logs to the frontend stack's central Collector. Open the combined trace
+and its trace-to-logs links in the frontend stack's Grafana.
+
 The application has Laravel's database and cache integrations configured for
 MariaDB 13.0 and Redis 8.10, which are deployed with the Laravel GitOps
 template in each environment. The sample API has not yet added

@@ -206,7 +206,7 @@ def copy_rendered_tree(
 def main() -> int:
     if len(sys.argv) not in (3, 4):
         print(
-            f"Usage: {Path(sys.argv[0]).name} APP_REPO GITOPS_REPO [go|laravel]",
+            f"Usage: {Path(sys.argv[0]).name} APP_REPO GITOPS_REPO [go|laravel|vue]",
             file=sys.stderr,
         )
         return 2
@@ -215,11 +215,17 @@ def main() -> int:
     app_templates = {
         "go": "app-go",
         "laravel": "app-laravel",
+        "vue": "app-vue",
+    }
+    runtime_dashboards = {
+        "go": "go-runtime-dashboard.json",
+        "laravel": "laravel-runtime-dashboard.json",
+        "vue": "vue-runtime-dashboard.json",
     }
     if app_template not in app_templates:
         print(
             f"Template setup failed: unsupported app template {app_template!r}; "
-            "choose 'go' or 'laravel'.",
+            "choose 'go', 'laravel', or 'vue'.",
             file=sys.stderr,
         )
         return 2
@@ -237,7 +243,7 @@ def main() -> int:
             "GITOPS_REPO_URL": required_setting(
                 "GITOPS_REPO_URL", r"ssh://[A-Za-z0-9@._:-]+/[A-Za-z0-9._/-]+"
             ),
-            "RUNTIME_DASHBOARD": f"{app_template}-runtime-dashboard.json",
+            "RUNTIME_DASHBOARD": runtime_dashboards[app_template],
         }
         values.update(central_telemetry_settings())
         app_repo, gitops_repo = (Path(arg).resolve() for arg in sys.argv[1:3])

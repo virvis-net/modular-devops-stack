@@ -8,14 +8,14 @@ fi
 
 APP_TEMPLATE="${1:-go}"
 if [ "$#" -gt 1 ]; then
-  printf 'Usage: %s [go|laravel]\n' "$0" >&2
+  printf 'Usage: %s [go|laravel|vue]\n' "$0" >&2
   exit 2
 fi
 
 case "$APP_TEMPLATE" in
-  go|laravel) ;;
+  go|laravel|vue) ;;
   *)
-    printf 'Usage: %s [go|laravel]\n' "$0" >&2
+    printf 'Usage: %s [go|laravel|vue]\n' "$0" >&2
     exit 2
     ;;
 esac

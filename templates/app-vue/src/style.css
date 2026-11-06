@@ -1,0 +1,42 @@
+:root {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #182126;
+  background: #f7f8f5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+a { color: inherit; text-decoration: none; }
+button, select { font: inherit; }
+
+.shell { min-height: 100vh; display: flex; flex-direction: column; }
+.topbar { height: 76px; padding: 0 clamp(24px, 8vw, 120px); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e4e8e3; background: #fff; }
+.brand { font-family: system-ui, sans-serif; font-size: 22px; font-weight: 800; letter-spacing: -1.5px; color: #153c38; }
+.lab-tag { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #64736e; }
+.content { width: min(920px, calc(100% - 40px)); margin: 52px auto 64px; flex: 1; }
+.steps { display: flex; gap: 28px; border-bottom: 1px solid #dfe6df; margin-bottom: 52px; }
+.step-link { padding: 0 0 14px; color: #88938e; font-size: 12px; letter-spacing: .08em; }
+.step-link span { margin-left: 8px; font-size: 13px; letter-spacing: 0; }
+.step-link.router-link-active { border-bottom: 2px solid #258172; color: #1a655c; }
+.hero { padding: 46px 0 72px; max-width: 700px; }
+.eyebrow { margin: 0 0 18px; color: #318478; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+h1 { margin: 0; font-family: system-ui, sans-serif; font-size: clamp(36px, 6vw, 58px); font-weight: 600; letter-spacing: -2.8px; line-height: 1.12; }
+.intro { max-width: 590px; margin: 20px 0 30px; color: #64716c; font-size: 16px; line-height: 1.7; }
+.button { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 16px; padding: 0 22px; border: 0; border-radius: 5px; background: #176d61; color: #fff; font-weight: 600; cursor: pointer; }
+.button:hover { background: #10594f; }
+.button:disabled, .button.disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+.button-secondary { border: 1px solid #cad5cf; color: #29443c; background: #fff; }
+.button-secondary:hover { background: #f0f4f1; }
+.caption { margin-top: 18px; color: #87928d; font-size: 13px; }
+.panel { max-width: 700px; padding: 12px 0 48px; }
+.panel h1 { font-size: clamp(32px, 5vw, 46px); letter-spacing: -2px; }
+.field-label { display: block; margin-bottom: 9px; font-size: 13px; font-weight: 700; }
+.select { width: min(100%, 480px); min-height: 50px; padding: 0 14px; border: 1px solid #c8d4ce; border-radius: 5px; background: white; color: #263832; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.result, .error { margin-top: 24px; padding: 16px; border-radius: 5px; }
+.result { background: #e5f4ed; color: #1c5949; }
+.error { background: #fae9e6; color: #873a32; }
+footer { padding: 20px 24px; border-top: 1px solid #e4e8e3; background: #fff; color: #87928d; text-align: center; font-size: 12px; }

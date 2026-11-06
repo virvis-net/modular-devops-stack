@@ -113,15 +113,23 @@ To select the Laravel template, pass `laravel`:
 ./scripts/copy-templates.sh laravel
 ```
 
-The Go template uses Go 1.22, and the Laravel template uses Laravel 13 and PHP
-8.5, with MariaDB 13.0 and Redis 8.10 for its app dependencies. Each option is
-rendered into the `app` repository and uses the stack's
-shared GitOps delivery flow and technology-agnostic application dashboard.
-The setup also installs the selected option's runtime-specific Grafana
-dashboard. Cluster, ingress, and infrastructure monitoring are shared.
-Each generated app repository also includes a VS Code Dev Container. Open
+To select the Vue frontend template, pass `vue`:
+
+```sh
+./scripts/copy-templates.sh vue
+```
+
+The Go template uses Go 1.22 as a simple single-stack service. The Laravel
+template uses Laravel 13 and PHP 8.5, with MariaDB 13.0 and Redis 8.10 for its
+app dependencies. The Vue template uses Vue 3 and Node 22 to build a browser
+funnel UI; it is intended for a frontend stack that calls a Laravel API in
+another stack. Each option is rendered into the `app` repository and uses the
+stack's shared GitOps delivery flow, technology-agnostic application
+dashboard, and its runtime dashboard. Cluster, ingress, and infrastructure
+monitoring are shared.
+The Go and Laravel app repositories include VS Code Dev Containers; open
 `workspace/app` in VS Code and choose **Dev Containers: Reopen in Container**
-to run the app locally. The Laravel template also starts local MariaDB and
+to run either app locally. The Laravel template also starts local MariaDB and
 Redis services for its development dependencies; the Go template does not
 include them. Each app's Compose project and network is separate from the
 stack's infrastructure.
@@ -339,7 +347,9 @@ for Kubernetes probes, exports request and runtime metrics, and sends
 structured logs, traces, and HTTP metrics over OTLP. Prometheus collects app,
 cluster, node, ingress, and Collector metrics; app logs and Kubernetes events
 go to Loki, while traces go to Tempo. Grafana connects these signals so
-requests can be investigated across metrics, logs, and traces.
+requests can be investigated across metrics, logs, and traces. The Vue
+template adds browser spans through its local Collector and can be paired
+with a Laravel API in another stack.
 
 After rendering the provider into GitOps and allowing Flux to reconcile:
 
@@ -392,8 +402,9 @@ its distributed trace.
 ### Trace a frontend-to-backend request across two stacks
 
 Run the [cross-stack frontend/backend exercise](stack/monitoring/provider/kubernetes/README.md#cross-stack-frontend-backend-exercise)
-to connect a Go frontend in one local k3d stack to a Laravel API in another,
-then inspect their correlated trace and logs in the API stack's Grafana.
+to connect a Vue frontend in one local k3d stack directly to a Laravel API in
+another, then inspect their correlated trace and logs in the frontend stack's
+Grafana, which acts as the central receiver.
 
 ### Trigger and resolve an alert
 
@@ -481,5 +492,6 @@ must survive container or cluster recreation.
     and manifests, rendered into GitOps for Flux to apply
 - `scripts/copy-templates.sh` — render templates from `.env` into empty Gitea
   clones
-- `templates/app-go/` and `templates/app-laravel/` — application templates
+- `templates/app-go/`, `templates/app-laravel/`, and `templates/app-vue/` —
+  application templates
 - `templates/gitops/` — GitOps repository template rendered into Gitea

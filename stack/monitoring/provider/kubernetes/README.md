@@ -25,7 +25,8 @@ collection cycles. The Laravel/PHP dashboard shows memory observed at the end
 of the last application request and PHP garbage-collection activity. These
 per-request runtime observations are specific to the local PHP built-in server
 used by the Laravel example and should be revisited if its application server
-or worker model changes.
+or worker model changes. The Vue frontend dashboard shows Node.js heap use,
+process resident memory, and process uptime for its static UI host.
 
 Prometheus also scrapes kubelet resource metrics through the Kubernetes API
 server's node proxy. The Prometheus service account can discover nodes and
@@ -80,14 +81,17 @@ central stack's actual mapped port:
 
 | Stack | HTTP port | HTTPS port | Gitea HTTP / SSH | Woodpecker | Registry |
 |---|---:|---:|---:|---:|---:|
-| Central | 80 | 443 | 3000 / 2222 | 8000 | 5000 |
-| Source 1 | 8081 | 8444 | 3100 / 2223 | 8001 | 5001 |
-| Source 2 | 8082 | 8445 | 3200 / 2224 | 8002 | 5002 |
+| Frontend / central receiver | 80 | 443 | 3000 / 2222 | 8000 | 5000 |
+| API / forwarder | 8080 | 8443 | 3100 / 2322 | 8100 | 5100 |
+| Another source | 8081 | 8444 | 3200 / 2422 | 8200 | 5200 |
 
-For example, the central stack could instead use HTTP 9080 and HTTPS 9443;
-update the endpoint on the receiver and every forwarder to
-`https://host.k3d.internal:9443`. The source stacks still use their own unique
-ports for their browser ingress.
+This mapping keeps the frontend on the default HTTP port `80` and gives the
+API stack HTTP port `8080`. If you choose other ports, update the API URL,
+CORS origin, and central Collector endpoint to match. For example, if the
+frontend stack maps HTTPS to `9443`, use
+`https://host.k3d.internal:9443` in the receiver and every forwarder. The
+Collector's in-cluster OTLP ports remain `4317` (gRPC) and `4318` (HTTP); the
+host HTTPS port is the ingress route used to reach central OTLP/HTTP.
 
 Give each checkout a unique `STACK_NAME`; this also gives it a separate Docker
 network and storage volumes. Set the ports in each checkout's `.env`. The
@@ -96,8 +100,9 @@ targets the central stack's mapped port. Do not use
 `${K3D_CLUSTER_PORT_SSL}` in a forwarder's endpoint: it expands to that
 forwarder's port, not the central stack's port.
 
-The `.env` configuration uses three variables. On the receiving stack, enable
-ingest, leave export local, and use the default endpoint:
+The `.env` configuration uses three variables. In this two-stack example,
+the frontend is the receiving stack. Enable ingest there, leave its export
+local, and use its default HTTPS endpoint:
 
 ```dotenv
 OTEL_CENTRAL_INGEST_ENABLED=true
@@ -105,7 +110,8 @@ OTEL_CENTRAL_EXPORT_MODE=local
 OTEL_CENTRAL_COLLECTOR_ENDPOINT=https://host.k3d.internal:443
 ```
 
-On each forwarding stack, use the same endpoint and choose `forward` or `both`:
+On the API stack and each other forwarding stack, use the same endpoint and
+choose `forward` or `both`:
 
 ```dotenv
 OTEL_CENTRAL_INGEST_ENABLED=false
@@ -141,14 +147,14 @@ names are fixed in the manifests. For the commands below, replace the context
 names with the contexts for your stacks (`k3d-<K3D_CLUSTER_NAME>`):
 
 ```sh
+CENTRAL_CONTEXT=k3d-frontend-cluster
 API_CONTEXT=k3d-api-cluster
-FRONTEND_CONTEXT=k3d-frontend-cluster
 ```
 
 Install `mkcert` and `htpasswd` first (`apache2-utils` on Debian/Ubuntu or
-`httpd-tools` on Fedora/RHEL). Run the API stack and wait for Flux to create
-its `monitoring` namespace. For local HTTPS, create a certificate for the
-ingress hostname and a local CA:
+`httpd-tools` on Fedora/RHEL). Run the frontend/central stack and wait for
+Flux to create its `monitoring` namespace. For local HTTPS, create a
+certificate for the ingress hostname and a local CA:
 
 ```sh
 mkcert -install
@@ -156,30 +162,30 @@ mkcert host.k3d.internal
 ```
 
 The commands create `host.k3d.internal.pem` and
-`host.k3d.internal-key.pem`. On the API context, create the TLS Secret and the
-ingress-nginx Basic Auth Secret:
+`host.k3d.internal-key.pem`. On the central context, create the TLS Secret and
+the ingress-nginx Basic Auth Secret:
 
 ```sh
-kubectl --context "$API_CONTEXT" create secret tls otel-central-ingest-tls \
+kubectl --context "$CENTRAL_CONTEXT" create secret tls otel-central-ingest-tls \
   --namespace monitoring \
   --cert=host.k3d.internal.pem --key=host.k3d.internal-key.pem
 
 htpasswd -c auth otel-forwarder
-kubectl --context "$API_CONTEXT" create secret generic otel-central-ingest-auth \
+kubectl --context "$CENTRAL_CONTEXT" create secret generic otel-central-ingest-auth \
   --namespace monitoring --from-file=auth=./auth
 ```
 
 Use a certificate whose SAN covers the hostname in
 `OTEL_CENTRAL_COLLECTOR_ENDPOINT`. Each forwarder also needs the issuing CA,
 because the Collector pod does not inherit the host's `mkcert -install` trust.
-Create a Basic Auth client Secret in the frontend context. Use the same
+Create a Basic Auth client Secret in the API context. Use the same
 password entered for `htpasswd`:
 
 ```sh
 read -rsp 'Basic Auth password: ' OTEL_INGEST_PASSWORD
 printf '\n'
 OTEL_AUTH_HEADER="Basic $(printf '%s' "otel-forwarder:${OTEL_INGEST_PASSWORD}" | base64 | tr -d '\n')"
-kubectl --context "$FRONTEND_CONTEXT" create secret generic otel-central-client-auth \
+kubectl --context "$API_CONTEXT" create secret generic otel-central-client-auth \
   --namespace monitoring \
   --from-literal=authorization="${OTEL_AUTH_HEADER}" \
   --from-file=ca.crt="$(mkcert -CAROOT)/rootCA.pem"
@@ -192,20 +198,21 @@ Git. The CA certificate is public but should still be kept with the local
 configuration that needs it.
 
 For HTTP, skip `mkcert` and the receiver TLS Secret. Set the endpoint on the
-API stack and its forwarders to `http://host.k3d.internal:<CENTRAL_HTTP_PORT>`;
-for the default central port, that is `http://host.k3d.internal:80`. Create
-each client Secret with only the `authorization` key, omitting `--from-file`.
+frontend/central stack and its forwarders to
+`http://host.k3d.internal:<CENTRAL_HTTP_PORT>`; for the default central port,
+that is `http://host.k3d.internal:80`. Create each client Secret with only
+the `authorization` key, omitting `--from-file`.
 HTTP sends the Basic Auth header and telemetry without encryption, so use it
 only on a trusted single-host lab and do not expose the port to an untrusted
 network. The Collector appends `/v1/traces` and `/v1/logs` to the endpoint.
 
 After Flux reconciles both GitOps repositories, send a request that crosses
-stacks. In the receiving stack's Grafana, use Tempo Explore to open the trace.
-The trace-to-logs link queries the receiving stack's Loki, which now contains
-OTLP logs forwarded from both stacks. The reverse TraceID link from Loki is
-also provisioned. Laravel app-template workloads export correlated Monolog
-records over OTLP; other services need to emit OTLP logs containing trace IDs
-for log correlation to resolve.
+stacks. In the frontend/central stack's Grafana, use Tempo Explore to open the
+trace. The trace-to-logs link queries the receiving stack's Loki, which now
+contains OTLP logs forwarded from both stacks. The reverse TraceID link from
+Loki is also provisioned. Laravel app-template workloads export correlated
+Monolog records over OTLP; other services need to emit OTLP logs containing
+trace IDs for log correlation to resolve.
 
 With the default `local` mode and ingest disabled, the Collector continues
 exporting to its local Tempo and Loki and the stack does not expose an OTLP
@@ -223,134 +230,110 @@ in its GitOps repository and let Flux reconcile them.
 
 ### Step-by-step frontend/backend exercise
 
-This exercise runs a Go frontend/BFF in one stack and the Laravel API in a
-second stack. The API stack receives telemetry from both Collectors and its
-Grafana shows the combined trace. The Go template currently serves a static
-response; the small code change below makes it call the Laravel API so the
-request crosses the stack boundary.
+This exercise runs the Vue frontend in one stack and the Laravel API in a
+second stack. The frontend stack is the central receiver: the browser sends
+its spans through its local Collector, and the API stack's Collector forwards
+API traces and logs to it. The frontend stack's Grafana shows the combined
+trace and correlated logs.
 
 1. **Choose stack names and ports.** Use two separate checkouts of this
    repository, for example `frontend` and `api`, and give each a unique
-   `STACK_NAME`. Start with the central/API stack's default HTTP/HTTPS ports
-   `80` and `443`, and use unused ports such as `8081` and `8444` for the
-   frontend stack. If those central ports are occupied, choose any available
-   pair, such as `9080` and `9443`. Ports must be unique on the Docker host;
-   the API endpoint below must use the API stack's actual HTTP port.
+   `STACK_NAME`. Keep the frontend on HTTP `80` and HTTPS `443`; set the API
+   stack to HTTP `8080` and HTTPS `8443`. In each checkout's `.env`, also give
+   Gitea, Woodpecker, and the registry unique host ports as shown in the
+   allocation table above. All published ports must be unique on the Docker
+   host. These are example choices; use another free port pair and update the
+   URLs and Collector endpoint below if needed.
 
-2. **Configure the API stack as the receiver.** In the API checkout's `.env`,
-   set:
+2. **Configure the frontend stack as the receiver.** In the frontend
+   checkout's `.env`, set:
 
    ```dotenv
+   K3D_CLUSTER_PORT=80
+   K3D_CLUSTER_PORT_SSL=443
    OTEL_CENTRAL_INGEST_ENABLED=true
    OTEL_CENTRAL_EXPORT_MODE=local
    OTEL_CENTRAL_COLLECTOR_ENDPOINT=https://host.k3d.internal:443
    ```
 
-   Replace `443` with the API stack's HTTPS host port if you chose another
-   value. For example, use `https://host.k3d.internal:9443` when the API
-   stack maps HTTPS to `9443`. This endpoint also sets the host covered by the
-   receiver Ingress and TLS certificate.
+   This endpoint uses the frontend stack's HTTPS host port and sets the host
+   covered by the receiver Ingress and TLS certificate. If you leave
+   `OTEL_CENTRAL_EXPORT_MODE=local`, it is not used by the receiver itself,
+   but it must still match the endpoint configured on forwarders.
 
-3. **Configure the frontend stack as a forwarder.** In the frontend
-   checkout's `.env`, set:
+3. **Configure the API stack as a forwarder.** In the API checkout's `.env`,
+   set:
 
    ```dotenv
+   K3D_CLUSTER_PORT=8080
+   K3D_CLUSTER_PORT_SSL=8443
    OTEL_CENTRAL_INGEST_ENABLED=false
    OTEL_CENTRAL_EXPORT_MODE=forward
    OTEL_CENTRAL_COLLECTOR_ENDPOINT=https://host.k3d.internal:443
    ```
 
-   Use exactly the same central endpoint as in the API checkout. Set
-   `OTEL_CENTRAL_EXPORT_MODE=both` if you also want the frontend stack to keep
-   a local telemetry copy. The endpoint port is the API stack's HTTPS port,
-   not the frontend stack's HTTPS port.
+   Use exactly the same central endpoint as in the frontend checkout. Set
+   `OTEL_CENTRAL_EXPORT_MODE=both` if you also want the API stack to keep a
+   local telemetry copy. The endpoint port is the frontend stack's HTTPS
+   port, not the API stack's HTTPS port.
 
-4. **Initialize both stacks and render the apps.** In the API checkout, run
-   `./scripts/copy-templates.sh laravel`; in the frontend checkout, run
-   `./scripts/copy-templates.sh go`. Follow the root README installation
+4. **Initialize both stacks and render the apps.** In the frontend checkout,
+   run `./scripts/copy-templates.sh vue`; in the API checkout, run
+   `./scripts/copy-templates.sh laravel`. Follow the root README installation
    steps and each generated app README to set up the two GitOps repositories
    and start both clusters. Wait for Flux to create each stack's `monitoring`
    namespace before making its Secrets.
 
-5. **Create the receiver and client Secrets.** On the API stack, create
-   `otel-central-ingest-tls` and `otel-central-ingest-auth`; on the frontend
-   stack, create `otel-central-client-auth`. Follow the HTTPS commands in
+5. **Create the receiver and client Secrets.** On the frontend stack, create
+   `otel-central-ingest-tls` and `otel-central-ingest-auth`; on the API stack,
+   create `otel-central-client-auth`. Follow the HTTPS commands in
    [Secret and TLS setup](#secret-and-tls-setup) above. Substitute the actual
-   Kubernetes contexts. The API Secret belongs to the receiving stack; create
-   a client Secret in every forwarding stack.
+   Kubernetes contexts. The frontend Secrets belong to the receiving stack;
+   create a client Secret in every forwarding stack.
 
-6. **Set distinct service names and deploy the apps.** In the API GitOps
-   repository, set the staging app's `OTEL_SERVICE_NAME` to `backend`; in the
-   frontend GitOps repository, set it to `frontend`. These values are in
-   `apps/app/base/deployment.yaml`. Add this environment variable to that
-   same Deployment in the frontend GitOps repository, using the API's actual
-   HTTP host port:
+6. **Set the API origin and CORS allowlist.** In the frontend GitOps
+   repository, edit `apps/app/base/app-template/runtime.env` and set
+   `BACKEND_API_URL` to the API stack's browser-accessible origin. In the API
+   GitOps repository, set `CORS_ALLOWED_ORIGINS` to the frontend's browser
+   origin. With the example ports:
 
-   ```yaml
-   - name: BACKEND_URL
-     value: http://host.k3d.internal:80/api/hello
+   ```dotenv
+   # Frontend stack: apps/app/base/app-template/runtime.env
+   BACKEND_API_URL=http://staging.localhost:8080
+
+   # API stack: apps/app/base/app-template/runtime.env
+   CORS_ALLOWED_ORIGINS=http://staging.localhost
    ```
 
-   The distinct service names make the trace and logs easier to read. Commit
-   and push the GitOps changes and follow the generated app READMEs to publish
-   each app so Flux deploys them.
+   Update these if you choose other HTTP host ports. The frontend URL omits
+   `:80` because browsers normalize the default HTTP port out of the origin.
+   The Laravel template allows only the configured origin and the W3C
+   `traceparent`, `tracestate`, and `baggage` headers. CORS does not
+   authenticate requests.
 
-7. **Make the frontend call the API with tracing enabled.** In
-   `src/main.go` in the frontend app repository, replace `homeHandler` with
-   a handler that uses an instrumented HTTP transport. For example:
-
-   ```go
-   func homeHandler(w http.ResponseWriter, r *http.Request) {
-       backendURL := os.Getenv("BACKEND_URL")
-       req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, backendURL, nil)
-       if err != nil {
-           http.Error(w, "cannot create backend request", http.StatusInternalServerError)
-           return
-       }
-       // The central API ingress routes by this host name.
-       req.Host = "staging.localhost"
-
-       client := &http.Client{
-           Transport: otelhttp.NewTransport(http.DefaultTransport),
-           Timeout:   10 * time.Second,
-       }
-       resp, err := client.Do(req)
-       if err != nil {
-           http.Error(w, "backend request failed", http.StatusBadGateway)
-           return
-       }
-       defer resp.Body.Close()
-       w.Header().Set("Content-Type", "application/json")
-       w.WriteHeader(resp.StatusCode)
-       _, _ = io.Copy(w, resp.Body)
-   }
-   ```
-
-   Add `io` to the imports. `otelhttp.NewTransport` creates the client span
-   and injects W3C trace context; Laravel's request instrumentation extracts
-   it on the API side. Set `BACKEND_URL` on the frontend Deployment to
-   `http://host.k3d.internal:80/api/hello` when the API stack uses HTTP port
-   80, or substitute its actual HTTP host port (for example,
-   `http://host.k3d.internal:9080/api/hello`). The `req.Host` override lets
-   central ingress route the request to `staging.localhost`. Commit and push
-   this change to the frontend app repository so CI builds and deploys it.
+7. **Deploy both apps.** Commit and push the GitOps changes, then follow the
+   generated app READMEs to publish the Laravel and Vue app repositories so
+   CI builds the images and Flux deploys them. The Vue template already has a
+   three-step demo funnel and a final action that calls Laravel's
+   `/api/hello` endpoint with browser trace context.
 
 8. **Generate and inspect a cross-stack trace.** Open the frontend at
-   `http://staging.localhost:<FRONTEND_HTTP_PORT>/` and make a request. In the
-   API stack, open Grafana at
-   `http://monitoring.localhost:<API_HTTP_PORT>/`, select Tempo in Explore,
-   and open a recent trace. It should contain the frontend server span, the
-   frontend HTTP client span, and the Laravel backend server span. Follow the
-   trace-to-logs link to see correlated OTLP logs from either stack in the
-   API stack's Loki.
+   `http://staging.localhost/` and make a request. In the frontend/central
+   stack, open Grafana at `http://monitoring.localhost/`, select Tempo in
+   Explore, and open recent traces. Vue page-load and funnel-navigation spans identify
+   the browser activity. The trace from the final demo action should contain
+   the browser submit span, its API client span, and the Laravel backend
+   server span. The browser sends spans to `/_otel/v1/traces` on its own
+   origin; the Vue template's small static host relays that OTLP request to
+   the frontend stack's Collector. The API stack's Collector forwards its
+   spans and logs centrally. Use the trace-to-logs link on the Laravel server
+   span to find its correlated Monolog records in the frontend stack's Loki.
 
-This server-side frontend/BFF exercise traces the browser request as it
-reaches the Go server and follows its API call. It does not capture browser
-JavaScript execution or page rendering. For browser-side spans, add the
-OpenTelemetry JavaScript SDK and configure browser CORS and an OTLP endpoint;
-never put the Collector's Basic Auth credential in browser code. A browser
-SDK needs a separately secured ingest path because the lab's central receiver
-uses Basic Auth.
+The OTLP relay accepts unauthenticated protobuf trace batches up to 1 MiB and
+is intended only for this local lab. It does not accept the central Collector's
+Basic Auth credential from browser code. Do not attach form values, personal
+data, credentials, or unrestricted URL values to browser spans. The browser
+SDK is experimental; see the Vue template README for its limits and setup.
 
 Loki retains logs for seven days and Tempo retains traces for 48 hours. Each
 uses a 2Gi PVC, backed by the cluster's local-path storage in the local k3d
