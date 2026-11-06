@@ -40,24 +40,30 @@ covers browser transport constraints.
 
 ## Configure the API URL and CORS
 
-The generated GitOps component sets `BACKEND_API_URL` to
+The shared runtime defaults set `BACKEND_API_URL` to
 `http://staging.localhost:8080`, assuming the API stack uses HTTP host port
-`8080`. In the frontend stack's GitOps repository, edit
-`apps/app/base/app-template/runtime.env` to point at the Laravel API stack's
-browser-accessible origin. If the API stack uses host port `9080`, set:
+`8080`. Each generated environment overlay has its own `runtime.env` file,
+merged over those shared defaults:
+
+- `apps/app/overlays/staging/runtime.env`
+- `apps/app/overlays/production/runtime.env`
+
+Set `BACKEND_API_URL` in each overlay to the API stack's browser-accessible
+origin. The staging default is `http://staging.localhost:8080`; the production
+default is `http://production.localhost:8080`. If the staging API uses host
+port `9080`, set this in `apps/app/overlays/staging/runtime.env`:
 
 ```dotenv
 BACKEND_API_URL=http://staging.localhost:9080
 ```
 
-In the Laravel API stack's GitOps repository, set
-`CORS_ALLOWED_ORIGINS` in `apps/app/base/app-template/runtime.env` to the
-frontend's exact browser origin. The default is `http://staging.localhost`,
-the origin when the frontend stack uses the default HTTP port `80`. Add a
-port, such as `:8081`, if the frontend uses a non-default HTTP port. The API
-allows GET/POST preflight and the W3C tracing
-headers, without cookies or credentials. CORS is not an authentication
-mechanism.
+In the Laravel API stack's GitOps repository, set `CORS_ALLOWED_ORIGINS` in
+the matching staging or production overlay's `runtime.env` to the frontend's
+exact browser origin. Defaults are `http://staging.localhost` and
+`http://production.localhost`, assuming the frontend uses the default HTTP
+port `80`. Add a port, such as `:8081`, if the frontend uses a non-default
+HTTP port. The API allows GET/POST preflight and the W3C tracing headers,
+without cookies or credentials. CORS is not an authentication mechanism.
 
 These runtime settings are not secrets. Keep the actual Collector Basic Auth
 credentials in Kubernetes Secrets, never in browser configuration.
@@ -104,8 +110,10 @@ panel and choose **Open in Browser**. Vite output is written to
 `/tmp/vite-dev-server.log` in the container.
 
 The Vite dev server provides `/runtime-config.json` and defaults the API
-origin to `http://staging.localhost:8080`. Override it when starting Vite if
-your Laravel API uses another browser-accessible origin:
+origin to `http://staging.localhost:8080`. To use another browser-accessible
+API origin in the Dev Container, set `VITE_BACKEND_API_URL` under
+`containerEnv` in `.devcontainer/devcontainer.json`, then rebuild the
+container. For a manually started Vite process, you can instead run:
 
 ```sh
 VITE_BACKEND_API_URL=http://localhost:8000 npm run dev

@@ -291,25 +291,27 @@ trace and correlated logs.
    Kubernetes contexts. The frontend Secrets belong to the receiving stack;
    create a client Secret in every forwarding stack.
 
-6. **Set the API origin and CORS allowlist.** In the frontend GitOps
-   repository, edit `apps/app/base/app-template/runtime.env` and set
-   `BACKEND_API_URL` to the API stack's browser-accessible origin. In the API
-   GitOps repository, set `CORS_ALLOWED_ORIGINS` to the frontend's browser
-   origin. With the example ports:
+6. **Set the API origin and CORS allowlist.** In each stack's GitOps
+   repository, edit the matching environment overlay's `runtime.env`. Set
+   the frontend's `BACKEND_API_URL` to the API stack's browser-accessible
+   origin, and set the API's `CORS_ALLOWED_ORIGINS` to the frontend's browser
+   origin. For staging with the example ports:
 
    ```dotenv
-   # Frontend stack: apps/app/base/app-template/runtime.env
+   # Frontend stack: apps/app/overlays/staging/runtime.env
    BACKEND_API_URL=http://staging.localhost:8080
 
-   # API stack: apps/app/base/app-template/runtime.env
+   # API stack: apps/app/overlays/staging/runtime.env
    CORS_ALLOWED_ORIGINS=http://staging.localhost
    ```
 
-   Update these if you choose other HTTP host ports. The frontend URL omits
-   `:80` because browsers normalize the default HTTP port out of the origin.
-   The Laravel template allows only the configured origin and the W3C
-   `traceparent`, `tracestate`, and `baggage` headers. CORS does not
-   authenticate requests.
+   Configure production separately in each repository's
+   `apps/app/overlays/production/runtime.env`, using the production API and
+   frontend origins. Update these if you choose other HTTP host ports. The
+   frontend URL omits `:80` because browsers normalize the default HTTP port
+   out of the origin. The Laravel template allows only the configured origin
+   and the W3C `traceparent`, `tracestate`, and `baggage` headers. CORS does
+   not authenticate requests.
 
 7. **Deploy both apps.** Commit and push the GitOps changes, then follow the
    generated app READMEs to publish the Laravel and Vue app repositories so

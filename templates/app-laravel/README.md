@@ -36,14 +36,17 @@ Loki entries. Avoid logging lead form values, credentials, or other sensitive
 data because the same log record is sent to both container stderr and Loki.
 
 The `config/cors.php` configuration supports the separate Vue frontend
-template. Set `CORS_ALLOWED_ORIGINS` to the exact browser origin. For the
-frontend's default HTTP port `80`, use `http://staging.localhost`; add a port
-such as `:8081` only when the frontend uses a non-default HTTP port. Browsers
-omit the default `:80` when serializing an origin. CORS allows the W3C
-`traceparent`, `tracestate`, and `baggage` headers so the browser's trace
-context can reach Laravel. The generated runtime configuration enables the
-`tracecontext,baggage` propagators. CORS does not authenticate requests; keep
-the allowlist narrow and do not log submitted personal data.
+template. Set `CORS_ALLOWED_ORIGINS` to the exact browser origin in the
+matching `apps/app/overlays/staging/runtime.env` or
+`apps/app/overlays/production/runtime.env` file in GitOps. The defaults are
+`http://staging.localhost` and `http://production.localhost` for frontends on
+the default HTTP port `80`; add a port such as `:8081` only when the frontend
+uses a non-default HTTP port. Browsers omit the default `:80` when serializing
+an origin. CORS allows the W3C `traceparent`, `tracestate`, and `baggage`
+headers so the browser's trace context can reach Laravel. The generated
+runtime configuration enables the `tracecontext,baggage` propagators. CORS
+does not authenticate requests; keep the allowlist narrow and do not log
+submitted personal data.
 
 In the two-stack Vue/Laravel exercise, this API stack forwards its traces and
 OTLP logs to the frontend stack's central Collector. Open the combined trace
@@ -142,11 +145,14 @@ current job during a rollout.
 
 To change the default worker settings for a new setup, edit the Laravel
 template's `gitops/runtime.env`. For an already-rendered stack, edit
-`apps/app/base/app-template/runtime.env` in the GitOps repository and push the
-change. Kustomize generates a content-hashed ConfigMap; Flux applies the new
-reference and Kubernetes rolls out the app and worker pods. To change worker
-capacity for new setups, edit `gitops/worker-deployment.yaml` in this
-template. For an installed stack, adjust `replicas` in
+`apps/app/base/app-template/runtime.env` in the GitOps repository for shared
+settings, or override a setting in
+`apps/app/overlays/staging/runtime.env` or
+`apps/app/overlays/production/runtime.env`. Kustomize merges overlay values
+into the base ConfigMap; Flux applies its new hashed reference and Kubernetes
+rolls out the app and worker pods. To change worker capacity for new setups,
+edit `gitops/worker-deployment.yaml` in this template. For an installed stack,
+adjust `replicas` in
 `apps/app/base/app-template/worker-deployment.yaml` or use an environment
 overlay patch for different staging and production capacity. App code changes
 are built into the shared image and its digest update applies to both the web

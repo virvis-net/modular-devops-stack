@@ -4,6 +4,13 @@ The `base/` directory contains the shared app Deployment and Service.
 Environment overlays in `overlays/staging/` and `overlays/production/` select
 the environment namespace and tune replicas/resources.
 
+For app templates that generate `app-runtime-config`, each overlay can include
+its own `runtime.env`. Kustomize merges those values over the shared defaults
+in `base/app-template/runtime.env`, generating the ConfigMap used by that
+environment's workloads. Use the overlay file for settings that differ between
+staging and production, such as an API origin or CORS allowlist. These files
+contain non-secret configuration; keep credentials in Kubernetes Secrets.
+
 The rendered base includes the runtime dependencies selected by the
 application template. Resources in the base are instantiated in each
 environment namespace so staging and production do not share runtime

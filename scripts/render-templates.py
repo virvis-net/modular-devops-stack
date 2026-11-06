@@ -270,6 +270,8 @@ def main() -> int:
         return 2
     render_app = render_target in {"both", "app-only"}
     render_gitops = render_target in {"both", "gitops-only"}
+    root = Path(__file__).resolve().parent.parent
+    app_template_root = root / "templates" / app_templates[app_template]
 
     try:
         values = {
@@ -287,6 +289,22 @@ def main() -> int:
                     "K3D_CLUSTER_NAME", r"[A-Za-z0-9][A-Za-z0-9._-]*"
                 )
         if render_gitops:
+            runtime_overlays = app_template_root / "gitops" / "overlays"
+            runtime_override_files = [
+                runtime_overlays / environment / "runtime.env"
+                for environment in ("staging", "production")
+            ]
+            has_runtime_overrides = all(
+                path.is_file() for path in runtime_override_files
+            )
+            has_partial_runtime_overrides = any(
+                path.is_file() for path in runtime_override_files
+            )
+            if has_partial_runtime_overrides and not has_runtime_overrides:
+                raise ValueError(
+                    f"{runtime_overlays} must provide runtime.env for both "
+                    "staging and production"
+                )
             values.update(
                 {
                     "K3D_CLUSTER_PORT": required_setting(
@@ -296,6 +314,15 @@ def main() -> int:
                         "K3D_CLUSTER_NAME", r"[A-Za-z0-9][A-Za-z0-9._-]*"
                     ),
                     "RUNTIME_DASHBOARD": runtime_dashboards[app_template],
+                    "APP_RUNTIME_CONFIG_BLOCK": (
+                        "configMapGenerator:\n"
+                        "  - name: app-runtime-config\n"
+                        "    behavior: merge\n"
+                        "    envs:\n"
+                        "      - runtime.env"
+                        if has_runtime_overrides
+                        else ""
+                    ),
                 }
             )
             values.update(central_telemetry_settings())
@@ -309,8 +336,6 @@ def main() -> int:
                 gitops_repo, allow_existing=render_target == "gitops-only"
             )
 
-        root = Path(__file__).resolve().parent.parent
-        app_template_root = root / "templates" / app_templates[app_template]
         if render_app:
             copy_rendered_tree(
                 app_template_root,
@@ -329,7 +354,11 @@ def main() -> int:
                 app_template_root / "gitops",
                 gitops_repo / "apps/app/base/app-template",
                 values,
-                excluded_paths={Path("cluster"), Path("migration")},
+                excluded_paths={
+                    Path("cluster"),
+                    Path("migration"),
+                    Path("overlays"),
+                },
             )
             copy_rendered_tree(
                 app_template_root / "gitops/cluster",
@@ -337,6 +366,15 @@ def main() -> int:
                 values,
             )
             for environment in ("staging", "production"):
+                runtime_overlay = (
+                    app_template_root / "gitops" / "overlays" / environment
+                )
+                if runtime_overlay.is_dir():
+                    copy_rendered_tree(
+                        runtime_overlay,
+                        gitops_repo / "apps/app/overlays" / environment,
+                        values,
+                    )
                 copy_rendered_tree(
                     app_template_root / "gitops/migration",
                     gitops_repo

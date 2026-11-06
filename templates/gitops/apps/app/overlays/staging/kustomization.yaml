@@ -6,6 +6,8 @@ namespace: staging
 resources:
   - ../../base
 
+__APP_RUNTIME_CONFIG_BLOCK__
+
 images:
   - name: registry:5000/app
     newTag: "latest"
