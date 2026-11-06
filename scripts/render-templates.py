@@ -126,7 +126,7 @@ def central_telemetry_settings() -> Dict[str, str]:
     }
 
 
-def require_empty_git_repo(path: Path) -> None:
+def require_renderable_git_repo(path: Path, allow_existing: bool) -> None:
     if not path.is_dir():
         raise ValueError(f"Repository clone not found: {path}")
 
@@ -139,17 +139,6 @@ def require_empty_git_repo(path: Path) -> None:
     if result.returncode != 0 or result.stdout.strip() != "true":
         raise ValueError(f"Not a Git working tree: {path}")
 
-    tracked = subprocess.run(
-        ["git", "-C", str(path), "ls-files", "--cached"],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout
-    if tracked:
-        raise ValueError(
-            f"{path} already contains tracked files. Clone an empty repository."
-        )
-
     status = subprocess.run(
         ["git", "-C", str(path), "status", "--porcelain", "--untracked-files=all"],
         check=True,
@@ -158,8 +147,22 @@ def require_empty_git_repo(path: Path) -> None:
     ).stdout
     if status:
         raise ValueError(
-            f"{path} is not empty. Clone an empty repository before copying templates."
+            f"{path} has uncommitted or untracked changes. Commit or stash them "
+            "before rendering."
         )
+
+    if not allow_existing:
+        tracked = subprocess.run(
+            ["git", "-C", str(path), "ls-files", "--cached"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        if tracked:
+            raise ValueError(
+                f"{path} already contains tracked files. Render an existing "
+                "repository with --app-only or --gitops-only."
+            )
 
 
 def copy_rendered_tree(
@@ -203,15 +206,51 @@ def copy_rendered_tree(
         target.write_text(content, encoding="utf-8")
 
 
+def parse_template_options(args):
+    app_template = "go"
+    render_target = "both"
+    app_template_set = False
+    render_target_set = False
+    app_templates = {"go", "laravel", "vue"}
+    render_targets = {"app-only", "gitops-only"}
+
+    for argument in args:
+        if argument in app_templates:
+            if app_template_set:
+                raise ValueError("choose only one app template")
+            app_template = argument
+            app_template_set = True
+        elif argument in {f"--{target}" for target in render_targets}:
+            if render_target_set:
+                raise ValueError("choose only one render target")
+            render_target = argument[2:]
+            render_target_set = True
+        else:
+            raise ValueError(f"unrecognized template option {argument!r}")
+
+    return app_template, render_target
+
+
 def main() -> int:
-    if len(sys.argv) not in (3, 4):
+    if len(sys.argv) < 3 or len(sys.argv) > 5:
         print(
-            f"Usage: {Path(sys.argv[0]).name} APP_REPO GITOPS_REPO [go|laravel|vue]",
+            f"Usage: {Path(sys.argv[0]).name} APP_REPO GITOPS_REPO "
+            "[go|laravel|vue] [--app-only|--gitops-only]",
             file=sys.stderr,
         )
         return 2
 
-    app_template = sys.argv[3] if len(sys.argv) == 4 else "go"
+    try:
+        app_template, render_target = parse_template_options(sys.argv[3:])
+    except ValueError as error:
+        print(f"Template setup failed: {error}", file=sys.stderr)
+        print(
+            f"Usage: {Path(sys.argv[0]).name} APP_REPO GITOPS_REPO "
+            "[go|laravel|vue] [--app-only|--gitops-only]",
+            file=sys.stderr,
+        )
+        return 2
+
     app_templates = {
         "go": "app-go",
         "laravel": "app-laravel",
@@ -229,107 +268,139 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+    render_app = render_target in {"both", "app-only"}
+    render_gitops = render_target in {"both", "gitops-only"}
 
     try:
         values = {
             "GITEA_ORG": required_setting(
                 "GITEA_ORG", r"[A-Za-z0-9][A-Za-z0-9._-]*"
             ),
-            "REGISTRY_PORT": required_setting("REGISTRY_PORT", r"\d+"),
-            "K3D_CLUSTER_PORT": required_setting("K3D_CLUSTER_PORT", r"\d+"),
-            "K3D_CLUSTER_NAME": required_setting(
-                "K3D_CLUSTER_NAME", r"[A-Za-z0-9][A-Za-z0-9._-]*"
-            ),
-            "GITOPS_REPO_URL": required_setting(
-                "GITOPS_REPO_URL", r"ssh://[A-Za-z0-9@._:-]+/[A-Za-z0-9._/-]+"
-            ),
-            "RUNTIME_DASHBOARD": runtime_dashboards[app_template],
         }
-        values.update(central_telemetry_settings())
+        if render_app:
+            values["REGISTRY_PORT"] = required_setting("REGISTRY_PORT", r"\d+")
+            values["GITOPS_REPO_URL"] = required_setting(
+                "GITOPS_REPO_URL", r"ssh://[A-Za-z0-9@._:-]+/[A-Za-z0-9._/-]+"
+            )
+            if app_template == "laravel":
+                values["K3D_CLUSTER_NAME"] = required_setting(
+                    "K3D_CLUSTER_NAME", r"[A-Za-z0-9][A-Za-z0-9._-]*"
+                )
+        if render_gitops:
+            values.update(
+                {
+                    "K3D_CLUSTER_PORT": required_setting(
+                        "K3D_CLUSTER_PORT", r"\d+"
+                    ),
+                    "K3D_CLUSTER_NAME": required_setting(
+                        "K3D_CLUSTER_NAME", r"[A-Za-z0-9][A-Za-z0-9._-]*"
+                    ),
+                    "RUNTIME_DASHBOARD": runtime_dashboards[app_template],
+                }
+            )
+            values.update(central_telemetry_settings())
         app_repo, gitops_repo = (Path(arg).resolve() for arg in sys.argv[1:3])
-        require_empty_git_repo(app_repo)
-        require_empty_git_repo(gitops_repo)
+        if render_app:
+            require_renderable_git_repo(
+                app_repo, allow_existing=render_target == "app-only"
+            )
+        if render_gitops:
+            require_renderable_git_repo(
+                gitops_repo, allow_existing=render_target == "gitops-only"
+            )
 
         root = Path(__file__).resolve().parent.parent
         app_template_root = root / "templates" / app_templates[app_template]
-        copy_rendered_tree(
-            app_template_root,
-            app_repo,
-            values,
-            excluded_paths={Path("gitops")},
-        )
-        copy_rendered_tree(
-            root / "templates/gitops",
-            gitops_repo,
-            values,
-        )
-        copy_rendered_tree(
-            app_template_root / "gitops",
-            gitops_repo / "apps/app/base/app-template",
-            values,
-            excluded_paths={Path("cluster"), Path("migration")},
-        )
-        copy_rendered_tree(
-            app_template_root / "gitops/cluster",
-            gitops_repo / "clusters" / values["K3D_CLUSTER_NAME"],
-            values,
-        )
-        for environment in ("staging", "production"):
+        if render_app:
             copy_rendered_tree(
-                app_template_root / "gitops/migration",
+                app_template_root,
+                app_repo,
+                values,
+                excluded_paths={Path("gitops")},
+            )
+
+        if render_gitops:
+            copy_rendered_tree(
+                root / "templates/gitops",
+                gitops_repo,
+                values,
+            )
+            copy_rendered_tree(
+                app_template_root / "gitops",
+                gitops_repo / "apps/app/base/app-template",
+                values,
+                excluded_paths={Path("cluster"), Path("migration")},
+            )
+            copy_rendered_tree(
+                app_template_root / "gitops/cluster",
+                gitops_repo / "clusters" / values["K3D_CLUSTER_NAME"],
+                values,
+            )
+            for environment in ("staging", "production"):
+                copy_rendered_tree(
+                    app_template_root / "gitops/migration",
+                    gitops_repo
+                    / "apps/app/overlays"
+                    / environment
+                    / "migration",
+                    values,
+                )
+            monitoring_source = (
+                root / "stack/monitoring/provider/kubernetes/manifests"
+            )
+            monitoring_destination = (
                 gitops_repo
-                / "apps/app/overlays"
-                / environment
-                / "migration",
-                values,
+                / "clusters"
+                / values["K3D_CLUSTER_NAME"]
+                / "monitoring"
             )
-        monitoring_source = root / "stack/monitoring/provider/kubernetes/manifests"
-        monitoring_destination = (
-            gitops_repo / "clusters" / values["K3D_CLUSTER_NAME"] / "monitoring"
-        )
-        copy_rendered_tree(
-            monitoring_source,
-            monitoring_destination,
-            values,
-            excluded_paths={
-                Path("grafana/provisioning/go-runtime-dashboard.json"),
-                Path("grafana/provisioning/laravel-runtime-dashboard.json"),
-                Path("opentelemetry-collector/central-ingress"),
-            } - {
-                Path("grafana/provisioning") / values["RUNTIME_DASHBOARD"]
-            },
-        )
-        if values["OTEL_CENTRAL_INGEST_ENABLED"] == "true":
             copy_rendered_tree(
-                monitoring_source / "opentelemetry-collector/central-ingress",
-                monitoring_destination
-                / "opentelemetry-collector/central-ingress",
+                monitoring_source,
+                monitoring_destination,
                 values,
+                excluded_paths={
+                    Path("grafana/provisioning/go-runtime-dashboard.json"),
+                    Path("grafana/provisioning/laravel-runtime-dashboard.json"),
+                    Path("opentelemetry-collector/central-ingress"),
+                }
+                - {
+                    Path("grafana/provisioning") / values["RUNTIME_DASHBOARD"]
+                },
             )
-            collector_kustomization = (
-                monitoring_destination
-                / "opentelemetry-collector/kustomization.yaml"
-            )
-            content = collector_kustomization.read_text(encoding="utf-8")
-            content = content.replace(
-                "resources:\n",
-                "resources:\n  - central-ingress\n",
-                1,
-            )
-            collector_kustomization.write_text(content, encoding="utf-8")
+            if values["OTEL_CENTRAL_INGEST_ENABLED"] == "true":
+                copy_rendered_tree(
+                    monitoring_source
+                    / "opentelemetry-collector/central-ingress",
+                    monitoring_destination
+                    / "opentelemetry-collector/central-ingress",
+                    values,
+                )
+                collector_kustomization = (
+                    monitoring_destination
+                    / "opentelemetry-collector/kustomization.yaml"
+                )
+                content = collector_kustomization.read_text(encoding="utf-8")
+                content = content.replace(
+                    "resources:\n",
+                    "resources:\n  - central-ingress\n",
+                    1,
+                )
+                collector_kustomization.write_text(content, encoding="utf-8")
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"Template setup failed: {error}", file=sys.stderr)
         return 1
 
-    print(f"Rendered {app_template} app template into {app_repo}")
-    print(f"Rendered GitOps template into {gitops_repo}")
-    print(f"Rendered Kubernetes monitoring provider into {gitops_repo}")
-    if values["OTEL_CENTRAL_INGEST_ENABLED"] == "true":
+    if render_app:
+        print(f"Rendered {app_template} app template into {app_repo}")
+    if render_gitops:
+        print(f"Rendered GitOps template into {gitops_repo}")
+        print(f"Rendered Kubernetes monitoring provider into {gitops_repo}")
+    if render_gitops and values["OTEL_CENTRAL_INGEST_ENABLED"] == "true":
         print(
             "Enabled central OTLP ingestion at "
             f"{values['OTEL_CENTRAL_COLLECTOR_ENDPOINT']}"
         )
-    if values["OTEL_CENTRAL_EXPORT_MODE"] in {"forward", "both"}:
+    if render_gitops and values["OTEL_CENTRAL_EXPORT_MODE"] in {"forward", "both"}:
         print(
             f"OTLP export mode {values['OTEL_CENTRAL_EXPORT_MODE']}: sending traces and logs to "
             f"{values['OTEL_CENTRAL_COLLECTOR_ENDPOINT']}"
