@@ -240,8 +240,16 @@ backup is available.
 
 The Dev Container runs `composer install` on startup, which creates
 `composer.lock` if it is absent. Commit that generated file before the first
-push. CI and the production image require the lock and use `composer install`
-so they share the same resolved dependency versions.
+push; CI and the production image require it and use `composer install`. To
+generate the lock manually, run this from the app repository root before the
+first push:
+
+```sh
+composer update --no-interaction --prefer-dist
+```
+
+Both methods resolve dependency versions and write `composer.lock`. After it is
+committed, `composer install` uses those locked versions.
 
 For local development, copy `.env.example` to `.env`, install dependencies
 with Composer, and run `php artisan key:generate` before using encrypted

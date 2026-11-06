@@ -85,6 +85,12 @@ file. Creating its Dev Container runs `npm install`, which creates
 `package-lock.json` in the generated app repository. Commit that file before
 the first push: CI and Docker use `npm ci` and require the lockfile. The Vue
 range starts at `3.5.45`; the generated lock records the exact release used.
+To generate the lock manually instead, run this from the generated app
+repository root before the first push:
+
+```sh
+npm install
+```
 
 ## Develop in a Dev Container
 
