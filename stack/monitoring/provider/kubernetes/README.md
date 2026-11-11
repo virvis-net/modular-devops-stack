@@ -146,15 +146,58 @@ ingress; HTTP omits TLS. Both modes use Basic Auth, and the Kubernetes Secret
 names are fixed in the manifests. For the commands below, replace the context
 names with the contexts for your stacks (`k3d-<K3D_CLUSTER_NAME>`):
 
+Get the exact names with `kubectl config get-contexts`. Keep the option names
+as shown and replace only the sample values after `--central-context` and
+`--forwarder-context`: the central value is the receiving stack, and each
+forwarder value is an application stack sending telemetry. Add another
+`--forwarder-context` line for every additional application stack.
+
+The framework checkout includes `scripts/setup-stack-secrets.sh`, which
+creates the receiver and client auth Secrets and uses a temporary Apache
+container for `htpasswd`. For HTTP, run it from the framework checkout after
+the monitoring namespaces and central ingest Ingress exist:
+
+```sh
+./scripts/setup-stack-secrets.sh \
+  --central-context k3d-central-cluster \
+  --forwarder-context k3d-api-cluster \
+  --forwarder-context k3d-another-app-cluster \
+  --collector-scheme http \
+  --collector-only
+```
+
+Repeat `--forwarder-context KUBECTL_CONTEXT` for every forwarding stack. To
+also create database Secrets, omit `--collector-only` and pass a
+`--database-context KUBECTL_CONTEXT` for each Laravel stack that needs an
+`app-database` Secret. With multiple forwarders, database contexts must be
+explicit; without a database target, use `--collector-only`.
+
+For HTTPS, use `--collector-scheme https`; Docker builds a small mkcert helper
+image on first use, so neither `mkcert` nor `htpasswd` needs to be installed on
+the host. The mkcert CA key stays in the ignored `stack/.state/` directory and
+is reused on later runs. The helper also creates the Laravel `app-database`
+Secret in `staging` if it is missing. Add `--collector-only` to skip the
+database Secret or `--database-only` to skip Collector auth. Existing database
+credentials are preserved. See the framework README for all options.
+
+The equivalent manual commands are below.
+
 ```sh
 CENTRAL_CONTEXT=k3d-frontend-cluster
 API_CONTEXT=k3d-api-cluster
 ```
 
-Install `mkcert` and `htpasswd` first (`apache2-utils` on Debian/Ubuntu or
-`httpd-tools` on Fedora/RHEL). Run the frontend/central stack and wait for
-Flux to create its `monitoring` namespace. For local HTTPS, create a
-certificate for the ingress hostname and a local CA:
+These are example values: keep the variable names and replace only the values
+on the right with the context names shown by `kubectl config get-contexts`.
+`CENTRAL_CONTEXT` is the receiving stack; `API_CONTEXT` is one forwarding
+stack. Define another context variable when repeating the client Secret
+command for additional forwarders.
+
+The helper above runs both `mkcert` and `htpasswd` in containers. The manual
+commands below require those tools to be installed on the host (`apache2-utils`
+on Debian/Ubuntu or `httpd-tools` on Fedora/RHEL for `htpasswd`). Run the
+frontend/central stack and wait for Flux to create its `monitoring` namespace.
+For local HTTPS, create a certificate for the ingress hostname and a local CA:
 
 ```sh
 mkcert -install

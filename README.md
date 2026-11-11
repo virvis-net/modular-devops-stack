@@ -256,6 +256,44 @@ deploying the app. Follow the credential instructions in the rendered app
 repository's README; keep the Secret out of Git. Create its production
 counterpart when enabling the production namespace.
 
+For repeatable Kubernetes Secret setup, use
+`./scripts/setup-stack-secrets.sh`. It creates missing Laravel database
+Secrets and configures the frontend/backend Collector authentication Secrets.
+It preserves an existing database Secret; if a Secret is missing while a
+MariaDB PVC exists, it asks before creating new credentials. The script uses a
+temporary Apache container for `htpasswd`, so that utility need not be
+installed on the host. For example, with HTTP Collector traffic:
+
+First run `kubectl config get-contexts`. Keep the option names as shown, and
+replace only the sample values after `--central-context` and
+`--forwarder-context` with the contexts for the stack receiving telemetry and
+an application stack sending telemetry. Add one `--forwarder-context`
+argument for each sending stack.
+
+```sh
+./scripts/setup-stack-secrets.sh \
+  --central-context k3d-your-central-cluster \
+  --forwarder-context k3d-your-forwarder-cluster \
+  --collector-scheme http
+```
+
+The default database namespace is `staging`. Add
+`--database-namespace production` after the production namespace exists.
+Use `--collector-only` or `--database-only` to run only one part. HTTPS mode
+uses `--collector-scheme https`; the script builds its mkcert helper image,
+so neither mkcert nor htpasswd needs to be installed on the host. See the
+[Collector setup guide](stack/monitoring/provider/kubernetes/README.md) for
+the matching `OTEL_CENTRAL_*` GitOps settings. Re-render and push those
+settings separately; this helper creates cluster Secrets and does not edit
+GitOps. The Collector receiver Secret is updated each run: enter the existing
+shared forwarder password to keep other clients working, or choose a new one
+and update every forwarding stack's client Secret. Repeat
+`--forwarder-context` for any number of applications. With multiple
+forwarders, pass `--database-context` for each Laravel stack that needs a
+database Secret; otherwise use `--collector-only`. After deleting and
+recreating a k3d cluster, local-path data may remain in the Docker storage
+volume but its Kubernetes PVC metadata is not restored automatically.
+
 Push the rendered app repository to start the end-to-end delivery flow:
 
 ```sh
