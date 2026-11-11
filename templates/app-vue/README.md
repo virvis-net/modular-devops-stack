@@ -42,21 +42,17 @@ covers browser transport constraints.
 ## Configure the API URL and CORS
 
 The shared runtime defaults set `BACKEND_API_URL` to
-`http://staging.localhost:8080`, assuming the API stack uses HTTP host port
-`8080`. Each generated environment overlay has its own `runtime.env` file,
-merged over those shared defaults:
+`http://staging.localhost:9080`, assuming the API stack uses HTTP host port
+`9080` in the two-stack example. Each generated environment overlay has its own
+`runtime.env` file, merged over those shared defaults:
 
 - `apps/app/overlays/staging/runtime.env`
 - `apps/app/overlays/production/runtime.env`
 
 Set `BACKEND_API_URL` in each overlay to the API stack's browser-accessible
-origin. The staging default is `http://staging.localhost:8080`; the production
-default is `http://production.localhost:8080`. If the staging API uses host
-port `9080`, set this in `apps/app/overlays/staging/runtime.env`:
-
-```dotenv
-BACKEND_API_URL=http://staging.localhost:9080
-```
+origin. The staging default is `http://staging.localhost:9080`; the production
+default is `http://production.localhost:9080`. If you choose another API host
+port, update the corresponding overlay.
 
 In the Laravel API stack's GitOps repository, set `CORS_ALLOWED_ORIGINS` in
 the matching staging or production overlay's `runtime.env` to the frontend's
@@ -111,7 +107,7 @@ panel and choose **Open in Browser**. Vite output is written to
 `/tmp/vite-dev-server.log` in the container.
 
 The Vite dev server provides `/runtime-config.json` and defaults the API
-origin to `http://staging.localhost:8080`. To use another browser-accessible
+origin to `http://staging.localhost:9080`. To use another browser-accessible
 API origin in the Dev Container, set `VITE_BACKEND_API_URL` under
 `containerEnv` in `.devcontainer/devcontainer.json`, then rebuild the
 container. For a manually started Vite process, you can instead run:

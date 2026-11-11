@@ -84,14 +84,17 @@ central stack's actual mapped port:
 | Stack | HTTP port | HTTPS port | Gitea HTTP / SSH | Woodpecker | Registry |
 |---|---:|---:|---:|---:|---:|
 | Frontend / central receiver | 80 | 443 | 3000 / 2222 | 8000 | 5000 |
-| API / forwarder | 8080 | 8443 | 3100 / 2322 | 8100 | 5100 |
-| Another source | 8081 | 8444 | 3200 / 2422 | 8200 | 5200 |
+| API / forwarder | 9080 | 9443 | 3100 / 2322 | 8100 | 5100 |
+| Another source | 9081 | 9444 | 3200 / 2422 | 8200 | 5200 |
 
 This mapping keeps the frontend on the default HTTP port `80` and gives the
-API stack HTTP port `8080`. If you choose other ports, update the API URL,
-CORS origin, and central Collector endpoint to match. For example, if the
-frontend stack maps HTTPS to `9443`, use
-`https://host.k3d.internal:9443` in the receiver and every forwarder. The
+API stack HTTP port `9080`. Keep `5173`, `8080`, and `9090` available for
+Dev Container forwarded ports; use `9080`/`9443` for the first additional
+stack's HTTP/HTTPS ingress and increment each port for further stacks. Keep all
+other published ports unique on the Docker host. If you choose other ports,
+update the API URL, CORS origin, and central Collector endpoint to match. For
+example, if the frontend stack maps HTTPS to `9453`, use
+`https://host.k3d.internal:9453` in the receiver and every forwarder. The
 Collector's in-cluster OTLP ports remain `4317` (gRPC) and `4318` (HTTP); the
 host HTTPS port is the ingress route used to reach central OTLP/HTTP.
 
@@ -348,7 +351,7 @@ trace and correlated logs.
 1. **Choose stack names and ports.** Use two separate checkouts of this
    repository, for example `frontend` and `api`, and give each a unique
    `STACK_NAME`. Keep the frontend on HTTP `80` and HTTPS `443`; set the API
-   stack to HTTP `8080` and HTTPS `8443`. In each checkout's `.env`, also give
+   stack to HTTP `9080` and HTTPS `9443`. In each checkout's `.env`, also give
    Gitea, Woodpecker, and the registry unique host ports as shown in the
    allocation table above. All published ports must be unique on the Docker
    host. These are example choices; use another free port pair and update the
@@ -373,8 +376,8 @@ trace and correlated logs.
    set:
 
    ```dotenv
-   K3D_CLUSTER_PORT=8080
-   K3D_CLUSTER_PORT_SSL=8443
+   K3D_CLUSTER_PORT=9080
+   K3D_CLUSTER_PORT_SSL=9443
    OTEL_CENTRAL_INGEST_ENABLED=false
    OTEL_CENTRAL_EXPORT_MODE=forward
    OTEL_CENTRAL_COLLECTOR_ENDPOINT=http://host.k3d.internal:80
@@ -427,7 +430,7 @@ trace and correlated logs.
 
    ```dotenv
    # Frontend stack: apps/app/overlays/staging/runtime.env
-   BACKEND_API_URL=http://staging.localhost:8080
+   BACKEND_API_URL=http://staging.localhost:9080
 
    # API stack: apps/app/overlays/staging/runtime.env
    CORS_ALLOWED_ORIGINS=http://staging.localhost

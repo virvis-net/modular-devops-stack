@@ -11,7 +11,7 @@ function runtimeConfigPlugin() {
           return;
         }
 
-        const backendApiUrl = process.env.VITE_BACKEND_API_URL ?? 'http://staging.localhost:8080';
+        const backendApiUrl = process.env.VITE_BACKEND_API_URL ?? 'http://staging.localhost:9080';
         try {
           const parsed = new URL(backendApiUrl);
           if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
