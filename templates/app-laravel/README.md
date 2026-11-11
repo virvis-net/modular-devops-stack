@@ -28,12 +28,15 @@ official Laravel auto-instrumentation package. With
 `OTEL_PHP_AUTOLOAD_ENABLED=true`, Laravel request spans are exported over
 OTLP/HTTP to the configured Collector endpoint. The shared deployment sets
 `OTEL_SERVICE_NAME=app` and points the exporter at the in-cluster Collector.
-The Laravel Monolog channel also exports structured logs over OTLP. Logs keep
-the active trace and span IDs, so Grafana can link between Tempo traces and Loki
-logs. In Grafana, open Explore, select Tempo, and search for service `app` to
-inspect request traces; choose a span and use its Logs link to find matching
-Loki entries. Avoid logging lead form values, credentials, or other sensitive
-data because the same log record is sent to both container stderr and Loki.
+The Laravel Monolog channel also exports structured logs over OTLP. Log records
+written during a request keep the active trace and span IDs, so Grafana can link
+between Tempo traces and Loki logs. The `/api/hello` demo route writes a fixed
+`Demo API request handled` info record, which should appear in Loki with the
+request's trace ID. In Grafana, open Explore, select Tempo, and search for
+service `app` to inspect request traces; choose a span and use its Logs link to
+find the matching entry. Avoid logging lead form values, credentials, or other
+sensitive data because the same log record is sent to both container stderr
+and Loki.
 
 The `config/cors.php` configuration supports the separate Vue frontend
 template. Set `CORS_ALLOWED_ORIGINS` to the exact browser origin in the
@@ -50,7 +53,8 @@ submitted personal data.
 
 In the two-stack Vue/Laravel exercise, this API stack forwards its traces and
 OTLP logs to the frontend stack's central Collector. Open the combined trace
-and its trace-to-logs links in the frontend stack's Grafana.
+and use its trace-to-logs link to find the `/api/hello` Monolog record in the
+frontend stack's Grafana.
 
 The application has Laravel's database and cache integrations configured for
 MariaDB 13.0 and Redis 8.10, which are deployed with the Laravel GitOps
@@ -58,57 +62,105 @@ template in each environment. The sample API has not yet added
 application-specific models, migrations, or queries; add those as application
 features require them. The template includes a migration only for Laravel's
 failed-job table. MariaDB data is stored in a per-environment persistent
-volume, while Redis is an ephemeral cache. Create the `app-database`
-Kubernetes Secret in both `staging` and `production` before deploying to those
-namespaces. Production is opt-in, so create its Secret when enabling that
-environment. Generate separate credentials for each namespace:
+volume, while Redis is an ephemeral cache.
+
+MariaDB requires an `app-database` Kubernetes Secret in the same namespace.
+Flux creates the `staging` namespace during its initial reconciliation, so
+wait for that namespace before creating the Secret and before publishing the
+Laravel app image. If MariaDB was already scheduled, it may show
+`CreateContainerConfigError` until the Secret exists; it should start once the
+Secret is created. The original framework checkout, where the setup scripts
+live, includes a helper that generates random credentials and preserves an
+existing Secret. From that checkout, use the context listed by
+`kubectl config get-contexts`:
 
 ```sh
-kubectl create secret generic app-database --namespace staging \
-  --from-literal=root-password="$(python3 -c 'import secrets; print(secrets.token_hex(32))')" \
-  --from-literal=password="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+./scripts/setup-stack-secrets.sh --database-only \
+  --database-context k3d-your-cluster
+```
 
-# Run after the production namespace has been created.
-kubectl create secret generic app-database --namespace production \
+Replace only `k3d-your-cluster` with this stack's Kubernetes context. The
+namespace defaults to `staging`. Production is opt-in; before enabling it,
+create the `production` namespace and its Secret, then let Flux reconcile the
+production environment:
+
+```sh
+kubectl --context k3d-your-cluster create namespace production \
+  --dry-run=client -o yaml | kubectl --context k3d-your-cluster apply -f -
+./scripts/setup-stack-secrets.sh --database-only \
+  --database-context k3d-your-cluster \
+  --database-namespace production
+```
+
+Replace the context value in both commands. The GitOps Namespace resource
+will reconcile against this existing namespace when production is enabled.
+Alternatively, create the Secret manually once per namespace with separate
+credentials. Replace `k3d-your-cluster` with this stack's context. For
+staging, run:
+
+```sh
+kubectl --context k3d-your-cluster create secret generic app-database \
+  --namespace staging \
   --from-literal=root-password="$(python3 -c 'import secrets; print(secrets.token_hex(32))')" \
   --from-literal=password="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 ```
 
-The secret is intentionally not stored in Git. These services are configured
-for this local learning stack; add appropriate authentication, network
-controls, backups, and operational management before adapting them for
-production. The sample routes are stateless; provide `APP_KEY` as a secret
-before adding features that use encrypted cookies, sessions, or other
-application encryption. Do not commit keys or credentials to GitOps.
+For production, run this only after creating its namespace:
+
+```sh
+kubectl --context k3d-your-cluster create secret generic app-database \
+  --namespace production \
+  --from-literal=root-password="$(python3 -c 'import secrets; print(secrets.token_hex(32))')" \
+  --from-literal=password="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+```
+
+The manual commands fail if the Secret already exists; use the helper for
+repeatable setup. The Secret is intentionally not stored in Git. These
+services are configured for this local learning stack; add appropriate
+authentication, network controls, backups, and operational management before
+adapting them for production. The sample routes are stateless; provide
+`APP_KEY` as a secret before adding features that use encrypted cookies,
+sessions, or other application encryption. Do not commit keys or credentials
+to GitOps.
 
 ### Connecting to a Kubernetes database
 
 You can use HeidiSQL to inspect either environment without exposing MariaDB
-outside the cluster. In a terminal with the correct Kubernetes context, start
-a local port-forward. Keep this command running while HeidiSQL is connected:
+outside the cluster. Run `kubectl config get-contexts` and replace
+`k3d-your-cluster` below with the context for the stack containing MariaDB.
+In a terminal, start one port-forward and keep it running while HeidiSQL is
+connected.
+
+For staging, use:
 
 ```sh
-# Staging
-kubectl port-forward --namespace staging service/mariadb 3308:3306
+kubectl --context k3d-your-cluster port-forward \
+  --namespace staging service/mariadb 3308:3306
+```
 
-# Production
-kubectl port-forward --namespace production service/mariadb 3309:3306
+For production, after it is enabled, use:
+
+```sh
+kubectl --context k3d-your-cluster port-forward \
+  --namespace production service/mariadb 3309:3306
 ```
 
 The database user and database name are both `app`. Retrieve the password for
 the chosen namespace from its Kubernetes Secret:
 
 ```sh
-# Replace staging with production when connecting to production.
-kubectl get secret app-database --namespace staging \
+# Replace the context and namespace for the environment being inspected.
+kubectl --context k3d-your-cluster get secret app-database \
+  --namespace staging \
   --output jsonpath='{.data.password}' | base64 --decode
 echo
 ```
 
 In HeidiSQL, create a MariaDB/MySQL session with host `127.0.0.1`, port
-`3308` or `3309`, user `app`, database `app`, and the decoded password. The Kubernetes
-user running `kubectl` must be allowed to read the Secret and port-forward to
-the database pod. Stop the port-forward with Ctrl-C when finished.
+`3308` or `3309`, user `app`, database `app`, and the decoded password. The
+Kubernetes user running `kubectl` must be allowed to read the Secret and
+port-forward to the database pod. Stop the port-forward with Ctrl-C when
+finished.
 
 Production database access should be exceptional and authorized. Use the
 production context and Secret only when needed, avoid saving the production

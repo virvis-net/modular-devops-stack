@@ -249,50 +249,63 @@ it to either repository.
 > container can read it. Other users on the host can also read it, so use this
 > setup only on a trusted machine and do not reuse the key for unrelated access.
 
-### 4. Verify the end-to-end flow
+### 4. Prepare secrets and verify the end-to-end flow
 
-If you selected the Laravel template, create the staging database Secret before
-deploying the app. Follow the credential instructions in the rendered app
-repository's README; keep the Secret out of Git. Create its production
-counterpart when enabling the production namespace.
+If you selected the Laravel template, create its `app-database` Secret after
+Flux has created the `staging` namespace and before proceeding with the app
+release. From the framework checkout, the helper can generate it without
+putting credentials in Git. First run `kubectl config get-contexts`, then
+replace `k3d-your-cluster` below with the context for this stack:
 
-For repeatable Kubernetes Secret setup, use
-`./scripts/setup-stack-secrets.sh`. It creates missing Laravel database
-Secrets and configures the frontend/backend Collector authentication Secrets.
-It preserves an existing database Secret; if a Secret is missing while a
-MariaDB PVC exists, it asks before creating new credentials. The script uses a
-temporary Apache container for `htpasswd`, so that utility need not be
-installed on the host. For example, with HTTP Collector traffic:
+```sh
+./scripts/setup-stack-secrets.sh --database-only \
+  --database-context k3d-your-cluster
+```
 
-First run `kubectl config get-contexts`. Keep the option names as shown, and
-replace only the sample values after `--central-context` and
-`--forwarder-context` with the contexts for the stack receiving telemetry and
-an application stack sending telemetry. Add one `--forwarder-context`
-argument for each sending stack.
+The namespace defaults to `staging`. Create the production Secret only after
+the production namespace exists, adding
+`--database-namespace production`. The helper preserves an existing database
+Secret; if one is missing while a MariaDB PVC exists, it asks before creating
+new credentials. The Laravel template README also documents manual secret
+creation and database access.
+
+For cross-stack Collector authentication, set the `OTEL_CENTRAL_*` values in
+each stack's `.env` before rendering its GitOps repository. Once Flux has
+created the central ingest Ingress and the Collector Deployments, run the
+helper once with contexts from `kubectl config get-contexts`. Replace only the
+sample context values; keep the option names as shown:
 
 ```sh
 ./scripts/setup-stack-secrets.sh \
   --central-context k3d-your-central-cluster \
   --forwarder-context k3d-your-forwarder-cluster \
-  --collector-scheme http
+  --collector-scheme http \
+  --central-port 80 \
+  --collector-only
 ```
 
-The default database namespace is `staging`. Add
-`--database-namespace production` after the production namespace exists.
-Use `--collector-only` or `--database-only` to run only one part. HTTPS mode
-uses `--collector-scheme https`; the script builds its mkcert helper image,
-so neither mkcert nor htpasswd needs to be installed on the host. See the
-[Collector setup guide](stack/monitoring/provider/kubernetes/README.md) for
-the matching `OTEL_CENTRAL_*` GitOps settings. Re-render and push those
-settings separately; this helper creates cluster Secrets and does not edit
-GitOps. The Collector receiver Secret is updated each run: enter the existing
-shared forwarder password to keep other clients working, or choose a new one
-and update every forwarding stack's client Secret. Repeat
-`--forwarder-context` for any number of applications. With multiple
-forwarders, pass `--database-context` for each Laravel stack that needs a
-database Secret; otherwise use `--collector-only`. After deleting and
-recreating a k3d cluster, local-path data may remain in the Docker storage
-volume but its Kubernetes PVC metadata is not restored automatically.
+Use the central stack's actual published port for both `--central-port` and
+`OTEL_CENTRAL_COLLECTOR_ENDPOINT`. Add a `--forwarder-context` for each
+application stack sending telemetry. For one Laravel forwarder, omit
+`--collector-only` to also create its staging database Secret; with multiple
+forwarders, pass `--database-context` for each Laravel stack that needs one.
+Use `--database-only` when setting up database credentials without Collector
+authentication. The helper uses temporary containers for `htpasswd` and
+mkcert, so neither utility needs to be installed on the host. HTTP matches the
+`.env.example` endpoint and sends credentials and telemetry without encryption,
+so use it only on a trusted local network. HTTPS is an alternative; change the
+endpoint and `--collector-scheme` to `https` and use the central HTTPS port.
+
+This helper manages Kubernetes Secrets and restarts forwarding Collectors so
+they reload client auth; it does not edit GitOps. See the [Collector setup
+guide](stack/monitoring/provider/kubernetes/README.md) for the per-stack
+settings, multi-stack flow, and manual commands. Re-render and push changed
+GitOps settings separately. The central receiver Secret is updated on each
+run: enter the existing shared forwarder password to keep
+other clients working, or choose a new password and update every forwarder's
+client Secret. After deleting and recreating a k3d cluster, local-path data
+may remain in the Docker storage volume but its Kubernetes PVC metadata is not
+restored automatically.
 
 Push the rendered app repository to start the end-to-end delivery flow:
 
@@ -358,9 +371,9 @@ the tested staging image:
    `apps/app/overlays/staging/kustomization.yaml` into the `images` section of
    `apps/app/overlays/production/kustomization.yaml`, replacing its initial
    `newTag: "latest"` entry with `digest`.
-   If you selected Laravel, follow its README to set the migration image
-   digest, release-specific Job suffix, and Flux dependency before enabling
-   production.
+   If you selected Laravel, follow its README to prepare the production
+   namespace and `app-database` Secret, then set the migration image digest,
+   release-specific Job suffix, and Flux dependency before enabling production.
 3. Add `- environments/production` to the `resources` list in
    `clusters/${K3D_CLUSTER_NAME}/kustomization.yaml`.
 4. Confirm that the staging and production overlays specify the same digest,
@@ -413,14 +426,15 @@ between them does not copy or migrate existing data.
 
 The Kubernetes monitoring provider deploys Prometheus, Grafana, Loki, Tempo,
 an OpenTelemetry Collector, kube-state-metrics, a Kubernetes event exporter,
-Alertmanager, and Mailpit. The example app exposes `/healthz` and `/readyz`
-for Kubernetes probes, exports request and runtime metrics, and sends
-structured logs, traces, and HTTP metrics over OTLP. Prometheus collects app,
-cluster, node, ingress, and Collector metrics; app logs and Kubernetes events
-go to Loki, while traces go to Tempo. Grafana connects these signals so
-requests can be investigated across metrics, logs, and traces. The Vue
-template adds browser spans through its local Collector and can be paired
-with a Laravel API in another stack.
+Alertmanager, and Mailpit. The server templates expose `/healthz` and `/readyz`
+for Kubernetes probes, export request and runtime metrics, and send traces over
+OTLP. The Go and Laravel templates also export logs written by the application;
+the Laravel starter writes a fixed info log for each successful `/api/hello`
+request. Prometheus collects app, cluster, node, ingress, and Collector
+metrics; emitted app logs and Kubernetes events go to Loki, while traces go to
+Tempo. Grafana connects these signals so requests can be investigated across
+metrics, logs, and traces. The Vue template adds browser spans through its
+local Collector and can be paired with a Laravel API in another stack.
 
 After rendering the provider into GitOps and allowing Flux to reconcile:
 
@@ -466,16 +480,16 @@ done
 ```
 
 In Grafana, sign in and open Explore. Select Loki and run
-`{service_name="app"} | trace_id != ""`. Open a result and follow its
-trace link to Tempo. This follows the request from the app's structured log to
-its distributed trace.
+`{service_name="app"} | trace_id != ""`. With the Go template, open a result
+and follow its trace link to Tempo. The Laravel `/api/hello` route also writes
+a correlated info log, which you can open and follow to its trace.
 
 ### Trace a frontend-to-backend request across two stacks
 
 Run the [cross-stack frontend/backend exercise](stack/monitoring/provider/kubernetes/README.md#cross-stack-frontend-backend-exercise)
 to connect a Vue frontend in one local k3d stack directly to a Laravel API in
-another, then inspect their correlated trace and logs in the frontend stack's
-Grafana, which acts as the central receiver.
+another, then inspect their combined trace and any correlated logs in the
+frontend stack's Grafana, which acts as the central receiver.
 
 ### Trigger and resolve an alert
 

@@ -23,7 +23,8 @@ browser never receives Collector credentials.
 In the two-stack exercise, this frontend stack is the central receiver. Its
 Collector keeps browser spans locally, while the Laravel API stack's Collector
 forwards backend spans and logs to it. The frontend stack's Grafana then shows
-the combined trace and trace-to-logs links.
+the combined trace and its trace-to-logs link can find the Laravel demo
+`/api/hello` log record.
 
 The relay accepts same-origin POST requests with OTLP protobuf content and
 limits each batch to 1 MiB. It has no authentication and is not a production

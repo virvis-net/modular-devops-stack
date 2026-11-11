@@ -52,9 +52,11 @@ similarly named services across stacks. Give each stack a unique
 Grafana provisions Prometheus, Loki, and Tempo data sources. Use Grafana
 Explore with Loki and the query `{service_name="app"} | trace_id != ""`
 to find correlated app request logs; the `TraceID` link opens the trace in
-Tempo. Tempo's trace-to-logs link filters Loki by service and trace ID, and
-Prometheus exemplars link applicable metric samples back to Tempo. The
-dashboard includes the OTel HTTP request-duration p95 panel.
+Tempo. The Laravel starter's `/api/hello` route writes a fixed info log, so its
+trace should have a matching Loki record. Tempo's trace-to-logs link filters
+Loki by service and trace ID, and Prometheus exemplars link applicable metric
+samples back to Tempo. The dashboard includes the OTel HTTP request-duration
+p95 panel.
 
 ### Central traces from multiple stacks
 
@@ -100,14 +102,15 @@ targets the central stack's mapped port. Do not use
 `${K3D_CLUSTER_PORT_SSL}` in a forwarder's endpoint: it expands to that
 forwarder's port, not the central stack's port.
 
-The `.env` configuration uses three variables. In this two-stack example,
+The `.env` configuration uses three variables. The `.env.example` endpoint is
+HTTP on port `80` while central ingest is disabled. In this two-stack example,
 the frontend is the receiving stack. Enable ingest there, leave its export
-local, and use its default HTTPS endpoint:
+local, and keep the endpoint at the frontend's published HTTP port:
 
 ```dotenv
 OTEL_CENTRAL_INGEST_ENABLED=true
 OTEL_CENTRAL_EXPORT_MODE=local
-OTEL_CENTRAL_COLLECTOR_ENDPOINT=https://host.k3d.internal:443
+OTEL_CENTRAL_COLLECTOR_ENDPOINT=http://host.k3d.internal:80
 ```
 
 On the API stack and each other forwarding stack, use the same endpoint and
@@ -116,7 +119,7 @@ choose `forward` or `both`:
 ```dotenv
 OTEL_CENTRAL_INGEST_ENABLED=false
 OTEL_CENTRAL_EXPORT_MODE=forward
-OTEL_CENTRAL_COLLECTOR_ENDPOINT=https://host.k3d.internal:443
+OTEL_CENTRAL_COLLECTOR_ENDPOINT=http://host.k3d.internal:80
 ```
 
 For a local copy as well as the central copy, use
@@ -124,6 +127,10 @@ For a local copy as well as the central copy, use
 `both`. On a receiver in `local` mode, it identifies the ingress hostname. The
 default endpoint is unused when export is `local` and ingestion is disabled.
 Avoid configuring routes that point back to the same stack or create cycles.
+HTTPS is also supported: change the endpoint in the central and forwarding
+stacks to `https://host.k3d.internal:443`, use the central HTTPS port, and pass
+`--collector-scheme https --central-port 443` to the setup helper. The helper
+creates the local certificate and client CA Secret.
 
 Do not use `*.localhost` for Collector traffic: those names resolve to the
 caller itself. The existing `monitoring.localhost` and app `*.localhost` URLs
@@ -141,10 +148,13 @@ for example `198.51.100.42/32,2001:db8:abcd::/48` (documentation-only ranges).
 
 ### Secret and TLS setup
 
-The endpoint scheme controls TLS. HTTPS is the default and creates a TLS
-ingress; HTTP omits TLS. Both modes use Basic Auth, and the Kubernetes Secret
-names are fixed in the manifests. For the commands below, replace the context
-names with the contexts for your stacks (`k3d-<K3D_CLUSTER_NAME>`):
+Set the scheme in `OTEL_CENTRAL_COLLECTOR_ENDPOINT`; when using the helper,
+pass the same value with `--collector-scheme`. The `.env.example` default is
+HTTP on port `80`; with HTTP the renderer omits TLS. HTTPS is an alternative:
+the renderer adds TLS to the central ingest Ingress. Both modes use Basic Auth,
+and the Kubernetes Secret names are fixed in the manifests. For the commands below,
+replace the context names with the contexts for your stacks
+(`k3d-<K3D_CLUSTER_NAME>`):
 
 Get the exact names with `kubectl config get-contexts`. Keep the option names
 as shown and replace only the sample values after `--central-context` and
@@ -154,8 +164,11 @@ forwarder value is an application stack sending telemetry. Add another
 
 The framework checkout includes `scripts/setup-stack-secrets.sh`, which
 creates the receiver and client auth Secrets and uses a temporary Apache
-container for `htpasswd`. For HTTP, run it from the framework checkout after
-the monitoring namespaces and central ingest Ingress exist:
+container for `htpasswd`; it restarts each forwarding Collector to reload its
+client Secret. Run it from a framework checkout after Flux has created the
+`monitoring` namespaces and Collector Deployments, and the central ingest
+Ingress. The helper requires at least one forwarding Collector. For HTTP, for
+example:
 
 ```sh
 ./scripts/setup-stack-secrets.sh \
@@ -167,18 +180,27 @@ the monitoring namespaces and central ingest Ingress exist:
 ```
 
 Repeat `--forwarder-context KUBECTL_CONTEXT` for every forwarding stack. To
-also create database Secrets, omit `--collector-only` and pass a
-`--database-context KUBECTL_CONTEXT` for each Laravel stack that needs an
-`app-database` Secret. With multiple forwarders, database contexts must be
-explicit; without a database target, use `--collector-only`.
+use HTTPS, change `--collector-scheme http` to `https`; the central port
+defaults to `443` for HTTPS and `80` for HTTP. If the central stack uses a
+different published port, pass that port with `--central-port` and make it
+match the endpoint in every stack's `.env`. The helper does not change those
+GitOps settings.
 
-For HTTPS, use `--collector-scheme https`; Docker builds a small mkcert helper
-image on first use, so neither `mkcert` nor `htpasswd` needs to be installed on
-the host. The mkcert CA key stays in the ignored `stack/.state/` directory and
-is reused on later runs. The helper also creates the Laravel `app-database`
-Secret in `staging` if it is missing. Add `--collector-only` to skip the
-database Secret or `--database-only` to skip Collector auth. Existing database
-credentials are preserved. See the framework README for all options.
+For HTTPS, Docker builds a small mkcert helper image on first use, so neither
+`mkcert` nor `htpasswd` needs to be installed on the host. The mkcert CA key
+stays in the ignored `stack/.state/` directory and is reused on later runs
+from the same framework checkout. Use that same checkout for future HTTPS
+reruns so its client Secrets continue to trust the receiver certificate.
+The example uses `--collector-only`, so it does not create database Secrets.
+With exactly one forwarder, omit that option to also create a missing staging
+`app-database` Secret in the forwarder context if it is a Laravel stack. With
+multiple forwarders, pass `--database-context KUBECTL_CONTEXT` for each Laravel
+stack that needs a database Secret. Database namespaces must already exist;
+staging is the default. Add `--database-namespace production` only after
+production exists.
+Use `--database-only --database-context KUBECTL_CONTEXT` to set up a database
+Secret without Collector auth. Existing database credentials are preserved.
+See the framework README for all options.
 
 The equivalent manual commands are below.
 
@@ -193,11 +215,12 @@ on the right with the context names shown by `kubectl config get-contexts`.
 stack. Define another context variable when repeating the client Secret
 command for additional forwarders.
 
-The helper above runs both `mkcert` and `htpasswd` in containers. The manual
-commands below require those tools to be installed on the host (`apache2-utils`
-on Debian/Ubuntu or `httpd-tools` on Fedora/RHEL for `htpasswd`). Run the
-frontend/central stack and wait for Flux to create its `monitoring` namespace.
-For local HTTPS, create a certificate for the ingress hostname and a local CA:
+The helper above runs both `mkcert` and `htpasswd` in containers. Manual setup
+requires `htpasswd` (`apache2-utils` on Debian/Ubuntu or `httpd-tools` on
+Fedora/RHEL); HTTPS setup also requires `mkcert`. Start the central and
+forwarding stacks and wait for Flux to create the `monitoring` namespaces and
+central ingest Ingress. For local HTTPS, create a certificate for the ingress
+hostname and a local CA:
 
 ```sh
 mkcert -install
@@ -205,17 +228,25 @@ mkcert host.k3d.internal
 ```
 
 The commands create `host.k3d.internal.pem` and
-`host.k3d.internal-key.pem`. On the central context, create the TLS Secret and
-the ingress-nginx Basic Auth Secret:
+`host.k3d.internal-key.pem`. On the central context, create the TLS Secret:
 
 ```sh
 kubectl --context "$CENTRAL_CONTEXT" create secret tls otel-central-ingest-tls \
   --namespace monitoring \
-  --cert=host.k3d.internal.pem --key=host.k3d.internal-key.pem
+  --cert=host.k3d.internal.pem --key=host.k3d.internal-key.pem \
+  --dry-run=client -o yaml |
+  kubectl --context "$CENTRAL_CONTEXT" apply -f -
+```
 
+For either scheme, create the receiver's Basic Auth file and Secret on the
+central context:
+
+```sh
 htpasswd -c auth otel-forwarder
 kubectl --context "$CENTRAL_CONTEXT" create secret generic otel-central-ingest-auth \
-  --namespace monitoring --from-file=auth=./auth
+  --namespace monitoring --from-file=auth=./auth \
+  --dry-run=client -o yaml |
+  kubectl --context "$CENTRAL_CONTEXT" apply -f -
 ```
 
 Use a certificate whose SAN covers the hostname in
@@ -231,43 +262,78 @@ OTEL_AUTH_HEADER="Basic $(printf '%s' "otel-forwarder:${OTEL_INGEST_PASSWORD}" |
 kubectl --context "$API_CONTEXT" create secret generic otel-central-client-auth \
   --namespace monitoring \
   --from-literal=authorization="${OTEL_AUTH_HEADER}" \
-  --from-file=ca.crt="$(mkcert -CAROOT)/rootCA.pem"
+  --from-file=ca.crt="$(mkcert -CAROOT)/rootCA.pem" \
+  --dry-run=client -o yaml |
+  kubectl --context "$API_CONTEXT" apply -f -
+kubectl --context "$API_CONTEXT" rollout restart deployment/otel-collector \
+  --namespace monitoring
+kubectl --context "$API_CONTEXT" rollout status deployment/otel-collector \
+  --namespace monitoring --timeout=120s
 unset OTEL_INGEST_PASSWORD OTEL_AUTH_HEADER
 ```
 
-Repeat the client Secret command for each forwarding stack, using its context.
-Never commit the password, Basic Auth header, private key, or Secret data to
-Git. The CA certificate is public but should still be kept with the local
-configuration that needs it.
+Repeat the client Secret and rollout commands for each forwarding stack, using
+its context. Applying the Secret is safe to repeat; restarting makes the
+Collector load the refreshed authorization environment variable. Never commit
+the password, Basic Auth header, private key, or Secret data to Git. The CA
+certificate is public but should still be kept with the local configuration
+that needs it. The manual `auth` file contains the receiver's password hash;
+do not commit it, and remove it when manual setup is complete.
 
 For HTTP, skip `mkcert` and the receiver TLS Secret. Set the endpoint on the
 frontend/central stack and its forwarders to
-`http://host.k3d.internal:<CENTRAL_HTTP_PORT>`; for the default central port,
-that is `http://host.k3d.internal:80`. Create each client Secret with only
-the `authorization` key, omitting `--from-file`.
-HTTP sends the Basic Auth header and telemetry without encryption, so use it
-only on a trusted single-host lab and do not expose the port to an untrusted
-network. The Collector appends `/v1/traces` and `/v1/logs` to the endpoint.
+`http://host.k3d.internal:<CENTRAL_HTTP_PORT>`, replacing the port with the
+central stack's actual published HTTP port. For the default central port,
+that is `http://host.k3d.internal:80`. Pass the same port to `--central-port`
+when using the helper. After creating the receiver's Basic Auth Secret above,
+create each client's Secret with only the `authorization` key, omitting the
+CA file:
+
+```sh
+read -rsp 'Basic Auth password: ' OTEL_INGEST_PASSWORD
+printf '\n'
+OTEL_AUTH_HEADER="Basic $(printf '%s' "otel-forwarder:${OTEL_INGEST_PASSWORD}" | base64 | tr -d '\n')"
+kubectl --context "$API_CONTEXT" create secret generic otel-central-client-auth \
+  --namespace monitoring \
+  --from-literal=authorization="${OTEL_AUTH_HEADER}" \
+  --dry-run=client -o yaml |
+  kubectl --context "$API_CONTEXT" apply -f -
+kubectl --context "$API_CONTEXT" rollout restart deployment/otel-collector \
+  --namespace monitoring
+kubectl --context "$API_CONTEXT" rollout status deployment/otel-collector \
+  --namespace monitoring --timeout=120s
+unset OTEL_INGEST_PASSWORD OTEL_AUTH_HEADER
+```
+
+Repeat for each forwarding context, entering the same shared password. HTTP
+sends the Basic Auth header and telemetry without encryption, so use it only on
+a trusted single-host lab and do not expose the port to an untrusted network.
+The Collector appends `/v1/traces` and `/v1/logs` to the endpoint.
 
 After Flux reconciles both GitOps repositories, send a request that crosses
 stacks. In the frontend/central stack's Grafana, use Tempo Explore to open the
-trace. The trace-to-logs link queries the receiving stack's Loki, which now
-contains OTLP logs forwarded from both stacks. The reverse TraceID link from
-Loki is also provisioned. Laravel app-template workloads export correlated
-Monolog records over OTLP; other services need to emit OTLP logs containing
-trace IDs for log correlation to resolve.
+trace. The trace-to-logs link queries the receiving stack's Loki, which stores
+logs emitted locally and logs forwarded from source stacks. The Laravel demo
+`/api/hello` route writes a fixed info message, which should appear in Loki with
+the request's trace ID. The reverse TraceID link from Loki is also provisioned.
+Other services need to emit OTLP logs containing trace IDs for log correlation
+to resolve.
 
 With the default `local` mode and ingest disabled, the Collector continues
 exporting to its local Tempo and Loki and the stack does not expose an OTLP
-ingress. HTTPS is recommended. HTTP is convenient for a trusted local lab, but
-Basic Auth and telemetry are readable on the network. Restrict host ports where
-practical and rotate Basic Auth credentials. Add stronger ingress controls or
-mTLS before using it outside the lab. Central Tempo and Loki still use this
-stack's local single-replica storage and retention settings.
+ingress. HTTP is convenient for the trusted local lab, but Basic Auth and
+telemetry are readable on the network. HTTPS is available when transport
+encryption is needed. Restrict host ports where practical and rotate Basic
+Auth credentials. Add stronger ingress controls or mTLS before using it
+outside the lab. Central Tempo and Loki still use this stack's local
+single-replica storage and retention settings.
 
-These values are render-time settings. `copy-templates.sh` renders only into
-empty repositories; for an already deployed stack, make the equivalent changes
-in its GitOps repository and let Flux reconcile them.
+These values are render-time settings. Initial rendering requires empty
+repositories. For an existing clean GitOps clone, pull its latest branch and
+use `./scripts/copy-templates.sh vue --gitops-only` (replace `vue` with `go`
+or `laravel` to match the selected app template). Review the diff, then commit
+and push so Flux reconciles the changes. See the root README for the full
+existing-repository render workflow.
 
 <a id="cross-stack-frontend-backend-exercise"></a>
 
@@ -296,13 +362,12 @@ trace and correlated logs.
    K3D_CLUSTER_PORT_SSL=443
    OTEL_CENTRAL_INGEST_ENABLED=true
    OTEL_CENTRAL_EXPORT_MODE=local
-   OTEL_CENTRAL_COLLECTOR_ENDPOINT=https://host.k3d.internal:443
+   OTEL_CENTRAL_COLLECTOR_ENDPOINT=http://host.k3d.internal:80
    ```
 
-   This endpoint uses the frontend stack's HTTPS host port and sets the host
-   covered by the receiver Ingress and TLS certificate. If you leave
-   `OTEL_CENTRAL_EXPORT_MODE=local`, it is not used by the receiver itself,
-   but it must still match the endpoint configured on forwarders.
+   This endpoint uses the frontend stack's default HTTP host port. If you
+   leave `OTEL_CENTRAL_EXPORT_MODE=local`, it identifies the receiver Ingress
+   host; it must still match the endpoint configured on forwarders.
 
 3. **Configure the API stack as a forwarder.** In the API checkout's `.env`,
    set:
@@ -312,27 +377,47 @@ trace and correlated logs.
    K3D_CLUSTER_PORT_SSL=8443
    OTEL_CENTRAL_INGEST_ENABLED=false
    OTEL_CENTRAL_EXPORT_MODE=forward
-   OTEL_CENTRAL_COLLECTOR_ENDPOINT=https://host.k3d.internal:443
+   OTEL_CENTRAL_COLLECTOR_ENDPOINT=http://host.k3d.internal:80
    ```
 
    Use exactly the same central endpoint as in the frontend checkout. Set
    `OTEL_CENTRAL_EXPORT_MODE=both` if you also want the API stack to keep a
-   local telemetry copy. The endpoint port is the frontend stack's HTTPS
-   port, not the API stack's HTTPS port.
+   local telemetry copy. The endpoint port is the frontend stack's HTTP port,
+   not the API stack's HTTP port. HTTPS is an alternative; use the frontend's
+   published HTTPS port and set both stacks' endpoint schemes to `https`.
 
-4. **Initialize both stacks and render the apps.** In the frontend checkout,
-   run `./scripts/copy-templates.sh vue`; in the API checkout, run
-   `./scripts/copy-templates.sh laravel`. Follow the root README installation
-   steps and each generated app README to set up the two GitOps repositories
-   and start both clusters. Wait for Flux to create each stack's `monitoring`
-   namespace before making its Secrets.
+4. **Render and initialize both stacks.** In the frontend checkout, run
+   `./scripts/copy-templates.sh vue`; in the API checkout, run
+   `./scripts/copy-templates.sh laravel`. Follow the root README through
+   GitOps setup and Flux bootstrap for both clusters. Wait for Flux to create
+   the `monitoring` namespaces, Collector Deployments, and central ingest
+   Ingress. Leave app publishing until the Secrets and CORS settings below are
+   in place.
 
-5. **Create the receiver and client Secrets.** On the frontend stack, create
-   `otel-central-ingest-tls` and `otel-central-ingest-auth`; on the API stack,
-   create `otel-central-client-auth`. Follow the HTTPS commands in
-   [Secret and TLS setup](#secret-and-tls-setup) above. Substitute the actual
-   Kubernetes contexts. The frontend Secrets belong to the receiving stack;
-   create a client Secret in every forwarding stack.
+5. **Create Collector and database Secrets.** Run the helper once from either
+   framework checkout; the `kubectl` configuration must contain contexts for
+   both clusters. Replace the example context values with the names shown by
+   `kubectl config get-contexts`:
+
+   ```sh
+   ./scripts/setup-stack-secrets.sh \
+     --central-context k3d-frontend-cluster \
+     --forwarder-context k3d-api-cluster \
+     --collector-scheme http \
+     --central-port 80
+   ```
+
+   Because this example has one forwarder, the helper also creates the
+   Laravel stack's staging `app-database` Secret if it is missing. Existing
+   database credentials are preserved. For multiple forwarders, add a
+   `--forwarder-context` for each and use `--database-context` for each
+   Laravel stack that needs a database Secret; add `--collector-only` if you
+   do not want database Secrets created in the same run. For future HTTPS
+   reruns, use the same framework checkout so the generated CA is reused. See
+   [Secret and TLS setup](#secret-and-tls-setup) for HTTP, manual setup, and
+   the meaning of each setting. To use HTTPS instead, change both endpoint
+   values to `https://host.k3d.internal:443` and set the helper scheme and
+   central port to `https` and `443`.
 
 6. **Set the API origin and CORS allowlist.** In each stack's GitOps
    repository, edit the matching environment overlay's `runtime.env`. Set
@@ -365,14 +450,14 @@ trace and correlated logs.
 8. **Generate and inspect a cross-stack trace.** Open the frontend at
    `http://staging.localhost/` and make a request. In the frontend/central
    stack, open Grafana at `http://monitoring.localhost/`, select Tempo in
-   Explore, and open recent traces. Vue page-load and funnel-navigation spans identify
-   the browser activity. The trace from the final demo action should contain
-   the browser submit span, its API client span, and the Laravel backend
-   server span. The browser sends spans to `/_otel/v1/traces` on its own
+   Explore, and open recent traces. Vue page-load and funnel-navigation spans
+   identify the browser activity. The trace from the final demo action should
+   contain the browser submit span, its API client span, and the Laravel
+   backend server span. The browser sends spans to `/_otel/v1/traces` on its own
    origin; the Vue template's small static host relays that OTLP request to
    the frontend stack's Collector. The API stack's Collector forwards its
    spans and logs centrally. Use the trace-to-logs link on the Laravel server
-   span to find its correlated Monolog records in the frontend stack's Loki.
+   span to find the `/api/hello` Monolog record in the frontend stack's Loki.
 
 The OTLP relay accepts unauthenticated protobuf trace batches up to 1 MiB and
 is intended only for this local lab. It does not accept the central Collector's

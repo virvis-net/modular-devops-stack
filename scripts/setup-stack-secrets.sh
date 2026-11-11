@@ -6,14 +6,17 @@ usage() {
   cat <<'USAGE'
 Create the Laravel database Secret and the cross-stack Collector auth Secrets.
 
-Usage:
+Collector auth requires the central context, one or more forwarder contexts,
+and an explicit scheme. For example:
   scripts/setup-stack-secrets.sh \
     --central-context KUBECTL_CONTEXT \
     --forwarder-context KUBECTL_CONTEXT [--forwarder-context KUBECTL_CONTEXT ...] \
-    --collector-scheme http|https \
-    [--central-port PORT] \
-    [--database-context KUBECTL_CONTEXT ...] \
-    [--database-namespace NAMESPACE ...]
+    --collector-scheme http|https [--central-port PORT] \
+    [--database-context KUBECTL_CONTEXT ...] [--database-namespace NAMESPACE ...]
+
+Database-only setup needs an explicit context:
+  scripts/setup-stack-secrets.sh --database-only \
+    --database-context KUBECTL_CONTEXT [--database-namespace NAMESPACE]
 
 Options:
   --central-context       Context containing the central Collector receiver.
@@ -38,10 +41,11 @@ The Collector setup uses Docker's httpd:2.4-alpine image to run htpasswd, so
 htpasswd does not need to be installed on the host. HTTPS mode builds a small
 mkcert helper image from the upstream mkcert release, so mkcert does not need
 to be installed on the host either. Its CA is stored under the ignored
-stack/.state/ directory. This script creates Kubernetes Secrets only;
-configure and push the OTEL_CENTRAL_* GitOps settings separately. Collector
-auth is updated each run; use the existing shared password to preserve other
-forwarding clients, or update each client's Secret if rotating it.
+stack/.state/ directory. This script manages Kubernetes Secrets and restarts
+each forwarding Collector so it reloads client auth. Configure and push the
+OTEL_CENTRAL_* GitOps settings separately. Collector auth is updated each
+run; use the existing shared password to preserve other forwarding clients,
+or update each client's Secret if rotating it.
 USAGE
 }
 
