@@ -28,15 +28,14 @@ official Laravel auto-instrumentation package. With
 `OTEL_PHP_AUTOLOAD_ENABLED=true`, Laravel request spans are exported over
 OTLP/HTTP to the configured Collector endpoint. The shared deployment sets
 `OTEL_SERVICE_NAME=app` and points the exporter at the in-cluster Collector.
-The Laravel Monolog channel also exports structured logs over OTLP. Log records
-written during a request keep the active trace and span IDs, so Grafana can link
-between Tempo traces and Loki logs. The `/api/hello` demo route writes a fixed
-`Demo API request handled` info record, which should appear in Loki with the
-request's trace ID. In Grafana, open Explore, select Tempo, and search for
-service `app` to inspect request traces; choose a span and use its Logs link to
-find the matching entry. Avoid logging lead form values, credentials, or other
-sensitive data because the same log record is sent to both container stderr
-and Loki.
+Laravel's OpenTelemetry auto-instrumentation exports Laravel log events over
+OTLP when `OTEL_LOGS_EXPORTER=otlp` is set. The `/api/hello` demo route writes
+a fixed `Demo API request handled` info record. It is written to container
+stderr and exported with the active trace context, so Grafana can link between
+Tempo traces and Loki logs. In Grafana, open Explore, select Tempo, and search
+for service `app` to inspect request traces; choose a span and use its Logs link
+to find the matching entry. Avoid logging lead form values, credentials, or
+other sensitive data because the log is sent to container stderr and Loki.
 
 The `config/cors.php` configuration supports the separate Vue frontend
 template. Set `CORS_ALLOWED_ORIGINS` to the exact browser origin in the
