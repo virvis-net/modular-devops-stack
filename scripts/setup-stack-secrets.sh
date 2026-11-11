@@ -304,20 +304,20 @@ if [[ "$DO_COLLECTOR" == true ]]; then
       --file "$ROOT_DIR/tools/mkcert/Dockerfile" \
       "$ROOT_DIR/tools/mkcert"
 
-    info 'Generating a local HTTPS certificate for host.k3d.internal'
+    info 'Generating a local HTTPS certificate for host.docker.internal'
     docker run --rm \
       --user "$(id -u):$(id -g)" \
       --env CAROOT=/ca \
       --volume "$CA_DIR:/ca" \
       --volume "$TEMP_DIR:/out" \
       "$MKCERT_IMAGE" \
-      -cert-file /out/host.k3d.internal.pem \
-      -key-file /out/host.k3d.internal-key.pem \
-      host.k3d.internal
+      -cert-file /out/host.docker.internal.pem \
+      -key-file /out/host.docker.internal-key.pem \
+      host.docker.internal
     [[ -s "$CA_DIR/rootCA.pem" ]] || fail 'mkcert rootCA.pem was not generated'
     apply_tls_secret "$CENTRAL_CONTEXT" \
-      "$TEMP_DIR/host.k3d.internal.pem" \
-      "$TEMP_DIR/host.k3d.internal-key.pem"
+      "$TEMP_DIR/host.docker.internal.pem" \
+      "$TEMP_DIR/host.docker.internal-key.pem"
   fi
 
   read -r -s -p 'Enter a shared password for the otel-forwarder account: ' COLLECTOR_PASSWORD
@@ -354,7 +354,7 @@ if [[ "$DO_COLLECTOR" == true ]]; then
     info "Collector client auth configured in $context"
   done
 
-  info "Forwarders are configured for $COLLECTOR_SCHEME://host.k3d.internal:$CENTRAL_PORT"
+  info "Forwarders are configured for $COLLECTOR_SCHEME://host.docker.internal:$CENTRAL_PORT"
   if [[ "$COLLECTOR_SCHEME" == http ]]; then
     info 'HTTP does not encrypt Basic Auth credentials or telemetry; use it only on a trusted local network'
   fi

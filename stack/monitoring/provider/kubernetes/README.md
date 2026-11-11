@@ -74,12 +74,17 @@ OTLP logs:
   keep a local copy of traces or OTLP logs.
 - `both` sends to both the local backends and the central Collector.
 
-For multiple k3d stacks on one Docker host, use the k3d-provided
-`host.k3d.internal` name. k3d adds it to cluster DNS so pods can reach the host;
-the host port mapping then directs traffic to the selected cluster's load
-balancer. The central stack's host ports can use the defaults or any available
-ports. Every stack's host ports must be unique. Each forwarder must target the
-central stack's actual mapped port:
+For multiple k3d stacks on one Docker host, use a hostname that resolves from
+the forwarding Collector pods to the Docker host. The example uses
+`host.docker.internal`; verify it resolves from a pod in each forwarding
+cluster before enabling forwarding. Do not assume a hostname available on a
+k3d node is also available through pod DNS. If the hostname does not resolve,
+configure pod DNS or a host alias to the reachable host gateway, and keep the
+hostname consistent with the central Ingress host. The host port mapping then
+directs traffic to the selected cluster's load balancer. The central stack's
+host ports can use the defaults or any available ports. Every stack's host
+ports must be unique. Each forwarder must target the central stack's actual
+mapped port:
 
 | Stack | HTTP port | HTTPS port | Gitea HTTP / SSH | Woodpecker | Registry |
 |---|---:|---:|---:|---:|---:|
@@ -94,7 +99,7 @@ stack's HTTP/HTTPS ingress and increment each port for further stacks. Keep all
 other published ports unique on the Docker host. If you choose other ports,
 update the API URL, CORS origin, and central Collector endpoint to match. For
 example, if the frontend stack maps HTTPS to `9453`, use
-`https://host.k3d.internal:9453` in the receiver and every forwarder. The
+`https://host.docker.internal:9453` in the receiver and every forwarder. The
 Collector's in-cluster OTLP ports remain `4317` (gRPC) and `4318` (HTTP); the
 host HTTPS port is the ingress route used to reach central OTLP/HTTP.
 
@@ -113,7 +118,7 @@ local, and keep the endpoint at the frontend's published HTTP port:
 ```dotenv
 OTEL_CENTRAL_INGEST_ENABLED=true
 OTEL_CENTRAL_EXPORT_MODE=local
-OTEL_CENTRAL_COLLECTOR_ENDPOINT=http://host.k3d.internal:80
+OTEL_CENTRAL_COLLECTOR_ENDPOINT=http://host.docker.internal:80
 ```
 
 On the API stack and each other forwarding stack, use the same endpoint and
@@ -122,7 +127,7 @@ choose `forward` or `both`:
 ```dotenv
 OTEL_CENTRAL_INGEST_ENABLED=false
 OTEL_CENTRAL_EXPORT_MODE=forward
-OTEL_CENTRAL_COLLECTOR_ENDPOINT=http://host.k3d.internal:80
+OTEL_CENTRAL_COLLECTOR_ENDPOINT=http://host.docker.internal:80
 ```
 
 For a local copy as well as the central copy, use
@@ -131,15 +136,17 @@ For a local copy as well as the central copy, use
 default endpoint is unused when export is `local` and ingestion is disabled.
 Avoid configuring routes that point back to the same stack or create cycles.
 HTTPS is also supported: change the endpoint in the central and forwarding
-stacks to `https://host.k3d.internal:443`, use the central HTTPS port, and pass
-`--collector-scheme https --central-port 443` to the setup helper. The helper
-creates the local certificate and client CA Secret.
+stacks to `https://host.docker.internal:443`, use the central HTTPS port, and
+pass `--collector-scheme https --central-port 443` to the setup helper. The
+helper creates the local certificate and client CA Secret.
 
 Do not use `*.localhost` for Collector traffic: those names resolve to the
 caller itself. The existing `monitoring.localhost` and app `*.localhost` URLs
 are for browsers on the host. For stacks on different machines, replace
-`host.k3d.internal` and the port with a DNS name and port reachable from the
-source Collector.
+`host.docker.internal` and the port with a DNS name and port reachable from the
+source Collector. The HTTPS helper uses `host.docker.internal` for its
+generated certificate; for another hostname, create a certificate for that
+hostname and follow the manual TLS Secret steps below.
 
 An optional CIDR allowlist is separate from Kubernetes node identity: it filters
 the source addresses ingress-nginx sees. It can help restrict access when
@@ -227,16 +234,16 @@ hostname and a local CA:
 
 ```sh
 mkcert -install
-mkcert host.k3d.internal
+mkcert host.docker.internal
 ```
 
-The commands create `host.k3d.internal.pem` and
-`host.k3d.internal-key.pem`. On the central context, create the TLS Secret:
+The commands create `host.docker.internal.pem` and
+`host.docker.internal-key.pem`. On the central context, create the TLS Secret:
 
 ```sh
 kubectl --context "$CENTRAL_CONTEXT" create secret tls otel-central-ingest-tls \
   --namespace monitoring \
-  --cert=host.k3d.internal.pem --key=host.k3d.internal-key.pem \
+  --cert=host.docker.internal.pem --key=host.docker.internal-key.pem \
   --dry-run=client -o yaml |
   kubectl --context "$CENTRAL_CONTEXT" apply -f -
 ```
@@ -285,9 +292,9 @@ do not commit it, and remove it when manual setup is complete.
 
 For HTTP, skip `mkcert` and the receiver TLS Secret. Set the endpoint on the
 frontend/central stack and its forwarders to
-`http://host.k3d.internal:<CENTRAL_HTTP_PORT>`, replacing the port with the
+`http://host.docker.internal:<CENTRAL_HTTP_PORT>`, replacing the port with the
 central stack's actual published HTTP port. For the default central port,
-that is `http://host.k3d.internal:80`. Pass the same port to `--central-port`
+that is `http://host.docker.internal:80`. Pass the same port to `--central-port`
 when using the helper. After creating the receiver's Basic Auth Secret above,
 create each client's Secret with only the `authorization` key, omitting the
 CA file:
@@ -365,7 +372,7 @@ trace and correlated logs.
    K3D_CLUSTER_PORT_SSL=443
    OTEL_CENTRAL_INGEST_ENABLED=true
    OTEL_CENTRAL_EXPORT_MODE=local
-   OTEL_CENTRAL_COLLECTOR_ENDPOINT=http://host.k3d.internal:80
+   OTEL_CENTRAL_COLLECTOR_ENDPOINT=http://host.docker.internal:80
    ```
 
    This endpoint uses the frontend stack's default HTTP host port. If you
@@ -380,7 +387,7 @@ trace and correlated logs.
    K3D_CLUSTER_PORT_SSL=9443
    OTEL_CENTRAL_INGEST_ENABLED=false
    OTEL_CENTRAL_EXPORT_MODE=forward
-   OTEL_CENTRAL_COLLECTOR_ENDPOINT=http://host.k3d.internal:80
+   OTEL_CENTRAL_COLLECTOR_ENDPOINT=http://host.docker.internal:80
    ```
 
    Use exactly the same central endpoint as in the frontend checkout. Set
@@ -419,7 +426,7 @@ trace and correlated logs.
    reruns, use the same framework checkout so the generated CA is reused. See
    [Secret and TLS setup](#secret-and-tls-setup) for HTTP, manual setup, and
    the meaning of each setting. To use HTTPS instead, change both endpoint
-   values to `https://host.k3d.internal:443` and set the helper scheme and
+   values to `https://host.docker.internal:443` and set the helper scheme and
    central port to `https` and `443`.
 
 6. **Set the API origin and CORS allowlist.** In each stack's GitOps
