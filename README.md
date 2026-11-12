@@ -71,7 +71,9 @@ database and HTTP server settings. Docker maps the configured host HTTP port
 to Gitea's internal port `3000`, and the configured SSH host port to Gitea's
 internal port `22`. For working SSH clone URLs in Gitea, set its SSH domain to
 `host.docker.internal` and its advertised SSH port to `GITEA_SSH_PORT`
-(`2222` by default).
+(`2222` by default). `host.docker.internal` is useful to containers, but may
+not resolve to the host from a Linux shell. For host-side cloning, use
+`localhost` with the published port as shown below.
 
 Create the initial Gitea account and set its username and password. Once
 signed in, create two empty repositories named `app` and `gitops`.
@@ -91,8 +93,7 @@ Use the ignored `workspace/` directory for local clones. The default render
 needs both repositories cloned. If you render only one repository, clone only
 that one; use `--app-only` or `--gitops-only` as described below. From the
 project root, load the environment variables and clone the repositories you
-need. When using SSH, replace `http://localhost:${GITEA_HTTP_PORT}` with
-`ssh://git@localhost:${GITEA_SSH_PORT}`.
+need.
 
 ```sh
 source .env
@@ -100,6 +101,29 @@ git clone "http://localhost:${GITEA_HTTP_PORT}/${GITEA_ORG}/app.git" workspace/a
 git clone "http://localhost:${GITEA_HTTP_PORT}/${GITEA_ORG}/gitops.git" workspace/gitops
 ./scripts/copy-templates.sh
 ```
+
+Or if you want to use SSH:
+
+```sh
+source .env
+git clone "ssh://git@localhost:${GITEA_SSH_PORT}/${GITEA_ORG}/app.git" workspace/app
+git clone "ssh://git@localhost:${GITEA_SSH_PORT}/${GITEA_ORG}/gitops.git" workspace/gitops
+./scripts/copy-templates.sh
+```
+
+The commands above are for a host terminal, where the published Gitea port is
+available on `localhost`. Inside an app Dev Container, `localhost` refers to
+that container. The Go, Laravel, and Vue Dev Container configurations map
+`host.docker.internal` to the Docker host gateway and automatically rewrite
+SSH Git URLs from `localhost` to that hostname. They also retain `localhost`
+as the repository's SSH host-key alias, so a key accepted during the host-side
+clone can be used inside the container. Post-create also configures the Git
+repository and fails if the workspace isn't a Git repository. The Go and
+Laravel containers mark only their mounted workspace as safe for Git, because
+they run as root while bind-mounted files may belong to a different host user.
+This works without changing the repository's remote URL. If the app repository
+was rendered before these settings were added, update its `.devcontainer`
+configuration and rebuild the Dev Container.
 
 Choose the application template when rendering the repositories. The Go
 template is selected by default:
@@ -560,6 +584,70 @@ Run `./scripts/up.sh` to resume the stack. It starts the Compose providers,
 starts the existing k3d cluster if needed, selects its kubectl context, and
 waits for all cluster nodes to become Ready before applying ingress and
 bootstrapping Flux.
+
+## Troubleshooting commands
+
+These checks are optional during a clean install, but can help diagnose common
+local setup problems. Run commands from the repository root.
+
+### Remove a stale Gitea SSH host key
+
+If Git reports that the Gitea host key has changed, remove only the known-host
+entry for the hostname and port used by this stack, then retry the Git
+operation. OpenSSH stores nonstandard ports in `[hostname]:port` form:
+
+```sh
+source .env
+ssh-keygen -R "[$GITEA_SSH_DOMAIN]:$GITEA_SSH_PORT"
+ssh-keygen -R "[localhost]:$GITEA_SSH_PORT"
+```
+
+The first command covers the configured Gitea SSH domain (the default is
+`host.docker.internal`); the second covers clones made through `localhost`.
+For port `22`, OpenSSH may store the hostname without a port, so remove those
+entries with `ssh-keygen -R "$GITEA_SSH_DOMAIN"` and `ssh-keygen -R localhost`
+instead. These commands affect your user-level `~/.ssh/known_hosts`; Flux uses
+its own file at `stack/.state/ssh/known_hosts.flux`.
+When Git reconnects, verify the newly presented host fingerprint before
+accepting it; do not disable SSH host-key checking.
+
+### Check provider availability and logs
+
+Check whether the configured Gitea SSH port is accepting connections:
+
+```sh
+source .env
+nc -vz localhost "$GITEA_SSH_PORT"
+```
+
+Inspect provider status and recent logs if Gitea or CI does not start. For
+shared providers, run these commands from the provider-owning checkout:
+
+```sh
+source .env
+docker compose -p "${STACK_NAME}-providers" \
+  -f stack/docker-compose.yaml \
+  -f stack/registry/provider/local/docker-compose.yaml \
+  -f stack/source-control/provider/gitea/docker-compose.yaml \
+  -f stack/ci/provider/woodpecker/docker-compose.yaml \
+  ps
+docker compose -p "${STACK_NAME}-providers" \
+  -f stack/docker-compose.yaml \
+  -f stack/registry/provider/local/docker-compose.yaml \
+  -f stack/source-control/provider/gitea/docker-compose.yaml \
+  -f stack/ci/provider/woodpecker/docker-compose.yaml \
+  logs --tail=100 scm ci-server registry
+```
+
+To confirm Gitea is responding over HTTP:
+
+```sh
+source .env
+curl --fail --show-error "http://localhost:${GITEA_HTTP_PORT}/"
+```
+
+After correcting configuration or starting a stopped provider, rerun
+`./scripts/up.sh`.
 
 ## Extendability
 

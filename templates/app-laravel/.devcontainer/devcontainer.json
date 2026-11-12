@@ -11,6 +11,7 @@
   "mounts": [
     "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,readonly"
   ],
+  "postCreateCommand": "git config --global --add safe.directory /var/www/html && git config --global 'url.\"ssh://git@host.docker.internal:\".insteadOf' 'ssh://git@localhost:' && git -C /var/www/html config --local core.sshCommand 'ssh -o HostKeyAlias=localhost'",
   "workspaceFolder": "/var/www/html",
   "forwardPorts": [
     8080,

@@ -1,9 +1,10 @@
 {
-  "name": "Vue frontend",
+  "name": "Modular DevOps Stack Vue frontend",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:26-bookworm",
+  "runArgs": ["--add-host=host.docker.internal:host-gateway"],
   "remoteUser": "node",
   "updateRemoteUserUID": true,
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "git config --global 'url.\"ssh://git@host.docker.internal:\".insteadOf' 'ssh://git@localhost:' && git config --local core.sshCommand 'ssh -o HostKeyAlias=localhost' && npm install",
   "postStartCommand": "sh .devcontainer/start.sh",
   "forwardPorts": [5173],
   "portsAttributes": {

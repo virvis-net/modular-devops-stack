@@ -5,6 +5,7 @@
   "runServices": [
     "app"
   ],
+  "postCreateCommand": "git config --global --add safe.directory /workspace && git config --global 'url.\"ssh://git@host.docker.internal:\".insteadOf' 'ssh://git@localhost:' && git -C /workspace config --local core.sshCommand 'ssh -o HostKeyAlias=localhost'",
   "workspaceFolder": "/workspace",
   "forwardPorts": [
     8080,

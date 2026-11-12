@@ -9,6 +9,8 @@ services:
     init: true
     volumes:
       - ..:/var/www/html:cached
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: bash /var/www/html/.devcontainer/start.sh
     depends_on:
       mariadb:
