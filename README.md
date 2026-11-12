@@ -350,11 +350,13 @@ in GitOps. Check Gitea to see a commit with a message similar to
 `ci: deploy app digest sha256:... to staging`.
 
 Flux should now deploy that revision to the `staging` namespace. You can check
-Flux and staging with:
+Flux and staging in this checkout's cluster with:
 
 ```sh
-kubectl get kustomization flux-system -n flux-system
-kubectl get pods,services,ingress -n staging
+source .env
+KUBECTL_CONTEXT="k3d-${K3D_CLUSTER_NAME}"
+kubectl --context "$KUBECTL_CONTEXT" get kustomizations -n flux-system
+kubectl --context "$KUBECTL_CONTEXT" get pods,services,ingress -n staging
 ```
 
 When the staging pod is ready, open
@@ -408,9 +410,15 @@ For an additional review or approval gate, make these changes on a separate
 branch and open a pull request to `main` instead. Flux deploys the image after
 the promotion reaches `main`.
 
-After reconciliation, verify production with
-`kubectl get pods,services,ingress -n production` and open
-`http://production.localhost:<K3D_CLUSTER_PORT>/`.
+After reconciliation, verify production in this checkout's cluster:
+
+```sh
+source .env
+kubectl --context "k3d-${K3D_CLUSTER_NAME}" \
+  get pods,services,ingress -n production
+```
+
+Then open `http://production.localhost:<K3D_CLUSTER_PORT>/`.
 
 Staging and production each run in a separate Kubernetes namespace, with
 their own app Deployments, Services, Ingresses, and configuration. The Laravel
@@ -503,9 +511,16 @@ After rendering the provider into GitOps and allowing Flux to reconcile:
   `{job="kubernetes-events"}` for Kubernetes events. Follow trace links to
   Tempo and metric exemplars back to traces.
 - Prometheus remains internal. To inspect its alert rules or query metrics,
-  forward its Service with
-  `kubectl port-forward -n monitoring service/prometheus 9090:9090`, then open
-  `http://localhost:9090/alerts`.
+  forward its Service in this checkout's cluster:
+
+  ```sh
+  source .env
+  kubectl --context "k3d-${K3D_CLUSTER_NAME}" \
+    port-forward -n monitoring service/prometheus 9090:9090
+  ```
+
+  Then open `http://localhost:9090/alerts`. Use a different local port when
+  forwarding Prometheus from multiple stacks at once.
 
 Prometheus alerts on scrape targets remaining down, elevated app 5xx rates,
 image-pull failures, and crash loops. Alertmanager sends firing and resolved
@@ -552,7 +567,9 @@ frontend stack's Grafana, which acts as the central receiver.
 Create a temporary staging pod with an invalid image:
 
 ```sh
-kubectl run observability-alert-test -n staging \
+source .env
+KUBECTL_CONTEXT="k3d-${K3D_CLUSTER_NAME}"
+kubectl --context "$KUBECTL_CONTEXT" run observability-alert-test -n staging \
   --image=example.invalid/observability-alert-test:missing --restart=Never
 ```
 
@@ -563,7 +580,7 @@ check Prometheus at `http://localhost:9090/alerts` (use the
 notification. Then remove the test pod:
 
 ```sh
-kubectl delete pod observability-alert-test -n staging
+kubectl --context "$KUBECTL_CONTEXT" delete pod observability-alert-test -n staging
 ```
 
 After Prometheus observes that the condition has cleared, check Mailpit for
@@ -648,6 +665,53 @@ curl --fail --show-error "http://localhost:${GITEA_HTTP_PORT}/"
 
 After correcting configuration or starting a stopped provider, rerun
 `./scripts/up.sh`.
+
+### Diagnose a staging or production 503
+
+`-n staging` selects a namespace, not a cluster. `kubectl` otherwise uses the
+current context in the shared kubeconfig; starting another checkout with
+`./scripts/up.sh` changes that context. Run these commands from the checkout
+whose cluster you want to inspect. Its `.env` determines the k3d context:
+
+```sh
+source .env
+KUBECTL_CONTEXT="k3d-${K3D_CLUSTER_NAME}"
+NAMESPACE=staging
+
+kubectl --context "$KUBECTL_CONTEXT" \
+  get kustomizations -n flux-system
+kubectl --context "$KUBECTL_CONTEXT" \
+  describe kustomization "${NAMESPACE}-app-workload" -n flux-system
+kubectl --context "$KUBECTL_CONTEXT" \
+  get pods,services,ingress,endpoints -n "$NAMESPACE" -o wide
+kubectl --context "$KUBECTL_CONTEXT" \
+  get events -n "$NAMESPACE" --sort-by=.lastTimestamp
+```
+
+The `flux-system` Kustomization can be Ready while a child app Kustomization
+is failing; check `${NAMESPACE}-app-workload` for the application-specific
+reconciliation status. For production, set `NAMESPACE=production`. If the app
+Service has no endpoints, check why its pod is not Ready; if the pod is
+running, inspect its logs and the Ingress backend:
+
+```sh
+kubectl --context "$KUBECTL_CONTEXT" \
+  describe service app -n "$NAMESPACE"
+kubectl --context "$KUBECTL_CONTEXT" \
+  describe ingress app -n "$NAMESPACE"
+kubectl --context "$KUBECTL_CONTEXT" \
+  logs deployment/app -n "$NAMESPACE" --all-containers=true --tail=100
+```
+
+Confirm the request is going to this stack's published ingress port:
+
+```sh
+curl -v "http://staging.localhost:${K3D_CLUSTER_PORT}/"
+```
+
+Use `production.localhost` if debugging production. In a multi-stack setup,
+run the commands from that stack's checkout so both its `.env` context and
+`K3D_CLUSTER_PORT` are used.
 
 ## Extendability
 

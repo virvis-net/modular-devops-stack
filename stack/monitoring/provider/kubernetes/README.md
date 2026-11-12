@@ -500,7 +500,9 @@ authentication, so keep it within the trusted local lab. Prometheus remains
 internal and is available for rule inspection with a port-forward:
 
 ```bash
-kubectl port-forward -n monitoring service/prometheus 9090:9090
+source .env
+kubectl --context "k3d-${K3D_CLUSTER_NAME}" \
+  port-forward -n monitoring service/prometheus 9090:9090
 ```
 
 Open `http://localhost:9090/alerts` to see evaluated alert rules and
@@ -511,7 +513,9 @@ the image-pull alert again, create a temporary pod using a deliberately
 invalid image:
 
 ```bash
-kubectl run observability-alert-test -n staging \
+source .env
+KUBECTL_CONTEXT="k3d-${K3D_CLUSTER_NAME}"
+kubectl --context "$KUBECTL_CONTEXT" run observability-alert-test -n staging \
   --image=example.invalid/observability-alert-test:missing --restart=Never
 ```
 
@@ -520,7 +524,9 @@ Loki with `{job="kubernetes-events"} |= "observability-alert-test"` and check
 the alert in Prometheus and its email in Mailpit. Then remove the test pod:
 
 ```bash
-kubectl delete pod observability-alert-test -n staging
+source .env
+KUBECTL_CONTEXT="k3d-${K3D_CLUSTER_NAME}"
+kubectl --context "$KUBECTL_CONTEXT" delete pod observability-alert-test -n staging
 ```
 
 Alertmanager and Mailpit are for this trusted local lab only. Mailpit is
