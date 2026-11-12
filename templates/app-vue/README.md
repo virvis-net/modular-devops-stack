@@ -41,26 +41,45 @@ covers browser transport constraints.
 
 ## Configure the API URL and CORS
 
-The shared runtime defaults set `BACKEND_API_URL` to
-`http://staging.localhost:9080`, assuming the API stack uses HTTP host port
-`9080` in the two-stack example. Each generated environment overlay has its own
-`runtime.env` file, merged over those shared defaults:
+The deployed Vue app reads `BACKEND_API_URL` from its runtime ConfigMap. This
+must be the API stack's browser-accessible URL, including that stack's host
+port; it is not the Vue stack's port or an in-cluster Service URL. In the Vue
+stack's GitOps repository, set it in the file for each environment:
 
 - `apps/app/overlays/staging/runtime.env`
 - `apps/app/overlays/production/runtime.env`
 
-Set `BACKEND_API_URL` in each overlay to the API stack's browser-accessible
-origin. The staging default is `http://staging.localhost:9080`; the production
-default is `http://production.localhost:9080`. If you choose another API host
-port, update the corresponding overlay.
+For example, if the Vue app is at `http://staging.localhost:9080` and the
+Laravel API is at `http://staging.localhost:80`, the Vue stack's staging
+file should contain:
 
-In the Laravel API stack's GitOps repository, set `CORS_ALLOWED_ORIGINS` in
-the matching staging or production overlay's `runtime.env` to the frontend's
-exact browser origin. Defaults are `http://staging.localhost` and
-`http://production.localhost`, assuming the frontend uses the default HTTP
-port `80`. Add a port, such as `:8081`, if the frontend uses a non-default
-HTTP port. The API allows GET/POST preflight and the W3C tracing headers,
+```env
+BACKEND_API_URL=http://staging.localhost
+```
+
+The template default assumes the API stack uses host port `9080`. Use the
+Laravel stack's actual `K3D_CLUSTER_PORT` when yours differs. The production
+file works the same way, using `production.localhost`.
+
+The Laravel API separately checks the browser's origin through
+`CORS_ALLOWED_ORIGINS`. In the Laravel stack's GitOps repository, set the
+matching staging or production `runtime.env` to the Vue app's exact browser
+origin. For the example above, the Laravel stack's staging file should contain:
+
+```env
+CORS_ALLOWED_ORIGINS=http://staging.localhost:9080
+```
+
+Use the Vue stack's `K3D_CLUSTER_PORT`; omit the port when it is the default
+HTTP port `80`. The API allows GET/POST preflight and the W3C tracing headers,
 without cookies or credentials. CORS is not an authentication mechanism.
+
+Commit and push each change to its stack's GitOps repository; Flux applies the
+runtime configuration, so a CI rerun is not needed. Re-rendering templates
+overwrites generated files. To preserve custom defaults across re-renders,
+edit the corresponding source files under
+`templates/app-vue/gitops/overlays/` or
+`templates/app-laravel/gitops/overlays/` in the framework checkout as well.
 
 These runtime settings are not secrets. Keep the actual Collector Basic Auth
 credentials in Kubernetes Secrets, never in browser configuration.

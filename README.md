@@ -162,6 +162,14 @@ For an initial render, each selected destination must be an empty Git clone.
 App-only rendering needs only `workspace/app`; GitOps-only rendering needs
 only `workspace/gitops`.
 
+For the Vue/Laravel two-stack example, the Vue API URL and Laravel CORS
+allowlist are configured in each stack's GitOps `runtime.env` overlays. Use
+the other stack's browser-facing `K3D_CLUSTER_PORT` for each value: the Vue
+stack's API URL uses the Laravel port, and Laravel's allowed origin uses the
+Vue port. See the [Vue template README](./templates/app-vue/README.md) and
+[Laravel template README](./templates/app-laravel/README.md) for file paths
+and examples.
+
 To apply changed `.env` values after a repo has already been rendered, use a
 single-target mode on that existing clone. For example, to refresh GitOps:
 

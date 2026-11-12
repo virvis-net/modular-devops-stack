@@ -38,17 +38,33 @@ to find the matching entry. Avoid logging lead form values, credentials, or
 other sensitive data because the log is sent to container stderr and Loki.
 
 The `config/cors.php` configuration supports the separate Vue frontend
-template. Set `CORS_ALLOWED_ORIGINS` to the exact browser origin in the
-matching `apps/app/overlays/staging/runtime.env` or
-`apps/app/overlays/production/runtime.env` file in GitOps. The defaults are
-`http://staging.localhost` and `http://production.localhost` for frontends on
-the default HTTP port `80`; add a port such as `:8081` only when the frontend
-uses a non-default HTTP port. Browsers omit the default `:80` when serializing
-an origin. CORS allows the W3C `traceparent`, `tracestate`, and `baggage`
-headers so the browser's trace context can reach Laravel. The generated
-runtime configuration enables the `tracecontext,baggage` propagators. CORS
-does not authenticate requests; keep the allowlist narrow and do not log
-submitted personal data.
+template. Set `CORS_ALLOWED_ORIGINS` to the Vue app's exact browser origin in
+the Laravel stack's GitOps repository:
+
+- `apps/app/overlays/staging/runtime.env`
+- `apps/app/overlays/production/runtime.env`
+
+Use the Vue stack's host HTTP port (`K3D_CLUSTER_PORT`), not the Laravel
+stack's port. For example, if Vue is at `http://staging.localhost:9080` and
+the API is at `http://staging.localhost:80`, the staging file should contain:
+
+```env
+CORS_ALLOWED_ORIGINS=http://staging.localhost:9080
+```
+
+For a frontend on the default HTTP port `80`, omit the port; browsers serialize
+that origin as `http://staging.localhost`. Use `production.localhost` in the
+production file. Commit and push changes to the GitOps repository for Flux to
+apply them; rerunning CI is not required. Re-rendering templates overwrites
+generated files, so also adjust the matching source file under
+`templates/app-laravel/gitops/overlays/` in the framework checkout if the
+custom value should persist across re-renders.
+
+CORS allows GET/POST preflight and the W3C `traceparent`, `tracestate`, and
+`baggage` headers so the browser's trace context can reach Laravel. The
+generated runtime configuration enables the `tracecontext,baggage`
+propagators. CORS does not authenticate requests; keep the allowlist narrow
+and do not log submitted personal data.
 
 In the two-stack Vue/Laravel exercise, this API stack forwards its traces and
 OTLP logs to the frontend stack's central Collector. Open the combined trace
