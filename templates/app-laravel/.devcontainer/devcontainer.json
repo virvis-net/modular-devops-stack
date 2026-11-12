@@ -8,6 +8,9 @@
   "runServices": [
     "app"
   ],
+  "mounts": [
+    "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,readonly"
+  ],
   "workspaceFolder": "/var/www/html",
   "forwardPorts": [
     8080,
