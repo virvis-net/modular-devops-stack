@@ -25,6 +25,7 @@ secrets/
 # Non-secret runtime defaults and environment overrides in app templates.
 !templates/app-laravel/gitops/overlays/*/runtime.env
 !templates/app-vue/gitops/overlays/*/runtime.env
+!templates/app-vue/gitops/runtime.env
 
 # Workspace folder
 workspace/*
