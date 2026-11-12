@@ -24,7 +24,7 @@ datasources:
           matcherType: label
           matcherRegex: trace_id
           datasourceUid: tempo
-          url: "${__value.raw}"
+          url: "$${__value.raw}"
           urlDisplayLabel: View trace
   - name: Tempo
     uid: tempo
@@ -38,8 +38,8 @@ datasources:
         datasourceUid: prometheus
       tracesToLogsV2:
         datasourceUid: loki
-        spanStartTimeShift: 1h
-        spanEndTimeShift: 1h
+        spanStartTimeShift: -2s
+        spanEndTimeShift: 2s
         tags:
           - key: service.name
             value: service_name
