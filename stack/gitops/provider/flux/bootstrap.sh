@@ -96,23 +96,38 @@ fi
 
 # Containerized flux CLI
 info "Bootstrapping Flux using containerized CLI image $FLUX_IMAGE"
-docker run --rm \
-  --add-host=${GITEA_SSH_DOMAIN}:host-gateway \
-  -v "$FLUX_KUBECONFIG:/flux-conf/kube-config:ro" \
-  -v "$SSH_KEY:/flux-conf/ssh-private_key:ro" \
-  -v "$KNOWN_HOSTS:/flux-conf/ssh-known_hosts:ro" \
-  -e KUBECONFIG=/flux-conf/kube-config \
-  -e GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/flux-conf/ssh-known_hosts" \
-  -e SSH_KNOWN_HOSTS=/flux-conf/ssh-known_hosts \
-  "$FLUX_IMAGE" \
-  bootstrap git \
-    --timeout="$FLUX_BOOTSTRAP_TIMEOUT" \
-    --url="$GIT_URL" \
-    --branch="$GIT_BRANCH" \
-    --path="$GIT_PATH" \
-    --private-key-file=/flux-conf/ssh-private_key \
-    --components-extra=image-reflector-controller,image-automation-controller \
-    --silent
+bootstrap_output="$(mktemp)"
+trap 'rm -f "$bootstrap_output"' EXIT
+
+for attempt in 1 2 3; do
+  if docker run --rm \
+    --add-host="${GITEA_SSH_DOMAIN}:host-gateway" \
+    -v "$FLUX_KUBECONFIG:/flux-conf/kube-config:ro" \
+    -v "$SSH_KEY:/flux-conf/ssh-private_key:ro" \
+    -v "$KNOWN_HOSTS:/flux-conf/ssh-known_hosts:ro" \
+    -e KUBECONFIG=/flux-conf/kube-config \
+    -e GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/flux-conf/ssh-known_hosts" \
+    -e SSH_KNOWN_HOSTS=/flux-conf/ssh-known_hosts \
+    "$FLUX_IMAGE" \
+    bootstrap git \
+      --timeout="$FLUX_BOOTSTRAP_TIMEOUT" \
+      --url="$GIT_URL" \
+      --branch="$GIT_BRANCH" \
+      --path="$GIT_PATH" \
+      --private-key-file=/flux-conf/ssh-private_key \
+      --components-extra=image-reflector-controller,image-automation-controller \
+      --silent 2>&1 | tee "$bootstrap_output"; then
+    break
+  else
+    status=$?
+    if [[ "$attempt" -eq 3 ]] ||
+      ! grep -Eqi 'connection refused|no route to host|network is unreachable|i/o timeout|context deadline exceeded' "$bootstrap_output"; then
+      exit "$status"
+    fi
+    warn "Git is temporarily unreachable from the cluster; retrying Flux bootstrap in 10 seconds (attempt $((attempt + 1))/3)."
+    sleep 10
+  fi
+done
 
 info "Flux bootstrap (container) finished. Verify controllers in namespace flux-system."
 kubectl get pods -n flux-system

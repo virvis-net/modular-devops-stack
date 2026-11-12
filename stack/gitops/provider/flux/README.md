@@ -18,6 +18,10 @@ non-interactive container and the public key was added during initial setup.
 Application desired state lives in the GitOps repository, seeded from
 `templates/gitops/`.
 
+If bootstrap fails because the Git host is temporarily unreachable from the
+cluster, the script retries up to two times with a short delay. Other failures
+are reported immediately.
+
 The script expects the GitOps repository and its cluster path to exist and
 requires the write-enabled Flux deploy key for the bootstrap commits. By
 default, the private key and Flux-specific `known_hosts` file are stored in
