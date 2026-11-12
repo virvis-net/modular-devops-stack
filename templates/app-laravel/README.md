@@ -173,7 +173,8 @@ Open the app repository in VS Code and choose **Dev Containers: Reopen in
 Container**. The devcontainer runs FrankenPHP and the metrics listener with
 Laravel's local/debug settings, and forwards HTTP on `8080` and metrics on
 `9090`. On startup it installs Composer dependencies, creates `.env` if needed,
-and generates a local application key.
+and generates a local application key. It includes Git and the OpenSSH client
+for SSH-based Git remotes.
 
 The Laravel `.devcontainer/compose.infra.yaml` provides a local MariaDB and
 Redis for this app only. These are development-only services and credentials,

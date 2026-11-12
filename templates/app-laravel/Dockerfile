@@ -25,7 +25,7 @@ FROM app AS devcontainer
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
+    && apt-get install -y --no-install-recommends git openssh-client \
     && rm -rf /var/lib/apt/lists/*
 ENV APP_ENV=local \
     APP_DEBUG=true
