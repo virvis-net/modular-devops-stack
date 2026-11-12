@@ -12,6 +12,14 @@ fi
 : "${STACK_NAME:?STACK_NAME must be set in .env}"
 : "${K3D_CLUSTER_NAME:?K3D_CLUSTER_NAME must be set in .env}"
 : "${NETWORK_NAME:?NETWORK_NAME must be set in .env}"
+START_LOCAL_PROVIDERS="${START_LOCAL_PROVIDERS:-true}"
+case "$START_LOCAL_PROVIDERS" in
+  true|false) ;;
+  *)
+    echo "START_LOCAL_PROVIDERS must be true or false." >&2
+    exit 1
+    ;;
+esac
 
 # Tear down cluster resources only when the cluster exists
 if k3d cluster list "$K3D_CLUSTER_NAME" >/dev/null 2>&1; then
@@ -39,15 +47,26 @@ else
   echo "Cluster \"$K3D_CLUSTER_NAME\" does not exist; skipping Kubernetes cleanup."
 fi
 
-# Stop the whole stack
-docker compose -p "$STACK_NAME-providers" \
-  -f ./stack/docker-compose.yaml \
-  -f ./stack/registry/provider/local/docker-compose.yaml \
-  -f ./stack/source-control/provider/gitea/docker-compose.yaml \
-  -f ./stack/ci/provider/woodpecker/docker-compose.yaml \
-  down
+# Stop local providers only when this stack owns them.
+if [[ "$START_LOCAL_PROVIDERS" == true ]]; then
+  docker compose -p "$STACK_NAME-providers" \
+    -f ./stack/docker-compose.yaml \
+    -f ./stack/registry/provider/local/docker-compose.yaml \
+    -f ./stack/source-control/provider/gitea/docker-compose.yaml \
+    -f ./stack/ci/provider/woodpecker/docker-compose.yaml \
+    down
+else
+  echo "Leaving shared Gitea, Woodpecker, registry, and Docker network running."
+fi
 
-# Remove shared network if it exists
-if docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
-  docker network rm "$NETWORK_NAME"
+# Remove the local network only when this stack owns the providers and no other
+# stack remains attached to it.
+if [[ "$START_LOCAL_PROVIDERS" == true ]] &&
+  docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
+  attached_containers="$(docker network inspect --format '{{len .Containers}}' "$NETWORK_NAME")"
+  if [[ "$attached_containers" == 0 ]]; then
+    docker network rm "$NETWORK_NAME"
+  else
+    echo "Leaving Docker network $NETWORK_NAME in place; other containers remain attached."
+  fi
 fi

@@ -358,11 +358,14 @@ trace and correlated logs.
 1. **Choose stack names and ports.** Use two separate checkouts of this
    repository, for example `frontend` and `api`, and give each a unique
    `STACK_NAME`. Keep the frontend on HTTP `80` and HTTPS `443`; set the API
-   stack to HTTP `9080` and HTTPS `9443`. In each checkout's `.env`, also give
-   Gitea, Woodpecker, and the registry unique host ports as shown in the
-   allocation table above. All published ports must be unique on the Docker
-   host. These are example choices; use another free port pair and update the
-   URLs and Collector endpoint below if needed.
+   stack to HTTP `9080` and HTTPS `9443`. If each checkout runs its own
+   providers, give Gitea, Woodpecker, and the registry unique host ports as
+   shown in the allocation table above. All published ports must be unique on
+   the Docker host. To share those providers instead, follow
+   [Sharing providers across stacks](../../../../README.md#sharing-providers-across-stacks);
+   only the provider-owning checkout publishes their ports. These are example
+   choices; use another free port pair and update the URLs and Collector
+   endpoint below if needed.
 
 2. **Configure the frontend stack as the receiver.** In the frontend
    checkout's `.env`, set:

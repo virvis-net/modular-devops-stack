@@ -422,6 +422,38 @@ data visible in the repository, replace the named-volume entry with the
 corresponding bind-mount entry. Each storage option has its own data; changing
 between them does not copy or migrate existing data.
 
+## Sharing providers across stacks
+
+Each checkout starts its own Gitea, Woodpecker, and registry by default. To use
+one set of these services for multiple stacks, choose one checkout to own them
+and configure the other checkout(s) as clients:
+
+1. In every checkout, use a unique `STACK_NAME` and `K3D_CLUSTER_NAME`, but set
+   `NETWORK_NAME` to the same Docker network name. The provider-owning checkout
+   keeps `START_LOCAL_PROVIDERS=true`; set it to `false` in each client.
+2. Set `GITEA_HTTP_PORT`, `GITEA_SSH_PORT`, `WOODPECKER_PORT`, and
+   `REGISTRY_PORT` to the provider owner's port values in every checkout.
+   Only the owner publishes those ports; clients use them to reach the shared
+   services. Keep each cluster's ingress ports unique.
+3. Start the owner and complete its normal Gitea, Woodpecker OAuth, and
+   registry setup first. In the shared Gitea instance, create a distinct
+   organization for each stack, with `app` and `gitops` repositories in each.
+   Set each checkout's `GITEA_ORG` and `GITOPS_REPO_URL` to its own
+   organization and GitOps repository, add that stack's Flux deploy key to
+   that repository, and activate each app repository in Woodpecker.
+4. Start each client checkout. Its setup waits for the owner's Gitea and
+   bootstraps that cluster's Flux against the shared Docker network. The shared
+   registry receives the sample pipelines' `app` images, tagged by commit SHA;
+   each stack's GitOps repository is updated independently.
+
+The shared Docker network lets both k3d clusters reach Gitea and the registry
+directly. Keep the provider owner running while client clusters use it. Run
+`down.sh` for clients before shutting down the owner; client shutdown leaves
+the shared providers and network alone. If other containers remain attached,
+the owner's shutdown also leaves the network in place. This shared network and
+the Woodpecker agent's Docker socket are appropriate only for this trusted
+local lab.
+
 ## Observability
 
 The Kubernetes monitoring provider deploys Prometheus, Grafana, Loki, Tempo,

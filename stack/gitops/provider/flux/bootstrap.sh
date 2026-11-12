@@ -59,19 +59,15 @@ done
 GITEA_CONTAINER_IP=""
 FLUX_DOCKER_NETWORK=bridge
 if [[ "$GIT_URL" == "ssh://git@${SSH_DOMAIN}:${SSH_PORT}/"* ]]; then
-  if ! gitea_container_id="$(docker compose \
-    -p "${STACK_NAME}-providers" \
-    -f "$ROOT_DIR/stack/docker-compose.yaml" \
-    -f "$ROOT_DIR/stack/source-control/provider/gitea/docker-compose.yaml" \
-    ps -q scm)"; then
-    err "Could not find the Gitea container for Compose project ${STACK_NAME}-providers."
-  fi
-  if [[ -z "$gitea_container_id" ]]; then
-    err "Gitea is not running. Start the stack's Gitea service before bootstrapping Flux."
+  mapfile -t gitea_containers < <(docker ps -q \
+    --filter "network=${NETWORK_NAME}" \
+    --filter "label=com.docker.compose.service=scm")
+  if [[ "${#gitea_containers[@]}" -ne 1 ]]; then
+    err "Expected exactly one running Gitea container on Docker network $NETWORK_NAME; found ${#gitea_containers[@]}."
   fi
   if ! GITEA_CONTAINER_IP="$(docker inspect --format \
     "{{with index .NetworkSettings.Networks \"$NETWORK_NAME\"}}{{.IPAddress}}{{end}}" \
-    "$gitea_container_id")"; then
+    "${gitea_containers[0]}")"; then
     err "Could not inspect the Gitea container's address on Docker network $NETWORK_NAME."
   fi
   if [[ -z "$GITEA_CONTAINER_IP" ]]; then

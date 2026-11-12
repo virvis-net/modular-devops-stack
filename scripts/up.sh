@@ -26,6 +26,12 @@ load_environment() {
   source "$ENV_FILE"
   set +a
 
+  START_LOCAL_PROVIDERS="${START_LOCAL_PROVIDERS:-true}"
+  case "$START_LOCAL_PROVIDERS" in
+    true|false) ;;
+    *) error "START_LOCAL_PROVIDERS must be true or false." ;;
+  esac
+
   SSH_KEY="${FLUX_PRIVATE_KEY:-$ROOT_DIR/stack/.state/ssh/flux_deploy_key}"
 }
 
@@ -67,13 +73,15 @@ validate_first_run_settings() {
     info "Set GITEA_ADMIN_USER in .env to the Gitea account username."
     return 1
   fi
-  if [[ -z "${GITEA_CLIENT:-}" || "$GITEA_CLIENT" == "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" ]]; then
-    info "Set GITEA_CLIENT in .env to the OAuth client ID created in Gitea."
-    return 1
-  fi
-  if [[ -z "${GITEA_SECRET:-}" || "$GITEA_SECRET" == "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" ]]; then
-    info "Set GITEA_SECRET in .env to the OAuth client secret created in Gitea."
-    return 1
+  if [[ "$START_LOCAL_PROVIDERS" == true ]]; then
+    if [[ -z "${GITEA_CLIENT:-}" || "$GITEA_CLIENT" == "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" ]]; then
+      info "Set GITEA_CLIENT in .env to the OAuth client ID created in Gitea."
+      return 1
+    fi
+    if [[ -z "${GITEA_SECRET:-}" || "$GITEA_SECRET" == "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" ]]; then
+      info "Set GITEA_SECRET in .env to the OAuth client secret created in Gitea."
+      return 1
+    fi
   fi
   if [[ -z "${GITOPS_BRANCH:-}" || -z "${GITOPS_REPO_URL:-}" ]]; then
     info "Set GITOPS_BRANCH and GITOPS_REPO_URL in .env."
@@ -84,6 +92,7 @@ validate_first_run_settings() {
 wait_for_gitops_repository() {
   local known_hosts
   local host_key
+  local gitops_path
   known_hosts="$(mktemp)"
   host_key="$(mktemp)"
   chmod 600 "$known_hosts"
@@ -101,7 +110,13 @@ wait_for_gitops_repository() {
     return 1
   fi
 
-  local local_gitops_url="ssh://git@localhost:${GITEA_SSH_PORT}/${GITEA_ORG}/gitops.git"
+  if [[ "$GITOPS_REPO_URL" != "ssh://git@${GITEA_SSH_DOMAIN}:${GITEA_SSH_PORT}/"* ]]; then
+    info "GITOPS_REPO_URL must use GITEA_SSH_DOMAIN and GITEA_SSH_PORT."
+    rm -f "$known_hosts" "$host_key"
+    return 1
+  fi
+  gitops_path="${GITOPS_REPO_URL#ssh://git@${GITEA_SSH_DOMAIN}:${GITEA_SSH_PORT}/}"
+  local local_gitops_url="ssh://git@localhost:${GITEA_SSH_PORT}/${gitops_path}"
   local ssh_command
   printf -v ssh_command \
     'ssh -i "%s" -o IdentitiesOnly=yes -o UserKnownHostsFile="%s" -o StrictHostKeyChecking=yes -p %s' \
@@ -115,9 +130,13 @@ wait_for_gitops_repository() {
 }
 
 first_run_setup() {
-  info "First-run setup: starting Gitea only."
   ensure_shared_network
-  compose_gitea up -d scm
+  if [[ "$START_LOCAL_PROVIDERS" == true ]]; then
+    info "First-run setup: starting Gitea only."
+    compose_gitea up -d scm
+  else
+    info "First-run setup: using Gitea from the shared provider network."
+  fi
   ensure_flux_key
 
   info "Waiting for Gitea at http://localhost:${GITEA_HTTP_PORT}..."
@@ -127,7 +146,9 @@ first_run_setup() {
       break
     fi
     if [[ "$attempt" -eq 60 ]]; then
-      compose_gitea logs --tail=50 scm >&2 || true
+      if [[ "$START_LOCAL_PROVIDERS" == true ]]; then
+        compose_gitea logs --tail=50 scm >&2 || true
+      fi
       error "Gitea did not become ready. Check its container logs and try again."
     fi
     sleep 2
@@ -135,11 +156,15 @@ first_run_setup() {
 
   printf '\n'
   info "Gitea is ready."
-  info "Configure the admin account, and add empty 'app' and 'gitops' repositories."
-  info "Add the Gitea admin username in .env."
-  info "Add this public key to the 'gitops' repository as a write-enabled deploy key:"
+  info "Add this public key to the configured GitOps repository as a write-enabled deploy key:"
   cat "${SSH_KEY}.pub"
-  info "Create a Woodpecker OAuth application in Gitea, and put its client ID and secret in .env."
+  if [[ "$START_LOCAL_PROVIDERS" == true ]]; then
+    info "Configure the admin account and create empty 'app' and 'gitops' repositories."
+    info "Add the Gitea admin username in .env."
+    info "Create a Woodpecker OAuth application in Gitea, and put its client ID and secret in .env."
+  else
+    info "Create a distinct Gitea organization for this stack, with 'app' and 'gitops' repositories."
+  fi
   info "Render and push the initial GitOps files before continuing."
 
   while true; do
@@ -173,13 +198,17 @@ fi
 
 ensure_shared_network
 
-# Start the full stack after first-run Gitea setup is complete.
-docker compose -p "$STACK_NAME-providers" \
-  -f ./stack/docker-compose.yaml \
-  -f ./stack/registry/provider/local/docker-compose.yaml \
-  -f ./stack/source-control/provider/gitea/docker-compose.yaml \
-  -f ./stack/ci/provider/woodpecker/docker-compose.yaml \
-  up -d
+# Start local providers after first-run Gitea setup is complete.
+if [[ "$START_LOCAL_PROVIDERS" == true ]]; then
+  docker compose -p "$STACK_NAME-providers" \
+    -f ./stack/docker-compose.yaml \
+    -f ./stack/registry/provider/local/docker-compose.yaml \
+    -f ./stack/source-control/provider/gitea/docker-compose.yaml \
+    -f ./stack/ci/provider/woodpecker/docker-compose.yaml \
+    up -d
+else
+  info "Using shared Gitea, Woodpecker, and registry; local providers were not started."
+fi
 
 # Create or start the k3d cluster using its configured definition.
 if ! k3d cluster list "$K3D_CLUSTER_NAME" >/dev/null 2>&1; then
