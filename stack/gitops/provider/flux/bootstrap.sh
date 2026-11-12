@@ -8,6 +8,8 @@ ROOT_DIR="$(cd -- "$SCRIPT_DIR/../../../.." && pwd)"
 GIT_URL="${GITOPS_REPO_URL:-ssh://git@host.docker.internal:2222/mds/gitops.git}"
 GIT_BRANCH="${GITOPS_BRANCH:-main}"
 GIT_PATH="${GITOPS_PATH:-clusters/mds-cluster}"
+STACK_NAME="${STACK_NAME:-mds}"
+NETWORK_NAME="${NETWORK_NAME:-${STACK_NAME}-network}"
 SSH_DOMAIN="${GITEA_SSH_DOMAIN:-host.docker.internal}"
 SSH_PORT="${GITEA_SSH_PORT:-2222}"
 SSH_STATE_DIR="$ROOT_DIR/stack/.state/ssh"
@@ -52,6 +54,35 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
+# Pods cannot always reach Docker-published host ports. When the Git URL points
+# to this stack's Gitea, use its address on the shared Docker network instead.
+GITEA_CONTAINER_IP=""
+FLUX_DOCKER_NETWORK=bridge
+if [[ "$GIT_URL" == "ssh://git@${SSH_DOMAIN}:${SSH_PORT}/"* ]]; then
+  if ! gitea_container_id="$(docker compose \
+    -p "${STACK_NAME}-providers" \
+    -f "$ROOT_DIR/stack/docker-compose.yaml" \
+    -f "$ROOT_DIR/stack/source-control/provider/gitea/docker-compose.yaml" \
+    ps -q scm)"; then
+    err "Could not find the Gitea container for Compose project ${STACK_NAME}-providers."
+  fi
+  if [[ -z "$gitea_container_id" ]]; then
+    err "Gitea is not running. Start the stack's Gitea service before bootstrapping Flux."
+  fi
+  if ! GITEA_CONTAINER_IP="$(docker inspect --format \
+    "{{with index .NetworkSettings.Networks \"$NETWORK_NAME\"}}{{.IPAddress}}{{end}}" \
+    "$gitea_container_id")"; then
+    err "Could not inspect the Gitea container's address on Docker network $NETWORK_NAME."
+  fi
+  if [[ -z "$GITEA_CONTAINER_IP" ]]; then
+    err "Gitea is not attached to Docker network $NETWORK_NAME."
+  fi
+
+  GIT_URL="ssh://git@${GITEA_CONTAINER_IP}${GIT_URL#ssh://git@${SSH_DOMAIN}:${SSH_PORT}}"
+  FLUX_DOCKER_NETWORK="$NETWORK_NAME"
+  info "Using Gitea's Docker network address for Flux: ${GITEA_CONTAINER_IP}:22"
+fi
+
 # Ensure SSH key exists (generate if missing)
 if [ ! -f "$SSH_KEY" ]; then
   info "Generating Flux deploy key at $SSH_KEY"
@@ -64,15 +95,25 @@ if [ ! -f "$SSH_KEY" ]; then
 fi
 
 # If the Flux-specific known_hosts does not contain the Gitea entry, add it
-if [ ! -f "$KNOWN_HOSTS" ] || ! ssh-keygen -F "[${GITEA_SSH_DOMAIN}]:${GITEA_SSH_PORT}" -f "$KNOWN_HOSTS" >/dev/null 2>&1; then
+KNOWN_HOSTS_ENTRY="[${SSH_DOMAIN}]:${SSH_PORT}"
+if [[ -n "$GITEA_CONTAINER_IP" ]]; then
+  KNOWN_HOSTS_ENTRY="$GITEA_CONTAINER_IP"
+fi
+if [ ! -f "$KNOWN_HOSTS" ] || ! ssh-keygen -F "$KNOWN_HOSTS_ENTRY" -f "$KNOWN_HOSTS" >/dev/null 2>&1; then
   mkdir -p "$(dirname "$KNOWN_HOSTS")"
   info "Adding Gitea host key to Flux-specific known_hosts at $KNOWN_HOSTS"
-  TMP_KEYSCAN=$(ssh-keyscan -p "$GITEA_SSH_PORT" localhost 2>/dev/null || true)
+  TMP_KEYSCAN=$(ssh-keyscan -p "$SSH_PORT" localhost 2>/dev/null || true)
   if [ -n "$TMP_KEYSCAN" ]; then
-    # Rewrite the hostname from localhost → ${GITEA_SSH_DOMAIN} so that Flux can connect from inside the container
-    echo "$TMP_KEYSCAN" | sed "s/\[localhost\]:${GITEA_SSH_PORT}/\[${GITEA_SSH_DOMAIN}\]:${GITEA_SSH_PORT}/" >> "$KNOWN_HOSTS"
+    if [[ -n "$GITEA_CONTAINER_IP" ]]; then
+      echo "$TMP_KEYSCAN" | sed "s/\[localhost\]:${SSH_PORT}/${GITEA_CONTAINER_IP}/" > "$KNOWN_HOSTS"
+    else
+      echo "$TMP_KEYSCAN" | sed "s/\[localhost\]:${SSH_PORT}/\[${SSH_DOMAIN}\]:${SSH_PORT}/" > "$KNOWN_HOSTS"
+    fi
   else
-    warn "Could not retrieve SSH key from localhost:${GITEA_SSH_PORT}; Flux SSH may fail."
+    if [[ -n "$GITEA_CONTAINER_IP" ]]; then
+      err "Could not retrieve Gitea's SSH host key from localhost:${SSH_PORT}."
+    fi
+    warn "Could not retrieve SSH key from localhost:${SSH_PORT}; Flux SSH may fail."
   fi
   chmod 644 "$KNOWN_HOSTS"
 fi
@@ -100,7 +141,7 @@ bootstrap_output="$(mktemp)"
 trap 'rm -f "$bootstrap_output"' EXIT
 
 for attempt in 1 2 3; do
-  if docker run --rm \
+  if docker run --rm --network "$FLUX_DOCKER_NETWORK" \
     --add-host="${GITEA_SSH_DOMAIN}:host-gateway" \
     -v "$FLUX_KUBECONFIG:/flux-conf/kube-config:ro" \
     -v "$SSH_KEY:/flux-conf/ssh-private_key:ro" \
@@ -121,7 +162,7 @@ for attempt in 1 2 3; do
   else
     status=$?
     if [[ "$attempt" -eq 3 ]] ||
-      ! grep -Eqi 'connection refused|no route to host|network is unreachable|i/o timeout|context deadline exceeded' "$bootstrap_output"; then
+      ! grep -Eqi 'connection refused|no route to host|network is unreachable' "$bootstrap_output"; then
       exit "$status"
     fi
     warn "Git is temporarily unreachable from the cluster; retrying Flux bootstrap in 10 seconds (attempt $((attempt + 1))/3)."
