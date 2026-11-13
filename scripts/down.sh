@@ -1,12 +1,42 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+usage() {
+  printf 'Usage: %s [--yes]\n' "$0"
+  printf "Delete this checkout's k3d cluster and stop its local providers.\n"
+  printf 'Use --yes to skip the interactive cluster-name confirmation.\n'
+}
+
+SKIP_CONFIRMATION=false
+while (($#)); do
+  case "$1" in
+    --yes|-y)
+      SKIP_CONFIRMATION=true
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
 # Load environment variables from .env
-if [ -f .env ]; then
-  set -a && source .env && set +a
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+else
+  printf 'Missing .env; copy .env.example to .env first.\n' >&2
+  exit 1
 fi
 
 : "${STACK_NAME:?STACK_NAME must be set in .env}"
@@ -20,6 +50,29 @@ case "$START_LOCAL_PROVIDERS" in
     exit 1
     ;;
 esac
+
+printf 'This will delete k3d cluster "%s" and its Kubernetes metadata.\n' "$K3D_CLUSTER_NAME"
+printf "It will stop and remove provider containers when this checkout owns them; named data volumes are kept.\n"
+if [[ "$START_LOCAL_PROVIDERS" == false ]]; then
+  printf 'Shared Gitea, Woodpecker, registry, and their network will be left running.\n'
+else
+  printf 'The local Docker network is removed only if no containers remain attached.\n'
+fi
+printf 'The k3d storage volume is kept, but its data is not automatically reattached to a recreated cluster.\n'
+if [[ "$SKIP_CONFIRMATION" != true ]]; then
+  if [[ ! -t 0 ]]; then
+    printf 'Refusing non-interactive teardown. Rerun with --yes if this deletion is intentional.\n' >&2
+    exit 1
+  fi
+  read -r -p "Type '$K3D_CLUSTER_NAME' to continue: " confirmation || {
+    printf 'Teardown cancelled.\n' >&2
+    exit 1
+  }
+  if [[ "$confirmation" != "$K3D_CLUSTER_NAME" ]]; then
+    printf 'Cluster name did not match; teardown cancelled.\n' >&2
+    exit 1
+  fi
+fi
 
 # Tear down cluster resources only when the cluster exists
 if k3d cluster list "$K3D_CLUSTER_NAME" >/dev/null 2>&1; then

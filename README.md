@@ -401,20 +401,43 @@ each environment. The environments still share one local k3d cluster and
 host, so namespaces provide logical separation, not a strong security
 boundary. Use separate clusters where stronger isolation is required.
 
-#### Shutting down the stack
+#### Pausing or tearing down the stack
 
-To stop the lab, run `./scripts/down.sh`. This deletes the k3d cluster and
-stops the Compose providers. Gitea, Woodpecker, and registry data live in
-Docker-managed named volumes, which `down.sh` leaves intact. Running
-`./scripts/up.sh` starts the providers again with their existing volume data.
-The volumes are named `<STACK_NAME>-gitea-data`, `<STACK_NAME>-woodpecker-data`,
-and `<STACK_NAME>-registry-data` (with `mds` as the default stack name).
-Remove them explicitly with `docker volume rm` only if you intend to delete
-that provider's data. k3d local-path storage uses one Docker named volume,
-`<K3D_CLUSTER_NAME>-storage`, mounted on every cluster node. It remains after
-cluster deletion, but a deleted cluster's Kubernetes metadata is not restored
-when creating a new cluster. Remove it explicitly with `docker volume rm` only
-if you intend to delete its contents.
+To pause the lab and resume it later with its Kubernetes resources intact, run:
+
+```sh
+./scripts/stop.sh
+```
+
+This stops the k3d cluster and, when this checkout owns them, the Gitea,
+Woodpecker, and registry containers. It does not delete containers, the
+cluster, volumes, or network. If `START_LOCAL_PROVIDERS=false`, shared
+providers are left running. Run `./scripts/up.sh` to start the stopped
+providers and cluster again.
+
+Use `./scripts/down.sh` only when you intend to **delete and recreate the k3d
+cluster**, for example to discard its Kubernetes configuration, rebuild it
+from scratch, or apply a changed cluster definition. It prompts you to type
+the configured cluster name. Use `./scripts/down.sh --yes` only when an
+unattended teardown is intentional.
+The script deletes the cluster and its Kubernetes metadata, then removes this
+checkout's local provider containers. It does not delete Docker data volumes.
+When using shared providers (`START_LOCAL_PROVIDERS=false`), it leaves those
+providers and their network running.
+
+After teardown, `./scripts/up.sh` creates a new cluster and Flux reapplies the
+GitOps-managed resources. Kubernetes-only state, including manually created
+Secrets, is deleted and must be recreated. The `<K3D_CLUSTER_NAME>-storage`
+Docker volume remains, but Kubernetes PVC metadata is not restored and its
+data is not automatically reattached to the new cluster. Do not treat that
+leftover volume as a backup or assume its contents will be recovered.
+
+Gitea, Woodpecker, and registry data are in the named volumes
+`<STACK_NAME>-gitea-data`, `<STACK_NAME>-woodpecker-data`, and
+`<STACK_NAME>-registry-data` (`mds` is the default stack name). The
+`<K3D_CLUSTER_NAME>-storage` volume is mounted on every k3d node. These
+volumes persist across both stop and teardown. Remove a volume with
+`docker volume rm` only when you explicitly intend to delete its contents.
 
 The Compose files show a commented bind-mount alternative for each provider.
 k3d's `cluster.yaml` also includes a commented host-folder alternative. To make
@@ -724,6 +747,10 @@ must survive container or cluster recreation.
 
 ## Project layout
 
+- `scripts/stop.sh` — pause this stack without deleting the k3d cluster or
+  provider containers
+- `scripts/down.sh` — delete the k3d cluster after confirmation; use `--yes`
+  only for intentional non-interactive teardown
 - `stack/` — runtime components and shared Docker Compose network configuration
   - `stack/source-control/provider/gitea/` — Gitea
   - `stack/ci/provider/woodpecker/` — Woodpecker server and agent
