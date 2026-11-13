@@ -17,6 +17,10 @@ intend to delete its contents. The named-volume and bind-mount options are
 independent; switching does not copy or migrate data, and the cluster must be
 recreated to change its storage mount.
 
+Use `scripts/stop.sh` from the repository root to pause and later resume the
+cluster without deleting it. `scripts/down.sh` deletes the cluster and its
+Kubernetes metadata; use it only when a fresh cluster is intended.
+
 The registry mirror points to `http://registry:5000`, the registry service
 name and port on the shared Docker network. k3d copies this configuration into
 the nodes when it creates the cluster. If the registry config changes later,

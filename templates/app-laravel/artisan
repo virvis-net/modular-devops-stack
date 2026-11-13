@@ -1,0 +1,15 @@
+#!/usr/bin/env php
+<?php
+
+use Illuminate\Foundation\Application;
+use Symfony\Component\Console\Input\ArgvInput;
+
+define('LARAVEL_START', microtime(true));
+
+$basePath = dirname($_SERVER['SCRIPT_FILENAME']);
+
+require $basePath.'/vendor/autoload.php';
+
+$app = require_once $basePath.'/bootstrap/app.php';
+
+exit($app->handleCommand(new ArgvInput));

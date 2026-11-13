@@ -30,14 +30,20 @@ http://production.localhost:__K3D_CLUSTER_PORT__/
 
 ### Verifying the deployment
 
-You can confirm the app is running with:
+You can confirm the staging app is running with:
 
 ```bash
-kubectl get all,ingress -n staging
-kubectl get all,ingress -n production
+# Use this stack's rendered k3d context.
+kubectl --context k3d-__K3D_CLUSTER_NAME__ get all,ingress -n staging
 ```
 
-The production namespace remains unused until the first promotion.
+After production has been enabled and reconciled, check it with:
+
+```bash
+kubectl --context k3d-__K3D_CLUSTER_NAME__ get all,ingress -n production
+```
+
+No production app workloads are deployed until the first promotion.
 
 ## Application metrics
 

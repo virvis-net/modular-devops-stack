@@ -1,0 +1,29 @@
+{
+  "name": "Modular DevOps Stack Go App",
+  "dockerComposeFile": "compose.yaml",
+  "service": "app",
+  "runServices": [
+    "app"
+  ],
+  "postCreateCommand": "git config --global --add safe.directory /workspace && git config --global 'url.\"ssh://git@host.docker.internal:\".insteadOf' 'ssh://git@localhost:' && git -C /workspace config --local core.sshCommand 'ssh -o HostKeyAlias=localhost'",
+  "workspaceFolder": "/workspace",
+  "forwardPorts": [
+    8080,
+    9090
+  ],
+  "portsAttributes": {
+    "8080": {
+      "label": "Go app"
+    },
+    "9090": {
+      "label": "Prometheus metrics"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go"
+      ]
+    }
+  }
+}

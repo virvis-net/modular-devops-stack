@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          envFrom:
+            - configMapRef:
+                name: app-runtime-config
+          env:
+            - name: OTEL_LOGS_EXPORTER
+              value: otlp
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-database
+                  key: password

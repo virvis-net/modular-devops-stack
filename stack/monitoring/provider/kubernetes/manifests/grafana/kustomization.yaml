@@ -13,3 +13,4 @@ configMapGenerator:
       - provisioning/datasource.yaml
       - provisioning/dashboard-provider.yaml
       - provisioning/app-dashboard.json
+      - provisioning/__RUNTIME_DASHBOARD__

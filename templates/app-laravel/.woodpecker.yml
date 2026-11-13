@@ -1,0 +1,136 @@
+steps:
+  test:
+    image: composer:2
+    commands:
+      - |
+        if [ ! -f composer.lock ]; then
+          echo "composer.lock missing; start the Dev Container and commit the generated lockfile"
+          exit 1
+        fi
+      - cp .env.example .env
+      - composer install --no-interaction --prefer-dist
+      - php artisan test
+    when:
+      event:
+        - push
+
+  build:
+    image: docker:24.0.0
+    depends_on:
+      - test
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      REGISTRY: "localhost:__REGISTRY_PORT__"
+    commands:
+      - |
+        set -eu
+
+        IMAGE_TAG="$${CI_COMMIT_SHA}"
+        IMAGE="$${REGISTRY}/app:$${IMAGE_TAG}"
+        docker build -t "$$IMAGE" -f Dockerfile .
+        docker push "$$IMAGE"
+
+        REPO_DIGEST="$$(docker image inspect --format='{{index .RepoDigests 0}}' "$$IMAGE")"
+        IMAGE_DIGEST="$${REPO_DIGEST##*@}"
+        if ! printf '%s\n' "$$IMAGE_DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
+          echo "ERROR: Could not determine the pushed image digest."
+          exit 1
+        fi
+        printf '%s\n' "$$IMAGE_DIGEST" > .image_digest
+    when:
+      event:
+        - push
+      branch:
+        - main
+
+  update_gitops:
+    image: alpine/git:latest
+    depends_on:
+      - build
+    environment:
+      GIT_SSH_KEY:
+        from_secret: GIT_SSH_KEY
+    commands:
+      - |
+        set -eu
+
+        if [ -z "$${GIT_SSH_KEY:-}" ]; then
+          echo "ERROR: GIT_SSH_KEY is not set."
+          exit 1
+        fi
+
+        GIT_REPO_SSH="__GITOPS_REPO_URL__"
+        TARGET_FILES="
+          apps/app/overlays/staging/kustomization.yaml
+          apps/app/overlays/staging/migration/kustomization.yaml
+        "
+        MIGRATION_KUSTOMIZATION="clusters/__K3D_CLUSTER_NAME__/environments/staging/app-template/migration-kustomization.yaml"
+        WORKLOAD_KUSTOMIZATION="clusters/__K3D_CLUSTER_NAME__/environments/staging/app-template/workload-kustomization.yaml"
+        IMAGE_DIGEST="$$(cat .image_digest)"
+        RELEASE_ID="$$(printf '%s' "$$IMAGE_DIGEST" | sed 's/^sha256://' | cut -c1-12)"
+
+        mkdir -p /root/.ssh
+        printf '%s\n' "$$GIT_SSH_KEY" > /root/.ssh/id_rsa
+        chmod 600 /root/.ssh/id_rsa
+        export GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no -i /root/.ssh/id_rsa'
+
+        git clone "$$GIT_REPO_SSH" gitops
+        cd gitops
+
+        for TARGET_FILE in $$TARGET_FILES; do
+          if [ ! -f "$$TARGET_FILE" ]; then
+            echo "Target file $$TARGET_FILE not found; aborting"
+            exit 1
+          fi
+
+          sed -E -i \
+            -e "s|^([[:space:]]*)newTag:.*|\1digest: $${IMAGE_DIGEST}|" \
+            -e "s|^([[:space:]]*)digest:.*|\1digest: $${IMAGE_DIGEST}|" \
+            "$$TARGET_FILE"
+
+          if ! grep -Eq "^[[:space:]]*digest: $${IMAGE_DIGEST}$" "$$TARGET_FILE"; then
+            echo "ERROR: Failed to set the staging image digest in $$TARGET_FILE"
+            exit 1
+          fi
+
+          git add "$$TARGET_FILE"
+        done
+
+        for TARGET_FILE in "$$MIGRATION_KUSTOMIZATION" "$$WORKLOAD_KUSTOMIZATION"; do
+          if [ ! -f "$$TARGET_FILE" ]; then
+            echo "Target file $$TARGET_FILE not found; aborting"
+            exit 1
+          fi
+        done
+
+        sed -E -i \
+          "s|^nameSuffix:.*|nameSuffix: -$${RELEASE_ID}|" \
+          apps/app/overlays/staging/migration/kustomization.yaml
+        sed -E -i \
+          "s|^  name: staging-app-migration-[a-z0-9]+$|  name: staging-app-migration-$${RELEASE_ID}|" \
+          "$$MIGRATION_KUSTOMIZATION"
+        sed -E -i \
+          "s|^    - name: staging-app-migration-[a-z0-9]+$|    - name: staging-app-migration-$${RELEASE_ID}|" \
+          "$$WORKLOAD_KUSTOMIZATION"
+
+        if ! grep -Eq "^nameSuffix: -$${RELEASE_ID}$" apps/app/overlays/staging/migration/kustomization.yaml \
+          || ! grep -Eq "^  name: staging-app-migration-$${RELEASE_ID}$" "$$MIGRATION_KUSTOMIZATION" \
+          || ! grep -Eq "^    - name: staging-app-migration-$${RELEASE_ID}$" "$$WORKLOAD_KUSTOMIZATION"; then
+          echo "ERROR: Failed to set the release-specific migration dependency."
+          exit 1
+        fi
+
+        git add "$$MIGRATION_KUSTOMIZATION" "$$WORKLOAD_KUSTOMIZATION" \
+          apps/app/overlays/staging/migration/kustomization.yaml
+        git config user.name "ci-bot"
+        git config user.email "ci-bot@virvis.net"
+        if ! git diff --cached --quiet; then
+          git commit -m "ci: deploy app digest $${IMAGE_DIGEST} to staging"
+        fi
+        git push origin HEAD
+    when:
+      event:
+        - push
+      branch:
+        - main

@@ -1,0 +1,14 @@
+name: mds-app-go-dev
+
+services:
+  app:
+    image: golang:1.22-bookworm
+    init: true
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace:cached
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: go run ./src
+    environment:
+      OTEL_SERVICE_NAME: app-dev

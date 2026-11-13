@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: otel-collector-central-ingest
+  namespace: monitoring
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: otel-central-ingest-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Central OpenTelemetry ingestion"
+spec:
+__OTEL_CENTRAL_INGRESS_TLS_BLOCK__
+  rules:
+    - host: __OTEL_CENTRAL_INGEST_HOST__
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: otel-collector
+                port:
+                  number: 4318

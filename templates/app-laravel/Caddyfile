@@ -1,0 +1,14 @@
+{
+	frankenphp {
+		num_threads 4
+		max_threads 4
+		max_requests 500
+	}
+}
+
+:8080 {
+	root * /var/www/html/public
+	php_server {
+		try_files {path} index.php
+	}
+}

@@ -1,0 +1,35 @@
+{
+  "name": "Modular DevOps Stack Laravel App",
+  "dockerComposeFile": [
+    "compose.yaml",
+    "compose.infra.yaml"
+  ],
+  "service": "app",
+  "runServices": [
+    "app"
+  ],
+  "mounts": [
+    "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,readonly"
+  ],
+  "postCreateCommand": "git config --global --add safe.directory /var/www/html && git config --global 'url.\"ssh://git@host.docker.internal:\".insteadOf' 'ssh://git@localhost:' && git -C /var/www/html config --local core.sshCommand 'ssh -o HostKeyAlias=localhost'",
+  "workspaceFolder": "/var/www/html",
+  "forwardPorts": [
+    8080,
+    9090
+  ],
+  "portsAttributes": {
+    "8080": {
+      "label": "Laravel app"
+    },
+    "9090": {
+      "label": "Prometheus metrics"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bmewburn.vscode-intelephense-client"
+      ]
+    }
+  }
+}

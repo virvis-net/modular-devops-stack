@@ -11,10 +11,19 @@ copy from the local Kubernetes config, and connects Flux to the GitOps
 repository configured by `.env`. During setup, watch the terminal for Flux CLI
 progress. Bootstrap installs the controllers and commits its reconciliation
 manifests to the configured GitOps path; you can verify the commits in Gitea.
+When the GitOps URL points to this stack's Gitea, Flux uses Gitea's address on
+the shared Docker network and its internal SSH port. This lets cluster pods
+reach Gitea without depending on host-published port forwarding.
+The default Flux CLI image is `ghcr.io/fluxcd/flux-cli:v2.3.0`, which supports
+the stable `kustomize.toolkit.fluxcd.io/v1` API used by the GitOps templates.
 The CLI skips its deploy-key confirmation prompt because bootstrap runs in a
 non-interactive container and the public key was added during initial setup.
 Application desired state lives in the GitOps repository, seeded from
 `templates/gitops/`.
+
+If bootstrap fails immediately because a connection to the Git host is refused
+or unreachable from the cluster, the script retries up to two times with a
+short delay. Timeouts and other failures are reported without retrying.
 
 The script expects the GitOps repository and its cluster path to exist and
 requires the write-enabled Flux deploy key for the bootstrap commits. By

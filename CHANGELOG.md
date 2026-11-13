@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+- Added Laravel API and Vue frontend application templates alongside the Go
+  template, with CI pipelines, Dev Containers, health checks, metrics, and
+  template-specific runtime dashboards.
+- Added Laravel GitOps workloads for MariaDB, Redis, database migrations, a
+  scheduled task, and a queue worker, plus a helper for creating database and
+  cross-stack Collector Secrets.
+- Added browser telemetry for the Vue template and cross-stack trace/log
+  forwarding through an authenticated central OpenTelemetry Collector.
+- Extended template rendering to select an app template, render one
+  repository at a time, and include app-specific GitOps components and
+  environment configuration.
+- Added support for sharing Gitea, Woodpecker, and the registry across stack
+  checkouts, with per-stack cluster settings and setup.
+- Added `scripts/stop.sh` to pause a stack without deleting its cluster, and
+  made `scripts/down.sh` require confirmation before deleting the cluster.
+- Expanded setup, app-template, database, multi-stack, observability, and
+  troubleshooting documentation.
+
 ## 1.0.0 - First stable release
 - Added resumable first-run setup that starts Gitea first and continues after
   account, OAuth, and GitOps configuration.

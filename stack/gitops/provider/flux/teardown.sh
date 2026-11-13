@@ -7,6 +7,10 @@ DRY_RUN="${DRY_RUN:-0}"
 KUBECTL_RETRIES="${KUBECTL_RETRIES:-6}"
 KUBECTL_RETRY_SLEEP="${KUBECTL_RETRY_SLEEP:-2}"
 NAMESPACE_WAIT_SECONDS="${NAMESPACE_WAIT_SECONDS:-120}"
+KUBECTL_COMMAND=(kubectl)
+if [ -n "${KUBECTL_CONTEXT:-}" ]; then
+  KUBECTL_COMMAND+=(--context "$KUBECTL_CONTEXT")
+fi
 
 info(){ printf "\033[1;34m[info]\033[0m %s\n" "$*"; }
 warn(){ printf "\033[1;33m[warn]\033[0m %s\n" "$*"; }
@@ -14,7 +18,7 @@ warn(){ printf "\033[1;33m[warn]\033[0m %s\n" "$*"; }
 kubectl_retry(){
   local tries=0 rc=0
   while [ $tries -lt "$KUBECTL_RETRIES" ]; do
-    if kubectl "$@"; then
+    if "${KUBECTL_COMMAND[@]}" "$@"; then
       return 0
     else
       rc=$?
@@ -38,12 +42,12 @@ if kubectl_retry get ns flux-system >/dev/null 2>&1; then
   if [ "${DRY_RUN}" = "1" ]; then
     info "DRY_RUN=1; would remove finalizers"
   else
-    kubectl -n flux-system get kustomization,gitrepository,imagepolicy,imagerepository,imageupdateautomation -o name \
-      | xargs -r -I{} kubectl -n flux-system patch {} --type=json \
+    "${KUBECTL_COMMAND[@]}" -n flux-system get kustomization,gitrepository,imagepolicy,imagerepository,imageupdateautomation -o name \
+      | xargs -r -I{} "${KUBECTL_COMMAND[@]}" -n flux-system patch {} --type=json \
           -p='[{"op":"remove","path":"/metadata/finalizers"}]' 2>/dev/null || true
 
     # Explicitly patch the flux-system Kustomization (the one that hangs)
-    kubectl -n flux-system patch kustomization flux-system --type=json \
+    "${KUBECTL_COMMAND[@]}" -n flux-system patch kustomization flux-system --type=json \
       -p='[{"op":"remove","path":"/metadata/finalizers"}]' 2>/dev/null || true
   fi
 
@@ -55,7 +59,7 @@ if kubectl_retry get ns flux-system >/dev/null 2>&1; then
   for cr in imageupdateautomation imagepolicy imagerepository kustomization gitrepository; do
     if kubectl_retry get "$cr" -n flux-system >/dev/null 2>&1; then
       info "Deleting $cr"
-      [ "${DRY_RUN}" = "1" ] || kubectl -n flux-system delete "$cr" --all --ignore-not-found=true || true
+      [ "${DRY_RUN}" = "1" ] || "${KUBECTL_COMMAND[@]}" -n flux-system delete "$cr" --all --ignore-not-found=true || true
     fi
   done
 
@@ -63,7 +67,7 @@ if kubectl_retry get ns flux-system >/dev/null 2>&1; then
   # 3. DELETE NAMESPACE
   # ------------------------------------------------------------
   info "Deleting namespace flux-system"
-  [ "${DRY_RUN}" = "1" ] || kubectl delete namespace flux-system --ignore-not-found=true || true
+  [ "${DRY_RUN}" = "1" ] || "${KUBECTL_COMMAND[@]}" delete namespace flux-system --ignore-not-found=true || true
 
   # ------------------------------------------------------------
   # 4. WAIT FOR REMOVAL
@@ -88,7 +92,7 @@ if kubectl_retry get ns flux-system >/dev/null 2>&1; then
   done
 
   if [ "$namespace_check_failed" -eq 0 ] && [ -n "$namespace" ]; then
-    namespace_status=$(kubectl get ns flux-system \
+    namespace_status=$("${KUBECTL_COMMAND[@]}" get ns flux-system \
       -o go-template='phase={{.status.phase}} finalizers={{.spec.finalizers}} conditions={{range .status.conditions}}{{.type}}={{.status}}:{{.message}}; {{end}}' \
       2>&1 || true)
     warn "Namespace still present after ${NAMESPACE_WAIT_SECONDS}s: ${namespace_status}"
@@ -96,15 +100,6 @@ if kubectl_retry get ns flux-system >/dev/null 2>&1; then
 
 else
   info "Namespace flux-system not present; skipping"
-fi
-
-info "Removing buildx builder..."
-[ "${DRY_RUN}" = "1" ] || docker buildx rm mds-builder >/dev/null 2>&1 || true
-
-BK=$(docker ps --filter "name=buildx_buildkit" --format "{{.Names}}" | head -n1 || true)
-if [ -n "$BK" ]; then
-  info "Removing buildkit container $BK"
-  [ "${DRY_RUN}" = "1" ] || docker rm -f "$BK" >/dev/null 2>&1 || true
 fi
 
 info "Teardown complete"
