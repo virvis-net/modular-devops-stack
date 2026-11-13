@@ -39,15 +39,23 @@ activate trusted repositories whose code you control.
 
 ## Initial installation
 
+The core steps below install one stack with the default Go app template and
+default port values. Leave other optional settings unchanged unless a note
+specifically asks you to configure them. Alternative app templates,
+single-repository rendering, Laravel secrets, and multi-stack telemetry are
+marked **Optional** and are not needed for this installation.
+
 ### 1. Configure the environment and start setup
 
 ```sh
 cp .env.example .env
 ```
 
-Review `.env` and adjust any values as needed. Make sure the configured host
-ports are available; if a port is already in use, choose a different value.
-If the defaults are available, no changes are needed.
+In `.env`, set `GITEA_ADMIN_USER` to the username you intend to create in
+Gitea. The default `GITEA_ORG` follows this value, so no other account setting
+needs to change when the repositories belong to that user. Keep the default
+ports if they are available; change only a port that conflicts with another
+service on your host.
 
 Start the setup script:
 
@@ -66,26 +74,21 @@ GitOps setup is verified.
 #### Gitea setup
 
 Open Gitea at `http://localhost:<GITEA_HTTP_PORT>` (port `3000` by default)
-and complete its initial configuration. You can usually keep the default
-database and HTTP server settings. Docker maps the configured host HTTP port
-to Gitea's internal port `3000`, and the configured SSH host port to Gitea's
-internal port `22`. For working SSH clone URLs in Gitea, set its SSH domain to
-`host.docker.internal` and its advertised SSH port to `GITEA_SSH_PORT`
-(`2222` by default). `host.docker.internal` is useful to containers, but may
-not resolve to the host from a Linux shell. For host-side cloning, use
-`localhost` with the published port as shown below.
+and complete its initial configuration, keeping the default database and HTTP
+server settings. Set the advertised SSH domain to `host.docker.internal` and
+SSH port to `2222` (or your configured `GITEA_SSH_PORT`); Flux uses this
+address from inside the Docker network.
 
 Create the initial Gitea account and set its username and password. Once
 signed in, create two empty repositories named `app` and `gitops`.
 
-In `.env`, set `GITEA_ADMIN_USER` to the account username and `GITEA_ORG` to
-the user or organization that owns the repositories. By default, `GITEA_ORG`
-uses the `GITEA_ADMIN_USER` value. If you create the repositories under a
-different owner, update `GITEA_ORG` before rendering the templates.
-
 Add the public key printed by `up.sh` as a **write-enabled deploy key** on the
 `gitops` repository (Settings > Deploy keys). Flux bootstrap needs write access
 to commit its generated sync manifests.
+
+> **Optional:** The default `GITEA_ORG` is the Gitea account named by
+> `GITEA_ADMIN_USER`. If you create the repositories under a different user or
+> organization, set `GITEA_ORG` to that owner in `.env` before rendering.
 
 #### Clone repositories
 
@@ -102,7 +105,12 @@ git clone "http://localhost:${GITEA_HTTP_PORT}/${GITEA_ORG}/gitops.git" workspac
 ./scripts/copy-templates.sh
 ```
 
-Or if you want to use SSH:
+The single `copy-templates.sh` command selects the default Go template and
+renders both repositories.
+
+#### Optional: use SSH for host-side clones
+
+Use these clone commands instead if you prefer SSH:
 
 ```sh
 source .env
@@ -112,108 +120,48 @@ git clone "ssh://git@localhost:${GITEA_SSH_PORT}/${GITEA_ORG}/gitops.git" worksp
 ```
 
 The commands above are for a host terminal, where the published Gitea port is
-available on `localhost`. Inside an app Dev Container, `localhost` refers to
-that container. The Go, Laravel, and Vue Dev Container configurations map
-`host.docker.internal` to the Docker host gateway and automatically rewrite
-SSH Git URLs from `localhost` to that hostname. They also retain `localhost`
-as the repository's SSH host-key alias, so a key accepted during the host-side
-clone can be used inside the container. Post-create also configures the Git
-repository and fails if the workspace isn't a Git repository. The Go and
-Laravel containers mark only their mounted workspace as safe for Git, because
-they run as root while bind-mounted files may belong to a different host user.
-This works without changing the repository's remote URL. If the app repository
-was rendered before these settings were added, update its `.devcontainer`
-configuration and rebuild the Dev Container.
+available on `localhost`.
 
-Choose the application template when rendering the repositories. The Go
-template is selected by default:
+#### Optional: use another app template or render one repository
+
+The Go template is the default. Choose either Laravel or Vue by passing its
+name:
 
 ```sh
-./scripts/copy-templates.sh
-```
-
-To select the Laravel template, pass `laravel`:
-
-```sh
+# Laravel
 ./scripts/copy-templates.sh laravel
-```
 
-To select the Vue frontend template, pass `vue`:
-
-```sh
+# Vue
 ./scripts/copy-templates.sh vue
 ```
 
-By default, the helper renders both `workspace/app` and `workspace/gitops`.
-To render only the application repository, add `--app-only`:
+The Go, Laravel, and Vue Dev Container configurations map
+`host.docker.internal` to the Docker host gateway for container-side
+development. To run the rendered app locally, open `workspace/app` in VS Code
+and choose **Dev Containers: Reopen in Container**. See each template's README
+for its runtime and development details. The Vue/Laravel two-stack example
+also requires API URL and CORS changes; see the
+[Vue template README](./templates/app-vue/README.md) and
+[Laravel template README](./templates/app-laravel/README.md).
+
+For an initial partial render, use `--app-only` or `--gitops-only` and clone
+only that repository. Choose one command:
 
 ```sh
-./scripts/copy-templates.sh vue --app-only
+./scripts/copy-templates.sh --app-only
+# or
+./scripts/copy-templates.sh --gitops-only
 ```
 
-To render only the GitOps repository, add `--gitops-only`. The app template
-still selects the app-specific GitOps manifests and dashboard:
+Initial render destinations must be empty Git clones. Single-target rendering
+can also refresh an existing clone, but it must be clean, including untracked
+files. After a template or `.env` change, rendering overwrites generated files
+without deleting files left by a previous template; review the resulting diff
+before committing.
 
-```sh
-./scripts/copy-templates.sh laravel --gitops-only
-```
+#### Continue the core setup
 
-For an initial render, each selected destination must be an empty Git clone.
-App-only rendering needs only `workspace/app`; GitOps-only rendering needs
-only `workspace/gitops`.
-
-For the Vue/Laravel two-stack example, the Vue API URL and Laravel CORS
-allowlist are configured in each stack's GitOps `runtime.env` overlays. Use
-the other stack's browser-facing `K3D_CLUSTER_PORT` for each value: the Vue
-stack's API URL uses the Laravel port, and Laravel's allowed origin uses the
-Vue port. See the [Vue template README](./templates/app-vue/README.md) and
-[Laravel template README](./templates/app-laravel/README.md) for file paths
-and examples.
-
-To apply changed `.env` values after a repo has already been rendered, use a
-single-target mode on that existing clone. For example, to refresh GitOps:
-
-```sh
-git -C workspace/gitops pull --ff-only
-./scripts/copy-templates.sh vue --gitops-only
-git -C workspace/gitops diff
-```
-
-The existing repo must be clean, with no staged, unstaged, or untracked
-changes. Rendering overwrites files generated by the selected template, so
-review the diff before committing and pushing. The default both-repo mode
-continues to require empty clones. Re-render with the same app template; the
-renderer does not delete files left by an earlier template.
-
-The Go template uses Go 1.22 as a simple single-stack service. The Laravel
-template uses Laravel 13 and PHP 8.5, with MariaDB 13.0 and Redis 8.10 for its
-app dependencies. The Vue template uses Vue 3 and Node 26 to build a browser
-funnel UI; it is intended for a frontend stack that potentially calls an API in
-another stack. Each option is rendered into the `app` repository and uses the
-stack's shared GitOps delivery flow, technology-agnostic application
-dashboard, and its runtime dashboard. Cluster, ingress, and infrastructure
-monitoring are shared.
-The app repositories include VS Code Dev Containers; open `workspace/app` in
-VS Code and choose **Dev Containers: Reopen in Container** to run the app
-locally. The Laravel template also starts local MariaDB and Redis services
-for its development dependencies. Each app's Compose project and network is
-separate from the stack's infrastructure.
-
-The helper reads `.env` and renders the values needed by the selected target.
-GitOps rendering also renames the cluster directory to match
-`K3D_CLUSTER_NAME`. For initial setup, create each selected destination as an
-empty repository without autogenerated files.
-
-Application templates can provide GitOps-specific resources and workload
-configuration in their `gitops/` directory. The renderer copies that directory
-into `apps/app/base/app-template/` in the generated GitOps repository, separate
-from the app source repository. It is a Kustomize Component: use its resources
-for optional services, and patches for environment variables or other
-implementation-specific pod settings. This keeps new app options from
-requiring implementation-specific logic in the renderer.
-
-Commit and push the rendered GitOps files. Git may ask for your Gitea
-credentials:
+Commit and push the rendered GitOps files. Git may ask for your Gitea credentials:
 
 ```sh
 git -C workspace/gitops add .
@@ -281,63 +229,11 @@ it to either repository.
 > container can read it. Other users on the host can also read it, so use this
 > setup only on a trusted machine and do not reuse the key for unrelated access.
 
-### 4. Prepare secrets and verify the end-to-end flow
+> **Laravel only:** Before pushing the app in step 4, create its staging
+> database Secret using the [Laravel database Secret](#laravel-database-secret)
+> instructions.
 
-If you selected the Laravel template, create its `app-database` Secret after
-Flux has created the `staging` namespace and before proceeding with the app
-release. From the framework checkout, the helper can generate it without
-putting credentials in Git. First run `kubectl config get-contexts`, then
-replace `k3d-your-cluster` below with the context for this stack:
-
-```sh
-./scripts/setup-stack-secrets.sh --database-only \
-  --database-context k3d-your-cluster
-```
-
-The namespace defaults to `staging`. Create the production Secret only after
-the production namespace exists, adding
-`--database-namespace production`. The helper preserves an existing database
-Secret; if one is missing while a MariaDB PVC exists, it asks before creating
-new credentials. The Laravel template README also documents manual secret
-creation and database access.
-
-For cross-stack Collector authentication, set the `OTEL_CENTRAL_*` values in
-each stack's `.env` before rendering its GitOps repository. Once Flux has
-created the central ingest Ingress and the Collector Deployments, run the
-helper once with contexts from `kubectl config get-contexts`. Replace only the
-sample context values; keep the option names as shown:
-
-```sh
-./scripts/setup-stack-secrets.sh \
-  --central-context k3d-your-central-cluster \
-  --forwarder-context k3d-your-forwarder-cluster \
-  --collector-scheme http \
-  --central-port 80 \
-  --collector-only
-```
-
-Use the central stack's actual published port for both `--central-port` and
-`OTEL_CENTRAL_COLLECTOR_ENDPOINT`. Add a `--forwarder-context` for each
-application stack sending telemetry. For one Laravel forwarder, omit
-`--collector-only` to also create its staging database Secret; with multiple
-forwarders, pass `--database-context` for each Laravel stack that needs one.
-Use `--database-only` when setting up database credentials without Collector
-authentication. The helper uses temporary containers for `htpasswd` and
-mkcert, so neither utility needs to be installed on the host. HTTP matches the
-`.env.example` endpoint and sends credentials and telemetry without encryption,
-so use it only on a trusted local network. HTTPS is an alternative; change the
-endpoint and `--collector-scheme` to `https` and use the central HTTPS port.
-
-This helper manages Kubernetes Secrets and restarts forwarding Collectors so
-they reload client auth; it does not edit GitOps. See the [Collector setup
-guide](stack/monitoring/provider/kubernetes/README.md) for the per-stack
-settings, multi-stack flow, and manual commands. Re-render and push changed
-GitOps settings separately. The central receiver Secret is updated on each
-run: enter the existing shared forwarder password to keep
-other clients working, or choose a new password and update every forwarder's
-client Secret. After deleting and recreating a k3d cluster, local-path data
-may remain in the Docker storage volume but its Kubernetes PVC metadata is not
-restored automatically.
+### 4. Push the app and verify the default delivery flow
 
 Push the rendered app repository to start the end-to-end delivery flow:
 
@@ -382,6 +278,70 @@ corresponding 'RESOLVED' notifications. These startup alerts are reassuring:
 they show that Prometheus detected temporary conditions while services were
 starting, and that Alertmanager delivered both the alert and its resolution
 to Mailpit. If an alert remains firing after startup, investigate it.
+
+### Optional: Prepare Laravel or multi-stack secrets
+
+#### Laravel database Secret
+
+The default Go stack does not need an application Secret. If you selected the
+Laravel template, create its `app-database` Secret after Flux has created the
+`staging` namespace and before step 4 above. From the framework checkout, the
+helper can generate it without putting credentials in Git. First run
+`kubectl config get-contexts`, then replace
+`k3d-your-cluster` below with the context for this stack:
+
+```sh
+./scripts/setup-stack-secrets.sh --database-only \
+  --database-context k3d-your-cluster
+```
+
+The namespace defaults to `staging`. Create the production Secret only after
+the production namespace exists, adding `--database-namespace production`.
+The helper preserves an existing database Secret; if one is missing while a
+MariaDB PVC exists, it asks before creating new credentials. See the
+[Laravel template README](./templates/app-laravel/README.md) for manual secret
+creation and database access.
+
+#### Cross-stack Collector authentication
+
+For multiple stacks, set the `OTEL_CENTRAL_*` values in each stack's `.env`
+before rendering its GitOps repository. Once Flux has created the central
+ingest Ingress and the Collector Deployments, run the helper with contexts from
+`kubectl config get-contexts`. Replace only the sample context values; keep
+the option names as shown:
+
+```sh
+./scripts/setup-stack-secrets.sh \
+  --central-context k3d-your-central-cluster \
+  --forwarder-context k3d-your-forwarder-cluster \
+  --collector-scheme http \
+  --central-port 80 \
+  --collector-only
+```
+
+Use the central stack's actual published port for both `--central-port` and
+`OTEL_CENTRAL_COLLECTOR_ENDPOINT`. Add a `--forwarder-context` for each
+application stack sending telemetry. For one Laravel forwarder, omit
+`--collector-only` to also create its staging database Secret; with multiple
+forwarders, pass `--database-context` for each Laravel stack that needs one.
+Use `--database-only` when setting up database credentials without Collector
+authentication. The helper uses temporary containers for `htpasswd` and
+mkcert, so neither utility needs to be installed on the host. HTTP matches the
+`.env.example` endpoint and sends credentials and telemetry without
+encryption, so use it only on a trusted local network. HTTPS is an
+alternative; change the endpoint and `--collector-scheme` to `https` and use
+the central HTTPS port.
+
+This helper manages Kubernetes Secrets and restarts forwarding Collectors so
+they reload client auth; it does not edit GitOps. See the [Collector setup
+guide](stack/monitoring/provider/kubernetes/README.md) for per-stack settings,
+the multi-stack flow, and manual commands. Re-render and push changed GitOps
+settings separately. The central receiver Secret is updated on each run:
+enter the existing shared forwarder password to keep other clients working,
+or choose a new password and update every forwarder's client Secret. After
+deleting and recreating a k3d cluster, local-path data may remain in the
+Docker storage volume but its Kubernetes PVC metadata is not restored
+automatically.
 
 ## Normal usage
 
@@ -729,6 +689,12 @@ workflow includes the example app, GitOps repository, and Kubernetes
 observability manifests. Edit the source templates and provider manifests in
 this repository, then render them into the Gitea repositories; Flux applies
 the rendered Kubernetes state from GitOps.
+
+Application-specific Kubernetes resources and workload configuration live in
+each app template's `gitops/` directory. The renderer copies these into the
+generated GitOps repository as a Kustomize Component, keeping optional app
+dependencies and implementation-specific patches separate from the shared
+delivery flow.
 
 Useful extension points include:
 
