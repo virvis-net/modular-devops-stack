@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 - Multi-stack support
 - Added Laravel API and Vue frontend application templates alongside the Go
   template, with CI pipelines, Dev Containers, health checks, metrics, and
   template-specific runtime dashboards.
