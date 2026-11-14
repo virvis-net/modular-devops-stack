@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1 - Documentation updates
+- Reorganized the README installation walkthrough and clarified setup,
+  verification, restart, and project layout guidance.
+
 ## 1.1.0 - Multi-stack support
 - Added Laravel API and Vue frontend application templates alongside the Go
   template, with CI pipelines, Dev Containers, health checks, metrics, and

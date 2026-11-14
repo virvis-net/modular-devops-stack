@@ -3,8 +3,9 @@
 Modular DevOps Stack is a local-first **skeleton for simulating a complete
 DevOps system**. It provides a working example of how source control, CI,
 container images, Kubernetes, GitOps delivery, ingress, and observability fit
-together. Use it as a learning lab or as a starting point for replacing or
-extending components — not as a production-ready, provider-independent platform.
+together. Use it as a learning lab or as a starting point, for replacing or
+extending components. It is not meant as a production-ready,
+provider-independent platform.
 
 The current example is built from Gitea, Woodpecker CI, a local Docker
 registry, k3d, Flux, ingress-nginx, and a Kubernetes observability stack. The
@@ -31,7 +32,7 @@ form an end-to-end path that can be inspected, tested, and adapted.
   `GITEA_HTTP_PORT` (`3000`), `REGISTRY_PORT` (`5000`), and
   `WOODPECKER_PORT` (`8000`)
 
-A repository setup helper renders the app and GitOps templates using the
+A repository setup helper script renders the app and GitOps templates using the
 relevant stack, registry, Gitea SSH, and cluster settings from `.env`.
 
 The CI agent mounts the host Docker socket so pipelines can build images. Only
@@ -39,11 +40,11 @@ activate trusted repositories whose code you control.
 
 ## Initial installation
 
-The core steps below install one stack with the default Go app template and
+The core steps below install a single stack with a simple Go app using
 default port values. Leave other optional settings unchanged unless a note
 specifically asks you to configure them. Alternative app templates,
 single-repository rendering, Laravel secrets, and multi-stack telemetry are
-marked **Optional** and are not needed for this installation.
+marked **Optional** and are not needed for basic functionality.
 
 ### 1. Configure the environment and start setup
 
@@ -73,30 +74,55 @@ GitOps setup is verified.
 
 #### Gitea setup
 
-Open Gitea at `http://localhost:<GITEA_HTTP_PORT>` (port `3000` by default)
-and complete its initial configuration, keeping the default database and HTTP
-server settings. Set the advertised SSH domain to `host.docker.internal` and
-SSH port to `2222` (or your configured `GITEA_SSH_PORT`); Flux uses this
-address from inside the Docker network.
+Open Gitea at [http://localhost:3000](http://localhost:3000) (replace the port
+with `GITEA_HTTP_PORT` if you changed it) and complete its initial
+configuration. Leave all the default values unchanged on the first page.
 
-Create the initial Gitea account and set its username and password. Once
-signed in, create two empty repositories named `app` and `gitops`.
+On the second page create the initial Gitea account using the username you set
+under `GITEA_ADMIN_USER` in `.env` and set its password.
 
-Add the public key printed by `up.sh` as a **write-enabled deploy key** on the
-`gitops` repository (Settings > Deploy keys). Flux bootstrap needs write access
-to commit its generated sync manifests.
+Once signed in, create two empty repositories named `app` and `gitops`.
 
 > **Optional:** The default `GITEA_ORG` is the Gitea account named by
 > `GITEA_ADMIN_USER`. If you create the repositories under a different user or
 > organization, set `GITEA_ORG` to that owner in `.env` before rendering.
 
+#### Flux deploy key
+
+Add the public key printed by `up.sh` as a **write-enabled deploy key** on the
+`gitops` repository (Settings > Deploy keys). Make sure to select the checkbox
+granting Write access, Flux bootstrap needs write access to commit its generated
+sync manifests.
+
+#### Configure WoodpeckerCI OAuth
+
+In Gitea, create an OAuth2 application for Woodpecker (Profile menu >
+Settings > Applications > Create a new OAuth2 Application). Use these
+callback URLs (replace port of the first two with `WOODPECKER_POR>` if you
+changed it):
+
+```text
+http://localhost:8000/authorize
+http://host.docker.internal:8000/authorize
+http://ci-server:8000/authorize
+```
+
+The `ci-server:8000` URL uses Woodpecker's fixed internal container port; it
+does not change when you change the host port.
+
+Copy the generated client ID and secret into `GITEA_CLIENT` and `GITEA_SECRET`
+in `.env`. Make sure `GITEA_ADMIN_USER` is set to the username you used when
+setting up Gitea, so Woodpecker grants that account server-admin privileges.
+
+> **Optional:** Add your personal SSH key to Gitea so you won't be asked for
+> the username and password when you push or pull the repos.
+
 #### Clone repositories
 
-Use the ignored `workspace/` directory for local clones. The default render
-needs both repositories cloned. If you render only one repository, clone only
-that one; use `--app-only` or `--gitops-only` as described below. From the
-project root, load the environment variables and clone the repositories you
-need.
+Use the `workspace/` directory for local clones of the `app` and `gitops`
+repositories. From the project root, load the environment variables and clone
+the repositories. The `copy-templates.sh` command selects the default Go
+template and renders both repositories.
 
 ```sh
 source .env
@@ -104,9 +130,6 @@ git clone "http://localhost:${GITEA_HTTP_PORT}/${GITEA_ORG}/app.git" workspace/a
 git clone "http://localhost:${GITEA_HTTP_PORT}/${GITEA_ORG}/gitops.git" workspace/gitops
 ./scripts/copy-templates.sh
 ```
-
-The single `copy-templates.sh` command selects the default Go template and
-renders both repositories.
 
 #### Optional: use SSH for host-side clones
 
@@ -122,7 +145,7 @@ git clone "ssh://git@localhost:${GITEA_SSH_PORT}/${GITEA_ORG}/gitops.git" worksp
 The commands above are for a host terminal, where the published Gitea port is
 available on `localhost`.
 
-#### Optional: use another app template or render one repository
+#### Optional: use another app template
 
 The Go template is the default. Choose either Laravel or Vue by passing its
 name:
@@ -143,6 +166,8 @@ for its runtime and development details. The Vue/Laravel two-stack example
 also requires API URL and CORS changes; see the
 [Vue template README](./templates/app-vue/README.md) and
 [Laravel template README](./templates/app-laravel/README.md).
+
+#### Optional: render one repository separately
 
 For an initial partial render, use `--app-only` or `--gitops-only` and clone
 only that repository. Choose one command:
@@ -165,36 +190,12 @@ Commit and push the rendered GitOps files. Git may ask for your Gitea credential
 
 ```sh
 git -C workspace/gitops add .
-git -C workspace/gitops -c user.name="Your Name" -c user.email="you@example.com" \
-  commit -m "Add cluster desired state"
+git -C workspace/gitops commit -m "Add initial cluster GitOps configuration"
 git -C workspace/gitops push -u origin HEAD:main
 ```
 
-#### Configure Woodpecker OAuth
-
-In Gitea, create an OAuth2 application for Woodpecker (Profile menu >
-Settings > Applications > Create a new OAuth2 Application). Use these
-callback URLs, replacing `<WOODPECKER_PORT>` with the value configured in
-`.env` (default `8000`):
-
-```text
-http://localhost:<WOODPECKER_PORT>/authorize
-http://host.docker.internal:<WOODPECKER_PORT>/authorize
-http://ci-server:8000/authorize
-```
-
-The `ci-server:8000` URL uses Woodpecker's fixed internal container port; it
-does not change when you change the host port.
-
-Copy the generated client ID and secret into `GITEA_CLIENT` and `GITEA_SECRET`
-in `.env`. Make sure `GITEA_ADMIN_USER` is set to the username you used when
-setting up Gitea, so Woodpecker grants that account server-admin privileges.
-
-Optionally add your personal SSH key to Gitea so you won't be asked for the
-username and password when you push or pull the repos.
-
-Return to the waiting terminal and press Enter. The script reloads `.env` and
-checks that the OAuth settings are configured and the GitOps branch is
+Now return to the waiting terminal and press Enter. The script reloads `.env`
+and checks that the OAuth settings are configured and the GitOps branch is
 accessible with the Flux deploy key. If you stopped the script instead,
 rerun `./scripts/up.sh` to resume; it will repeat the setup checks without
 restarting the installation from scratch. With the default storage settings,
@@ -204,15 +205,17 @@ After the script completes, check the Gitea commit history: Flux has pushed
 the bootstrap manifests to the configured cluster path using the deploy key
 you added.
 
-Now all you need to do is connect CI and Source Control and you're good to go.
+Now all that is left is connecting CI and Source Control and we're good to go.
 
 ### 3. Enable the CI workflow
 
-Open `http://localhost:<WOODPECKER_PORT>/login` (default port `8000`), sign
-in through Gitea, authorise the application, and add the `<GITEA_ORG>/app`
-repository in Woodpecker (+ / Add repository > Enable). In the repository
-settings, enable **Volumes** under **Trusted**. The example pipeline requires
-trusted volumes for its Docker socket mount.
+Open Woodpecker at [http://localhost:8000](http://localhost:8000) (replace the
+port with `WOODPECKER_PORT` if you changed it) and sign in through Gitea and
+authorise the application.
+
+Now add the `<GITEA_ORG>/app` repository in Woodpecker (+ / Add repository >
+Enable). In the repository settings, enable **Volumes** under **Trusted** and
+save. The example pipeline requires trusted volumes for its Docker socket mount.
 
 > The Trusted option is only shown to Woodpecker server admins. If it is missing,
 > confirm that `GITEA_ADMIN_USER` in `.env` exactly matches the signed-in Gitea
@@ -220,7 +223,8 @@ trusted volumes for its Docker socket mount.
 > settings page.
 
 In the same repository settings, open the Secrets tab and add the contents of
-the Flux private key file (by default `stack/.state/ssh/flux_deploy_key`) as a
+the Flux private key file (by default
+[`stack/.state/ssh/flux_deploy_key`](./stack/.state/ssh/flux_deploy_key)) as a
 repository secret named `GIT_SSH_KEY`. If `FLUX_PRIVATE_KEY` is set in `.env`,
 use the file at that path instead. Keep the private key secret; do not commit
 it to either repository.
@@ -229,9 +233,8 @@ it to either repository.
 > container can read it. Other users on the host can also read it, so use this
 > setup only on a trusted machine and do not reuse the key for unrelated access.
 
-> **Laravel only:** Before pushing the app in step 4, create its staging
-> database Secret using the [Laravel database Secret](#laravel-database-secret)
-> instructions.
+> **Laravel only:** Before continuing with step 4, create the database secret
+> using the [Laravel database Secret](#laravel-database-secret) instructions.
 
 ### 4. Push the app and verify the default delivery flow
 
@@ -239,14 +242,15 @@ Push the rendered app repository to start the end-to-end delivery flow:
 
 ```sh
 git -C workspace/app add .
-git -C workspace/app -c user.name="Your Name" -c user.email="you@example.com" \
-  commit -m "Add example app"
+git -C workspace/app commit -m "Add example app"
 git -C workspace/app push -u origin HEAD:main
 ```
 
 The push triggers the CI pipeline, which runs the tests and, on `main`, builds
 and pushes the image to the registry. The pipeline records the new image
 digest in GitOps, and Flux deploys it to the staging environment.
+
+#### Verify CI pipeline
 
 In Woodpecker confirm that the test step passes. Since the push was to `main`,
 Woodpecker also builds and pushes the image, then updates the staging digest
@@ -263,16 +267,24 @@ kubectl --context "$KUBECTL_CONTEXT" get kustomizations -n flux-system
 kubectl --context "$KUBECTL_CONTEXT" get pods,services,ingress -n staging
 ```
 
-When the staging pod is ready, open
-`http://staging.localhost:<K3D_CLUSTER_PORT>/` (default port `80`). The sample
-app should display its greeting.
+#### Open the application in the browser
+
+When the staging pod is ready, open the staging URL
+[http://staging.localhost](http://staging.localhost) (add the port of
+`K3D_CLUSTER_PORT` if you changed it). The sample app should display
+its greeting.
+
+#### Monitoring
 
 After Flux reconciles the monitoring resources, generate some app traffic and
-open Grafana at `http://monitoring.localhost:<K3D_CLUSTER_PORT>/`. Prometheus
-scrapes every 15 seconds; the request-rate and latency panels need traffic to
-show meaningful values.
+open Grafana at [http://monitoring.localhost](http://monitoring.localhost).
+Prometheus scrapes every 15 seconds; the request-rate and latency panels need
+traffic to show meaningful values.
 
-Finally, open Mailpit at `http://notifications.localhost:<K3D_CLUSTER_PORT>/`.
+#### Notifications
+
+Finally, open Mailpit at
+[http://notifications.localhost](http://notifications.localhost).
 On a fresh install, expect to see 'FIRING' notifications followed by their
 corresponding 'RESOLVED' notifications. These startup alerts are reassuring:
 they show that Prometheus detected temporary conditions while services were
@@ -286,13 +298,12 @@ to Mailpit. If an alert remains firing after startup, investigate it.
 The default Go stack does not need an application Secret. If you selected the
 Laravel template, create its `app-database` Secret after Flux has created the
 `staging` namespace and before step 4 above. From the framework checkout, the
-helper can generate it without putting credentials in Git. First run
-`kubectl config get-contexts`, then replace
-`k3d-your-cluster` below with the context for this stack:
+helper can generate it without putting credentials in Git.
 
 ```sh
+source .env
 ./scripts/setup-stack-secrets.sh --database-only \
-  --database-context k3d-your-cluster
+  --database-context "k3d-${K3D_CLUSTER_NAME}"
 ```
 
 The namespace defaults to `staging`. Create the production Secret only after
@@ -306,14 +317,15 @@ creation and database access.
 
 For multiple stacks, set the `OTEL_CENTRAL_*` values in each stack's `.env`
 before rendering its GitOps repository. Once Flux has created the central
-ingest Ingress and the Collector Deployments, run the helper with contexts from
-`kubectl config get-contexts`. Replace only the sample context values; keep
-the option names as shown:
+ingest Ingress and the Collector Deployments, run the helper replacing the
+context value for the forwarder cluster. You can list contexts using
+`kubectl config get-contexts`.
 
 ```sh
+source .env
 ./scripts/setup-stack-secrets.sh \
-  --central-context k3d-your-central-cluster \
-  --forwarder-context k3d-your-forwarder-cluster \
+  --central-context "k3d-${K3D_CLUSTER_NAME}" \
+  --forwarder-context k3d-mds-forwarder-cluster \
   --collector-scheme http \
   --central-port 80 \
   --collector-only
@@ -355,7 +367,7 @@ Grafana Explore to inspect logs, traces, and Kubernetes events.
 > in with the default username and password (`admin` / `admin`). Grafana may
 > ask you to change the password on first login.
 
-#### Release to production
+### Release to production
 
 Production is opt-in and is not reconciled until enabled in GitOps. To promote
 the tested staging image:
@@ -386,22 +398,23 @@ kubectl --context "k3d-${K3D_CLUSTER_NAME}" \
   get pods,services,ingress -n production
 ```
 
-Then open `http://production.localhost:<K3D_CLUSTER_PORT>/`.
+Then open [http://production.localhost](http://production.localhost) (add the
+port of `K3D_CLUSTER_PORT` if you changed it).
 
-Staging and production each run in a separate Kubernetes namespace, with
-their own app Deployments, Services, Ingresses, and configuration. The Laravel
-template also provisions a MariaDB database and Redis cache independently in
-each environment; its application README describes the required Kubernetes
-Secret setup and database migration. It also deploys a separate Redis-backed
-queue worker, configured through the template's GitOps component. Other app
-templates can add environment-specific dependencies and workloads the same
-way. In Kubernetes, a PersistentVolumeClaim (PVC) is a request for storage
-that a workload can use; stateful services should have a separate claim for
-each environment. The environments still share one local k3d cluster and
-host, so namespaces provide logical separation, not a strong security
-boundary. Use separate clusters where stronger isolation is required.
+> Staging and production each run in a separate Kubernetes namespace, with
+> their own app Deployments, Services, Ingresses, and configuration. The Laravel
+> template also provisions a MariaDB database and Redis cache independently in
+> each environment; its application README describes the required Kubernetes
+> Secret setup and database migration. It also deploys a separate Redis-backed
+> queue worker, configured through the template's GitOps component. Other app
+> templates can add environment-specific dependencies and workloads the same
+> way. In Kubernetes, a PersistentVolumeClaim (PVC) is a request for storage
+> that a workload can use; stateful services should have a separate claim for
+> each environment. The environments still share one local k3d cluster and
+> host, so namespaces provide logical separation, not a strong security
+> boundary. Use separate clusters where stronger isolation is required.
 
-#### Pausing or tearing down the stack
+### Pausing or tearing down the stack
 
 To pause the lab and resume it later with its Kubernetes resources intact, run:
 
@@ -444,6 +457,13 @@ k3d's `cluster.yaml` also includes a commented host-folder alternative. To make
 data visible in the repository, replace the named-volume entry with the
 corresponding bind-mount entry. Each storage option has its own data; changing
 between them does not copy or migrate existing data.
+
+### Restarting after a host or Docker restart
+
+Run `./scripts/up.sh` to resume the stack. It starts the Compose providers,
+starts the existing k3d cluster if needed, selects its kubectl context, and
+waits for all cluster nodes to become Ready before applying ingress and
+bootstrapping Flux.
 
 ## Sharing providers across stacks
 
@@ -525,7 +545,7 @@ in, but Explore requires a login; the Mailpit inbox has no authentication.
 Loki and Tempo use local PVCs with finite retention, and those volumes are not
 backups. Prometheus data uses ephemeral pod storage.
 
-## Guided exercises (optional)
+## Guided exercises
 
 Try these after the initial installation to follow a request through the
 stack, see alerting in action, and practice promoting an image.
@@ -585,13 +605,6 @@ Follow the [Release to production](#release-to-production) steps to promote
 the staging image. Compare the staging and production `digest` values and
 confirm that production uses the already-tested image rather than rebuilding
 it.
-
-## Restarting after a host or Docker restart
-
-Run `./scripts/up.sh` to resume the stack. It starts the Compose providers,
-starts the existing k3d cluster if needed, selects its kubectl context, and
-waits for all cluster nodes to become Ready before applying ingress and
-bootstrapping Flux.
 
 ## Troubleshooting commands
 
@@ -704,7 +717,7 @@ Use `production.localhost` if debugging production. In a multi-stack setup,
 run the commands from that stack's checkout so both its `.env` context and
 `K3D_CLUSTER_PORT` are used.
 
-## Extendability
+## Extendibility
 
 The framework is organised around providers so infrastructure implementations
 can be replaced or added as the lab grows. The current template-rendering
@@ -747,11 +760,23 @@ must survive container or cluster recreation.
 
 ## Project layout
 
-- `scripts/stop.sh` — pause this stack without deleting the k3d cluster or
-  provider containers
-- `scripts/down.sh` — delete the k3d cluster after confirmation; use `--yes`
-  only for intentional non-interactive teardown
-- `stack/` — runtime components and shared Docker Compose network configuration
+- `.env.example` — default configuration for a local stack
+- `scripts/` — setup, lifecycle, secret-management, and template-rendering
+  scripts
+  - `scripts/up.sh` — start or resume the stack, including configured local
+    providers, the k3d cluster, ingress, and Flux bootstrap
+  - `scripts/stop.sh` — pause this stack without deleting the k3d cluster or
+    provider containers
+  - `scripts/down.sh` — delete the k3d cluster and remove local provider
+    containers after confirmation; use `--yes` only for intentional
+    non-interactive teardown
+  - `scripts/setup-stack-secrets.sh` — create application database and
+    cross-stack Collector authentication Secrets in Kubernetes
+  - `scripts/copy-templates.sh` — render app and/or GitOps templates from `.env`
+    into empty initial clones or clean existing clones for a single-target refresh
+  - `scripts/render-templates.py` — renderer used by `copy-templates.sh`
+- `stack/` — runtime components and provider-specific configuration
+  - `stack/docker-compose.yaml` — shared Docker Compose network configuration
   - `stack/source-control/provider/gitea/` — Gitea
   - `stack/ci/provider/woodpecker/` — Woodpecker server and agent
   - `stack/registry/provider/local/` — local container registry
@@ -760,8 +785,13 @@ must survive container or cluster recreation.
   - `stack/gitops/provider/flux/` — Flux bootstrap and teardown
   - `stack/monitoring/provider/kubernetes/` — observability provider configuration
     and manifests, rendered into GitOps for Flux to apply
-- `scripts/copy-templates.sh` — render app and/or GitOps templates from `.env`
-  into empty initial clones or clean existing clones for a single-target refresh
-- `templates/app-go/`, `templates/app-laravel/`, and `templates/app-vue/` —
-  application templates
-- `templates/gitops/` — GitOps repository template rendered into Gitea
+- `templates/` — source files rendered into the application and GitOps
+  repositories
+  - `templates/app-go/`, `templates/app-laravel/`, and `templates/app-vue/` —
+    application templates
+  - `templates/gitops/` — GitOps repository template rendered into Gitea
+- `tools/` — supporting utility images used by setup scripts
+  - `tools/mkcert/` — helper image used to generate certificates for HTTPS
+    Collector authentication
+- `workspace/` — directory for local clones of the Gitea `app` and `gitops`
+  repositories
