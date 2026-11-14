@@ -1,0 +1,30 @@
+services:
+  openhands:
+    image: ${OPENHANDS_IMAGE:-ghcr.io/openhands/agent-canvas:latest}
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    environment:
+      AGENT_CANVAS_ALLOW_LAN_SESSION_KEY: "true"
+      GITEA_ACCESS_TOKEN: ${OPENHANDS_GITEA_TOKEN:-}
+      GITEA_API_URL: http://scm:3000/api/v1
+      GITEA_OWNER: ${GITEA_ORG:-}
+      GITEA_REPOSITORY: app
+      GITEA_USERNAME: ${OPENHANDS_GITEA_USER:-}
+      GIT_ASKPASS: /usr/local/bin/mds-gitea-askpass
+      GIT_TERMINAL_PROMPT: "0"
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: url.http://scm:3000/.insteadOf
+      GIT_CONFIG_VALUE_0: http://localhost:${GITEA_HTTP_PORT:-3000}/
+    ports:
+      - "127.0.0.1:${OPENHANDS_PORT:-8001}:8000"
+    volumes:
+      - openhands-data:/home/openhands/.openhands
+      - ../workspace/app:/projects/app
+      - ../scripts/ai-engineering-git-askpass.sh:/usr/local/bin/mds-gitea-askpass:ro
+    networks:
+      - shared
+
+volumes:
+  openhands-data:
+    name: ${STACK_NAME}-openhands-data

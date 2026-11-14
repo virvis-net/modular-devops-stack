@@ -1,0 +1,15 @@
+services:
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-32768}
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - shared
+
+volumes:
+  ollama-data:
+    name: ${STACK_NAME}-ollama-data

@@ -343,6 +343,74 @@ deleting and recreating a k3d cluster, local-path data may remain in the
 Docker storage volume but its Kubernetes PVC metadata is not restored
 automatically.
 
+### Optional: Manual AI Engineering proof of concept (Phase 1)
+
+Phase 1 adds a manually started OpenHands Agent Canvas and local Ollama model
+host. It does not watch Gitea issues, schedule work, or deploy changes. The
+agent works only in the mounted `workspace/app` checkout; normal CI and human
+review remain the gates before a change is merged.
+
+Before starting, configure `OPENHANDS_GITEA_USER` and
+`OPENHANDS_GITEA_TOKEN` in `.env` with a dedicated Gitea account that can
+write only to the `app` repository. Grant that account access only to `app`,
+then create a token with repository read/write access in its Settings >
+Applications. The token is exposed to the local agent so it can push a branch
+and create a PR. Do not use a Gitea administrator token. Both values are
+optional if you only want to experiment with local edits; without them the
+agent cannot push changes or open a PR.
+
+Start the services with:
+
+```sh
+./scripts/ai-engineering.sh up
+```
+
+The first start downloads the model named by `OLLAMA_MODEL` (default
+`qwen2.5-coder:7b`), which can take time and disk space. OpenHands and Ollama
+are independent of `./scripts/up.sh`; starting or stopping the main stack
+does not start or stop them. OpenHands is available at
+`http://localhost:<OPENHANDS_PORT>/canvas` (default port `8001`).
+
+In OpenHands `Settings > LLM > Advanced`, configure the local model:
+
+- **Custom model:** `openai/<OLLAMA_MODEL>` (for example,
+  `openai/qwen2.5-coder:7b`)
+- **Base URL:** `http://ollama:11434/v1`
+- **API key:** any placeholder, such as `local-llm`
+
+Open the `/projects/app` workspace. The agent can use the `GITEA_API_URL`,
+`GITEA_OWNER`, `GITEA_REPOSITORY`, and `GITEA_ACCESS_TOKEN` environment
+variables to interact with the app repository. For example, ask it to:
+
+```text
+Implement Gitea issue #<number> in this repository. First inspect the code
+and give me a short plan. After I approve, make the change, run the relevant
+tests, create and push a topic branch, then open a PR against main using the
+Gitea API settings available in the environment. Do not edit GitOps or deploy.
+Report the branch, PR URL, and test results.
+```
+
+For the default host-side HTTP clone, the OpenHands container transparently
+rewrites the `localhost` remote to Gitea's internal Docker service and uses
+the configured token for Git operations. Use an HTTP clone for this workflow;
+SSH remotes are not rewritten.
+
+Review the plan and diff before merging; CI still runs through Woodpecker.
+
+The default 7B model favors lower hardware requirements over agent
+reliability. Larger Qwen models may perform better but require more memory.
+Ollama is configured with a 32K context window; reduce
+`OLLAMA_CONTEXT_LENGTH` if the host cannot provide enough memory, or change
+`OLLAMA_MODEL` in `.env` before starting the services. The AI services have
+their own persistent model and OpenHands volumes. Stop them without removing
+their data using:
+
+```sh
+./scripts/ai-engineering.sh down
+```
+
+Use `./scripts/ai-engineering.sh logs` or `status` to inspect the AI services.
+
 ## Normal usage
 
 After installation, push app changes to a branch to run tests. Push or merge
