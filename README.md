@@ -350,14 +350,13 @@ host. It does not watch Gitea issues, schedule work, or deploy changes. The
 agent works only in the mounted `workspace/app` checkout; normal CI and human
 review remain the gates before a change is merged.
 
-Before starting, configure `OPENHANDS_GITEA_USER` and
-`OPENHANDS_GITEA_TOKEN` in `.env` with a dedicated Gitea account that can
-write only to the `app` repository. Grant that account access only to `app`,
-then create a token with repository read/write access in its Settings >
-Applications. The token is exposed to the local agent so it can push a branch
-and create a PR. Do not use a Gitea administrator token. Both values are
-optional if you only want to experiment with local edits; without them the
-agent cannot push changes or open a PR.
+Before starting, configure `OPENHANDS_GITEA_TOKEN` in `.env` with a token for
+a dedicated Gitea account that can write only to the `app` repository. Grant
+that account access only to `app`, then create a token with repository
+read/write access in its Settings > Applications. The token is exposed to the
+local agent so it can push a branch and create a PR. Do not use a Gitea
+administrator token. The token is optional if you only want to experiment
+with local edits; without it the agent cannot push changes or open a PR.
 
 Start the services with:
 
@@ -366,17 +365,21 @@ Start the services with:
 ```
 
 The first start downloads the model named by `OLLAMA_MODEL` (default
-`qwen2.5-coder:7b`), which can take time and disk space. OpenHands and Ollama
+`qwen3.5:latest`), which can take time and disk space. OpenHands and Ollama
 are independent of `./scripts/up.sh`; starting or stopping the main stack
 does not start or stop them. OpenHands is available at
 `http://localhost:<OPENHANDS_PORT>/canvas` (default port `8001`).
 
 In OpenHands `Settings > LLM > Advanced`, configure the local model:
 
-- **Custom model:** `openai/<OLLAMA_MODEL>` (for example,
-  `openai/qwen2.5-coder:7b`)
-- **Base URL:** `http://ollama:11434/v1`
+First add a Provider:
+- **Provider:** `ollama_chat`
+- **Base URL:** `http://model-host:11434`
 - **API key:** any placeholder, such as `local-llm`
+
+Then add a new LLM model:
+- **Custom model:** `ollama_chat/<OLLAMA_MODEL>` (for example,
+  `ollama_chat/qwen3.5`)
 
 Open the `/projects/app` workspace. The agent can use the `GITEA_API_URL`,
 `GITEA_OWNER`, `GITEA_REPOSITORY`, and `GITEA_ACCESS_TOKEN` environment

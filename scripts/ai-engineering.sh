@@ -39,13 +39,12 @@ set +a
 OPENHANDS_PORT="${OPENHANDS_PORT:-8001}"
 OPENHANDS_IMAGE="${OPENHANDS_IMAGE:-ghcr.io/openhands/agent-canvas:latest}"
 OLLAMA_IMAGE="${OLLAMA_IMAGE:-ollama/ollama:latest}"
-OLLAMA_MODEL="${OLLAMA_MODEL:-qwen2.5-coder:7b}"
+OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3.5:latest}"
 OLLAMA_CONTEXT_LENGTH="${OLLAMA_CONTEXT_LENGTH:-32768}"
 GITEA_HTTP_PORT="${GITEA_HTTP_PORT:-3000}"
-OPENHANDS_GITEA_USER="${OPENHANDS_GITEA_USER:-}"
 OPENHANDS_GITEA_TOKEN="${OPENHANDS_GITEA_TOKEN:-}"
 export OPENHANDS_PORT OPENHANDS_IMAGE OLLAMA_IMAGE OLLAMA_MODEL
-export OLLAMA_CONTEXT_LENGTH GITEA_HTTP_PORT OPENHANDS_GITEA_USER OPENHANDS_GITEA_TOKEN
+export OLLAMA_CONTEXT_LENGTH GITEA_HTTP_PORT OPENHANDS_GITEA_TOKEN
 
 compose() {
   docker compose -p "${STACK_NAME}-ai-engineering" \
@@ -54,22 +53,18 @@ compose() {
     -f ./stack/ai-engineering/provider/openhands/docker-compose.yaml "$@"
 }
 
-wait_for_ollama() {
+wait_for_model_host() {
   local attempt
   for attempt in {1..60}; do
-    if compose exec -T ollama ollama list >/dev/null 2>&1; then
+    if compose exec -T model-host ollama list >/dev/null 2>&1; then
       return 0
     fi
     sleep 2
   done
-  error "Ollama did not become ready. Check its logs with '$0 logs'."
+  error "The model host did not become ready. Check its logs with '$0 logs'."
 }
 
 up() {
-  if [[ -n "$OPENHANDS_GITEA_TOKEN" && -z "$OPENHANDS_GITEA_USER" ]]; then
-    error "Set OPENHANDS_GITEA_USER in .env to the account that owns OPENHANDS_GITEA_TOKEN."
-  fi
-
   if ! git -C ./workspace/app rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     error "workspace/app must be a Git clone before starting OpenHands."
   fi
@@ -78,11 +73,11 @@ up() {
     docker network create "$NETWORK_NAME" >/dev/null
 
   compose up -d
-  wait_for_ollama
+  wait_for_model_host
 
-  if ! compose exec -T ollama ollama list |
+  if ! compose exec -T model-host ollama list |
     awk -v model="$OLLAMA_MODEL" '$1 == model { found = 1 } END { exit !found }'; then
-    compose exec -T ollama ollama pull "$OLLAMA_MODEL"
+    compose exec -T model-host ollama pull "$OLLAMA_MODEL"
   fi
 
   printf 'OpenHands is available at http://localhost:%s/canvas\n' "$OPENHANDS_PORT"

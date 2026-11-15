@@ -1,5 +1,5 @@
 services:
-  ollama:
+  model-host:
     image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
     restart: unless-stopped
     environment:

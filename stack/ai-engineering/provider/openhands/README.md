@@ -12,8 +12,7 @@ for model setup, Gitea credentials, and the end-to-end workflow.
 
 The Gitea token is available to agent processes in this container. Use a
 dedicated Gitea account with access only to the app repository; agent-run
-commands can read the token. The included Git askpass helper supplies that
-account and token to HTTP Git operations without embedding credentials in the
-remote URL.
+commands can read the token. Git uses an HTTP authorization header so
+credentials are not embedded in the remote URL.
 
 OpenHands state is stored in the `${STACK_NAME}-openhands-data` Docker volume.
