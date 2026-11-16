@@ -393,10 +393,12 @@ Gitea API settings available in the environment. Do not edit GitOps or deploy.
 Report the branch, PR URL, and test results.
 ```
 
-For the default host-side HTTP clone, the OpenHands container transparently
-rewrites the `localhost` remote to Gitea's internal Docker service and uses
-the configured token for Git operations. Use an HTTP clone for this workflow;
-SSH remotes are not rewritten.
+The OpenHands container trusts `/projects/app` as a Git working directory
+and rewrites the standard host-side Gitea HTTP and SSH remotes to Gitea's
+internal Docker service. Git uses the configured token for those HTTP
+operations, so the coding-agent container does not need an SSH client. This
+does not change ownership or filesystem permissions on the host-mounted
+checkout; the container still needs permission to write its `.git` directory.
 
 Review the plan and diff before merging; CI still runs through Woodpecker.
 

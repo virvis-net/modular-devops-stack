@@ -13,6 +13,12 @@ for model setup, Gitea credentials, and the end-to-end workflow.
 The Gitea token is available to agent processes in this container. Use a
 dedicated Gitea account with access only to the app repository; agent-run
 commands can read the token. Git uses an HTTP authorization header so
-credentials are not embedded in the remote URL.
+credentials are not embedded in the remote URL. The Compose environment
+marks `/projects/app` as a safe Git directory and rewrites the host-side
+localhost and configured Gitea SSH URLs to the internal HTTP endpoint, so Git
+does not need an SSH client in the coding-agent container. The Compose environment
+marks `/projects/app` as a safe Git directory and rewrites the standard
+localhost and configured Gitea SSH clone URLs to the internal HTTP endpoint,
+so an SSH client is not required for Git operations.
 
 OpenHands state is stored in the `${STACK_NAME}-openhands-data` Docker volume.

@@ -4,6 +4,8 @@
 - Added an optional, manually started OpenHands and Ollama proof of concept
   for AI-assisted app changes, with a scoped workspace mount and separate
   persistent model and agent data.
+- Added safe-directory configuration and SSH-to-HTTP URL rewriting for
+  OpenHands Git operations.
 
 ## 1.1.0 - Multi-stack support
 - Added Laravel API and Vue frontend application templates alongside the Go

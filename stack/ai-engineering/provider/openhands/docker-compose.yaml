@@ -10,11 +10,17 @@ services:
       GITEA_API_URL: http://scm:3000/api/v1
       GITEA_OWNER: ${GITEA_ORG:-}
       GITEA_REPOSITORY: app
-      GIT_CONFIG_COUNT: "2"
+      GIT_CONFIG_COUNT: "5"
       GIT_CONFIG_KEY_0: url.http://scm:3000/.insteadOf
       GIT_CONFIG_VALUE_0: http://localhost:${GITEA_HTTP_PORT:-3000}/
       GIT_CONFIG_KEY_1: http.http://scm:3000/.extraheader
       GIT_CONFIG_VALUE_1: "Authorization: token ${OPENHANDS_GITEA_TOKEN:-}"
+      GIT_CONFIG_KEY_2: url.http://scm:3000/.insteadOf
+      GIT_CONFIG_VALUE_2: ssh://git@localhost:${GITEA_SSH_PORT:-2222}/
+      GIT_CONFIG_KEY_3: url.http://scm:3000/.insteadOf
+      GIT_CONFIG_VALUE_3: ssh://git@${GITEA_SSH_DOMAIN:-host.docker.internal}:${GITEA_SSH_PORT:-2222}/
+      GIT_CONFIG_KEY_4: safe.directory
+      GIT_CONFIG_VALUE_4: /projects/app
     ports:
       - "127.0.0.1:${OPENHANDS_PORT:-8001}:8000"
     volumes:
