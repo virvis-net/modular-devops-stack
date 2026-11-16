@@ -841,6 +841,12 @@ must survive container or cluster recreation.
 - Consider running the Python-based setup and Kubernetes helper scripts in a
   container, removing the host Python 3 prerequisite while accounting for the
   additional image, bind mounts, and generated-file ownership.
+- Investigate NPU use in AI Engineering, for example in the planning stage,
+  for duplicate issue detection, for repository understanding, for CI failure
+  classification, as PR review agent, or to keep architectural memory. While
+  coding models use GPU, planning models can use NPU, ie GPU for code
+  generation and NPU for retrieval, embeddings, classification and
+  summarisation.
 
 ## Project layout
 
