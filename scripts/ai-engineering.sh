@@ -87,10 +87,25 @@ wait_for_workspace() {
   error "OpenHands cannot see the Git checkout at /projects/app. Check the Docker Desktop/WSL bind mount, then recreate the coding-agent container."
 }
 
+prepare_workspace_permissions() {
+  local workspace="./workspace/app"
+  local host_uid
+
+  host_uid="$(id -u)"
+
+  OPENHANDS_WORKSPACE_GID="$(stat -c '%g' "$workspace")"
+  export OPENHANDS_WORKSPACE_GID
+
+  find "$workspace" -xdev -type f -uid "$host_uid" -exec chmod g+rwX {} +
+  find "$workspace" -xdev -type d -uid "$host_uid" -exec chmod g+rwx,g+s {} +
+}
+
 up() {
   if ! git -C ./workspace/app rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     error "workspace/app must be a Git clone before starting OpenHands."
   fi
+
+  prepare_workspace_permissions
 
   docker network inspect "$NETWORK_NAME" >/dev/null 2>&1 ||
     docker network create "$NETWORK_NAME" >/dev/null

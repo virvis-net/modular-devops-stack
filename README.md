@@ -395,22 +395,34 @@ Then add a new LLM model:
 
 Open the `/projects/app` workspace. The agent can use the `GITEA_API_URL`,
 `GITEA_OWNER`, `GITEA_REPOSITORY`, and `GITEA_ACCESS_TOKEN` environment
-variables to interact with the app repository. For example, ask it to:
+variables to interact with the app repository. Ask it to fetch the issue from
+the Gitea API and verify its title and description before planning or changing
+files; if the issue cannot be fetched, it should stop and report that rather
+than infer the requirements. For example:
 
 ```text
-Implement Gitea issue #<number> in this repository. First inspect the code
-and give me a short plan. After I approve, make the change, run the relevant
-tests, create and push a topic branch, then open a PR against main using the
-Gitea API settings available in the environment. Do not edit GitOps or deploy.
-Report the branch, PR URL, and test results.
+Implement Gitea issue #<number> in this Laravel app. Before changing files,
+fetch the issue from Gitea at
+`$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/issues/<number>` using
+`$GITEA_ACCESS_TOKEN`. Verify its title and description; if you cannot retrieve
+the issue, stop and report that instead of guessing. Change only the requested
+code and focused test. Push branch `ai-demo-greeting` to trigger the
+repository's Woodpecker test pipeline, then open a PR against `main`
+referencing the issue. Use the CI result as the test result; if it is still
+pending or unavailable, say so instead of claiming the tests passed. Do not
+merge or deploy. Keep the diff small and report the PR link and CI status.
 ```
 
-The OpenHands container trusts `/projects/app` as a Git working directory
-and rewrites the standard host-side Gitea HTTP and SSH remotes to Gitea's
-internal Docker service. Git uses the configured token for those HTTP
-operations, so the coding-agent container does not need an SSH client. This
-does not change ownership or filesystem permissions on the host-mounted
-checkout; the container still needs permission to write its `.git` directory.
+The OpenHands container trusts `/projects/app` as a Git working directory.
+OpenHands and Gitea join the same external Docker network, so the Gitea API and
+rewritten Git remotes use Gitea's `scm:3000` service address. Git uses the
+configured token for those HTTP operations, so the coding-agent container does
+not need an SSH client. `host.docker.internal` is available for host services
+such as native Ollama. On startup, the launcher grants group write access to
+files and directories owned by the host user and adds the checkout's group to
+the container. Files owned by another user, such as a root-owned local `.env`,
+are left unchanged. App-specific test commands should use that app's own
+development environment; OpenHands does not receive Docker socket access.
 
 Review the plan and diff before merging; CI still runs through Woodpecker.
 

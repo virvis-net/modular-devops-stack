@@ -24,6 +24,10 @@ services:
     volumes:
       - openhands-data:/home/openhands/.openhands
       - ../workspace/app:/projects/app
+    group_add:
+      - "${OPENHANDS_WORKSPACE_GID:-1000}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - shared
 
