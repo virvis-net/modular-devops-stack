@@ -1,6 +1,10 @@
 services:
   model-host:
-    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    image: ${STACK_NAME}-ollama-vulkan:local
+    build:
+      context: ./model-host/provider/ollama
+      args:
+        OLLAMA_BASE_IMAGE: ${OLLAMA_IMAGE:-ollama/ollama:latest}
     restart: unless-stopped
     environment:
       OLLAMA_HOST: 0.0.0.0:11434

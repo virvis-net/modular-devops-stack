@@ -416,6 +416,40 @@ their data using:
 
 Use `./scripts/ai-engineering.sh logs` or `status` to inspect the AI services.
 
+#### Optional: Ollama Vulkan on WSL2
+
+To try the experimental Vulkan-to-D3D12 (Dozen) path for a WSL2 GPU, set
+this in `.env`:
+
+```env
+OLLAMA_WSL_VULKAN=true
+```
+
+Then recreate the AI services. The WSL overlay adds the GPU devices and
+Windows driver libraries, and selects a Dockerfile that builds Mesa 25.2.8
+with its experimental DZN driver. The first build compiles Mesa from source
+and can take several minutes; subsequent starts use the cached image.
+
+```sh
+./scripts/ai-engineering.sh up
+```
+
+Check the Vulkan device and Ollama's model processor:
+
+```sh
+./scripts/ai-engineering.sh gpu-info
+```
+
+`vulkaninfo` should list a `Microsoft Direct3D12` device matching the GPU.
+The WSL overlay explicitly selects DZN, so a missing or unusable DZN driver
+will report an error rather than silently selecting llvmpipe. After a model
+is loaded, `ollama ps` should show GPU processing; Ollama may still fall back
+to CPU or fail if Dozen lacks a required feature. Review
+`./scripts/ai-engineering.sh logs` for backend errors. This WSL-specific
+overlay is disabled by default and should not be enabled on non-WSL hosts.
+The integrated GPU shares system memory, so lower `OLLAMA_CONTEXT_LENGTH` if
+the model or context does not fit.
+
 ## Normal usage
 
 After installation, push app changes to a branch to run tests. Push or merge

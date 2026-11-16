@@ -1,0 +1,18 @@
+services:
+  model-host:
+    build:
+      dockerfile: Dockerfile.wsl-vulkan
+    environment:
+      OLLAMA_VULKAN: 1
+      OLLAMA_IGPU_ENABLE: 1
+      LD_LIBRARY_PATH: /opt/mesa/lib/x86_64-linux-gnu:/usr/lib/wsl/lib
+      VK_DRIVER_FILES: /opt/mesa/share/vulkan/icd.d/dzn_icd.x86_64.json
+    devices:
+      - /dev/dxg:/dev/dxg
+      - /dev/dri:/dev/dri
+    volumes:
+      - /usr/lib/wsl:/usr/lib/wsl:ro
+    group_add:
+      - "${OLLAMA_VIDEO_GID}"
+      - "${OLLAMA_RENDER_GID}"
+      - "${OLLAMA_DXG_GID}"

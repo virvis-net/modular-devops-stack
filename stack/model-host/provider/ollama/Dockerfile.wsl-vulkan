@@ -1,0 +1,99 @@
+ARG OLLAMA_BASE_IMAGE=ollama/ollama:latest
+FROM ${OLLAMA_BASE_IMAGE} AS mesa-builder
+
+ARG MESA_VERSION=25.2.8
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      bison \
+      build-essential \
+      flex \
+      git \
+      libdrm-dev \
+      libelf-dev \
+      libexpat1-dev \
+      libunwind-dev \
+      libvulkan-dev \
+      libwayland-dev \
+      libx11-dev \
+      libx11-xcb-dev \
+      libxcb-dri3-dev \
+      libxcb-keysyms1-dev \
+      libxcb-present-dev \
+      libxcb-randr0-dev \
+      libxcb-shm0-dev \
+      libxcb-sync-dev \
+      libxcb-xfixes0-dev \
+      libxext-dev \
+      libxfixes-dev \
+      libxrandr-dev \
+      libxml2-dev \
+      libxshmfence-dev \
+      libzstd-dev \
+      ninja-build \
+      pkg-config \
+      python3 \
+      python3-mako \
+      python3-packaging \
+      python3-pip \
+      python3-venv \
+      python3-yaml \
+      wayland-protocols \
+      zlib1g-dev && \
+    python3 -m venv /opt/meson-venv && \
+    /opt/meson-venv/bin/pip install --no-cache-dir meson==1.9.1 && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 --branch "mesa-${MESA_VERSION}" \
+      https://gitlab.freedesktop.org/mesa/mesa.git /tmp/mesa && \
+    /opt/meson-venv/bin/meson setup /tmp/mesa/build /tmp/mesa \
+      --prefix=/opt/mesa \
+      --libdir=lib/x86_64-linux-gnu \
+      --buildtype=release \
+      -Dbuild-tests=false \
+      -Degl=disabled \
+      -Dgbm=disabled \
+      -Dgallium-drivers= \
+      -Dglx=disabled \
+      -Dllvm=disabled \
+      -Dopengl=false \
+      -Dplatforms=x11,wayland \
+      -Dshader-cache=disabled \
+      -Dvulkan-drivers=microsoft-experimental && \
+    ninja -C /tmp/mesa/build -j4 && \
+    ninja -C /tmp/mesa/build install && \
+    rm -rf /tmp/mesa
+
+FROM ${OLLAMA_BASE_IMAGE}
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      libxcb-keysyms1 \
+      mesa-vulkan-drivers \
+      vulkan-tools && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=mesa-builder /opt/mesa /opt/mesa
+
+RUN set -eu; \
+    icd=/opt/mesa/share/vulkan/icd.d/dzn_icd.x86_64.json; \
+    driver=/opt/mesa/lib/x86_64-linux-gnu/libvulkan_dzn.so; \
+    if [ ! -s "$icd" ]; then \
+      echo "DZN ICD manifest not found: $icd" >&2; \
+      find /opt/mesa -name 'dzn_icd*.json' -print >&2; \
+      exit 1; \
+    fi; \
+    if [ ! -s "$driver" ]; then \
+      echo "DZN driver library not found: $driver" >&2; \
+      find /opt/mesa -name 'libvulkan_dzn.so*' -print >&2; \
+      exit 1; \
+    fi; \
+    if ! ldd "$driver" > /tmp/dzn-dependencies; then \
+      cat /tmp/dzn-dependencies >&2; \
+      exit 1; \
+    fi; \
+    cat /tmp/dzn-dependencies; \
+    if grep -q 'not found' /tmp/dzn-dependencies; then \
+      echo "DZN has unresolved runtime library dependencies." >&2; \
+      exit 1; \
+    fi

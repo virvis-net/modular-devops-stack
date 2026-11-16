@@ -6,6 +6,10 @@
   persistent model and agent data.
 - Added safe-directory configuration and SSH-to-HTTP URL rewriting for
   OpenHands Git operations.
+- Added an opt-in WSL2 Ollama image that builds Mesa's Dozen Vulkan driver
+  from source, plus a GPU verification command.
+- Added numeric WSL GPU device group IDs to avoid requiring named groups in
+  the Ollama image.
 
 ## 1.1.0 - Multi-stack support
 - Added Laravel API and Vue frontend application templates alongside the Go
