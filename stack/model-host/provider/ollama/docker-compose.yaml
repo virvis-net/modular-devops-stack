@@ -1,5 +1,7 @@
 services:
   model-host:
+    profiles:
+      - container-model
     image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
     restart: unless-stopped
     environment:

@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 
 usage() {
   printf 'Usage: %s <up|down|logs|status>\n' "$0"
-  printf 'Start or manage the optional local Ollama and OpenHands services.\n'
+  printf 'Start or manage OpenHands and the optional containerized Ollama service.\n'
 }
 
 error() {
@@ -38,16 +38,28 @@ set +a
 
 OPENHANDS_PORT="${OPENHANDS_PORT:-8001}"
 OPENHANDS_IMAGE="${OPENHANDS_IMAGE:-ghcr.io/openhands/agent-canvas:latest}"
+OLLAMA_PROVIDER="${OLLAMA_PROVIDER:-native}"
 OLLAMA_IMAGE="${OLLAMA_IMAGE:-ollama/ollama:latest}"
 OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3.5:latest}"
 OLLAMA_CONTEXT_LENGTH="${OLLAMA_CONTEXT_LENGTH:-32768}"
 GITEA_HTTP_PORT="${GITEA_HTTP_PORT:-3000}"
 OPENHANDS_GITEA_TOKEN="${OPENHANDS_GITEA_TOKEN:-}"
-export OPENHANDS_PORT OPENHANDS_IMAGE OLLAMA_IMAGE OLLAMA_MODEL
+case "$OLLAMA_PROVIDER" in
+  native|container) ;;
+  *) error "OLLAMA_PROVIDER must be native or container." ;;
+esac
+
+export OPENHANDS_PORT OPENHANDS_IMAGE OLLAMA_PROVIDER OLLAMA_IMAGE OLLAMA_MODEL
 export OLLAMA_CONTEXT_LENGTH GITEA_HTTP_PORT OPENHANDS_GITEA_TOKEN
 
 compose() {
+  local profile_args=()
+  if [[ "$OLLAMA_PROVIDER" == container ]]; then
+    profile_args+=(--profile container-model)
+  fi
+
   docker compose -p "${STACK_NAME}-ai-engineering" \
+    "${profile_args[@]}" \
     -f ./stack/docker-compose.yaml \
     -f ./stack/model-host/provider/ollama/docker-compose.yaml \
     -f ./stack/ai-engineering/provider/openhands/docker-compose.yaml "$@"
@@ -64,6 +76,17 @@ wait_for_model_host() {
   error "The model host did not become ready. Check its logs with '$0 logs'."
 }
 
+wait_for_workspace() {
+  local attempt
+  for attempt in {1..30}; do
+    if compose exec -T coding-agent test -d /projects/app/.git >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  error "OpenHands cannot see the Git checkout at /projects/app. Check the Docker Desktop/WSL bind mount, then recreate the coding-agent container."
+}
+
 up() {
   if ! git -C ./workspace/app rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     error "workspace/app must be a Git clone before starting OpenHands."
@@ -72,13 +95,29 @@ up() {
   docker network inspect "$NETWORK_NAME" >/dev/null 2>&1 ||
     docker network create "$NETWORK_NAME" >/dev/null
 
-  compose up -d
-  wait_for_model_host
-
-  if ! compose exec -T model-host ollama list |
-    awk -v model="$OLLAMA_MODEL" '$1 == model { found = 1 } END { exit !found }'; then
-    compose exec -T model-host ollama pull "$OLLAMA_MODEL"
+  if [[ "$OLLAMA_PROVIDER" == native ]]; then
+    docker compose -p "${STACK_NAME}-ai-engineering" \
+      --profile container-model \
+      -f ./stack/docker-compose.yaml \
+      -f ./stack/model-host/provider/ollama/docker-compose.yaml \
+      -f ./stack/ai-engineering/provider/openhands/docker-compose.yaml \
+      rm --stop --force model-host
   fi
+
+  compose up -d
+
+  if [[ "$OLLAMA_PROVIDER" == container ]]; then
+    wait_for_model_host
+
+    if ! compose exec -T model-host ollama list |
+      awk -v model="$OLLAMA_MODEL" '$1 == model { found = 1 } END { exit !found }'; then
+      compose exec -T model-host ollama pull "$OLLAMA_MODEL"
+    fi
+  else
+    printf 'Using native Ollama. Configure OpenHands with http://host.docker.internal:11434\n'
+  fi
+
+  wait_for_workspace
 
   printf 'OpenHands is available at http://localhost:%s/canvas\n' "$OPENHANDS_PORT"
   if [[ -z "$OPENHANDS_GITEA_TOKEN" ]]; then
@@ -91,6 +130,14 @@ case "$1" in
     up
     ;;
   down)
+    if [[ "$OLLAMA_PROVIDER" == native ]]; then
+      docker compose -p "${STACK_NAME}-ai-engineering" \
+        --profile container-model \
+        -f ./stack/docker-compose.yaml \
+        -f ./stack/model-host/provider/ollama/docker-compose.yaml \
+        -f ./stack/ai-engineering/provider/openhands/docker-compose.yaml \
+        rm --stop --force model-host
+    fi
     compose down
     ;;
   logs)

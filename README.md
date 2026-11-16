@@ -358,28 +358,40 @@ local agent so it can push a branch and create a PR. Do not use a Gitea
 administrator token. The token is optional if you only want to experiment
 with local edits; without it the agent cannot push changes or open a PR.
 
+By default, the AI Engineering stack uses Ollama installed on the host and
+starts only OpenHands. Set `OLLAMA_PROVIDER=container` in `.env` if you want
+the script to start a separate Ollama container and download the model named
+by `OLLAMA_MODEL` on first use. That container keeps its model data in a
+persistent Docker volume.
+
 Start the services with:
 
 ```sh
 ./scripts/ai-engineering.sh up
 ```
 
-The first start downloads the model named by `OLLAMA_MODEL` (default
-`qwen3.5:latest`), which can take time and disk space. OpenHands and Ollama
-are independent of `./scripts/up.sh`; starting or stopping the main stack
-does not start or stop them. OpenHands is available at
+OpenHands and the optional Ollama container are independent of
+`./scripts/up.sh`; starting or stopping the main stack does not start or stop
+them. OpenHands is available at
 `http://localhost:<OPENHANDS_PORT>/canvas` (default port `8001`).
 
 In OpenHands `Settings > LLM > Advanced`, configure the local model:
 
 First add a Provider:
 - **Provider:** `ollama_chat`
-- **Base URL:** `http://model-host:11434`
+- **Base URL for native Windows Ollama:** `http://host.docker.internal:11434`
+- **Base URL for containerized Ollama:** `http://model-host:11434`
 - **API key:** any placeholder, such as `local-llm`
 
+For native Windows Ollama, it must accept connections from Docker Desktop;
+configure its `OLLAMA_HOST` to listen on `0.0.0.0:11434` and allow the
+connection through Windows Firewall as needed. Limit access to trusted
+networks, since this exposes the Ollama API beyond Windows localhost.
+Select the matching Base URL for the provider you are using.
+
 Then add a new LLM model:
-- **Custom model:** `ollama_chat/<OLLAMA_MODEL>` (for example,
-  `ollama_chat/qwen3.5`)
+- **Custom model:** `ollama_chat/<model-name>` using a model installed in
+  that Ollama instance (for example, `ollama_chat/qwen3.5`)
 
 Open the `/projects/app` workspace. The agent can use the `GITEA_API_URL`,
 `GITEA_OWNER`, `GITEA_REPOSITORY`, and `GITEA_ACCESS_TOKEN` environment
@@ -402,13 +414,13 @@ checkout; the container still needs permission to write its `.git` directory.
 
 Review the plan and diff before merging; CI still runs through Woodpecker.
 
-The default 7B model favors lower hardware requirements over agent
-reliability. Larger Qwen models may perform better but require more memory.
-Ollama is configured with a 32K context window; reduce
-`OLLAMA_CONTEXT_LENGTH` if the host cannot provide enough memory, or change
-`OLLAMA_MODEL` in `.env` before starting the services. The AI services have
-their own persistent model and OpenHands volumes. Stop them without removing
-their data using:
+Smaller models favor lower hardware requirements, while larger models may
+perform better but require more memory. For containerized Ollama, the context
+window defaults to 32K; reduce `OLLAMA_CONTEXT_LENGTH` or change
+`OLLAMA_MODEL` in `.env` if needed. Configure model and context settings
+separately in native Ollama. The optional Ollama container and OpenHands each
+have persistent data volumes. Stop the AI Engineering services without
+removing their data using:
 
 ```sh
 ./scripts/ai-engineering.sh down

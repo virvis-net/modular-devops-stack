@@ -4,6 +4,8 @@
 - Added an optional, manually started OpenHands and Ollama proof of concept
   for AI-assisted app changes, with a scoped workspace mount and separate
   persistent model and agent data.
+- Made the containerized Ollama provider optional and documented native host
+  Ollama connectivity from OpenHands.
 - Added safe-directory configuration and SSH-to-HTTP URL rewriting for
   OpenHands Git operations.
 

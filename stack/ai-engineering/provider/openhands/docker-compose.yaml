@@ -2,8 +2,6 @@ services:
   coding-agent:
     image: ${OPENHANDS_IMAGE:-ghcr.io/openhands/agent-canvas:latest}
     restart: unless-stopped
-    depends_on:
-      - model-host
     environment:
       AGENT_CANVAS_ALLOW_LAN_SESSION_KEY: "true"
       GITEA_ACCESS_TOKEN: ${OPENHANDS_GITEA_TOKEN:-}
