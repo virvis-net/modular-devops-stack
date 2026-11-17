@@ -393,24 +393,83 @@ Then add a new LLM model:
 - **Custom model:** `ollama_chat/<model-name>` using a model installed in
   that Ollama instance (for example, `ollama_chat/qwen3.5`)
 
+For the OpenHands Agent profile, the settings that worked reliably for the
+example prompt were:
+
+- **Reasoning Effort:** `medium`
+- **Temperature:** `0.1`
+- **Timeout:** `900`
+- **Stream Idle Timeout:** `900`
+- **Max Input Tokens:** leave blank
+- **Max Output Tokens:** `4096`
+
 Open the `/projects/app` workspace. The agent can use the `GITEA_API_URL`,
 `GITEA_OWNER`, `GITEA_REPOSITORY`, and `GITEA_ACCESS_TOKEN` environment
 variables to interact with the app repository. Ask it to fetch the issue from
 the Gitea API and verify its title and description before planning or changing
 files; if the issue cannot be fetched, it should stop and report that rather
-than infer the requirements. For example:
+than infer the requirements. Have it prepare a fresh task branch before making
+any code or test changes: fetch `origin`, fast-forward local `main` from
+`origin/main`, then create and switch to the task branch. Alternatively, it can
+create the task branch directly from the freshly fetched `origin/main`. It must
+never make task commits on `main`; if the worktree is not clean or the branch
+cannot be prepared safely, it should stop and report the problem rather than
+discard or overwrite changes. For example:
 
 ```text
 Implement Gitea issue #<number> in this Laravel app. Before changing files,
 fetch the issue from Gitea at
 `$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/issues/<number>` using
 `$GITEA_ACCESS_TOKEN`. Verify its title and description; if you cannot retrieve
-the issue, stop and report that instead of guessing. Change only the requested
-code and focused test. Push branch `ai-demo-greeting` to trigger the
-repository's Woodpecker test pipeline, then open a PR against `main`
-referencing the issue. Use the CI result as the test result; if it is still
-pending or unavailable, say so instead of claiming the tests passed. Do not
-merge or deploy. Keep the diff small and report the PR link and CI status.
+the issue, stop and report that instead of guessing.
+
+Before changing code or tests, check that the worktree is clean, fetch `origin`
+and fast-forward local `main` to match `origin/main`, then create and switch
+to a new branch. The branch naming should follow the template
+`issue/<number>-<kebab-case-title>` using only lowercase ASCII letters (a-z),
+digits (0-9), and hyphens (-). Verify that the active branch is the newly
+created issue branch; never make task commits on `main`. If the worktree is not
+clean or branch setup cannot be done safely, stop and report the problem
+without discarding changes. Do not stash, reset, discard, or modify unrelated
+changes.
+
+Use a test-driven workflow: inspect the relevant tests, add or update the
+focused test for the requested behavior first, and run it to confirm it fails
+for the expected reason when the local environment permits. If the required
+runtime or tooling is not available in the OpenHands environment, do not
+attempt to install it or work around the limitation; rely on the repository's
+Woodpecker pipeline as the authoritative test environment. Then make the
+smallest code change and rerun the test when possible. Push the task branch to
+trigger the repository's Woodpecker pipeline. Treat CI as required
+validation and the source of truth for test results: inspect failures, update
+the relevant test or code, push the fix, and wait for the pipeline to finish.
+If CI fails, inspect the failure and make only the minimal fix. Repeat while
+the cause is clear, directly related to the requested change, and meaningful
+progress is being made. If the agent cannot identify a clear fix, if multiple
+unrelated failures appear, or if progress stalls, stop and report the current
+status rather than continuing indefinitely. Do not claim success unless CI
+passes; if it is pending or unavailable, report that status explicitly.
+
+Before creating the pull request, verify that all intended changes have been
+committed and pushed to the issue branch. Do not create a pull request from
+uncommitted or unpushed changes.
+
+Create the pull request using the Gitea API or web interface. Do not consider
+the task complete merely because Git reports a PR creation URL. Verify that a
+pull request has actually been created by retrieving its details from Gitea,
+and obtain its PR number and URL. If a PR number cannot be retrieved, report
+that the PR creation step failed.
+
+Do not merge or deploy. Keep the diff small.
+
+At the end, report:
+- Issue number
+- Issue title
+- Branch name
+- Files changed
+- PR number
+- PR URL
+- CI status
 ```
 
 The OpenHands container trusts `/projects/app` as a Git working directory.
