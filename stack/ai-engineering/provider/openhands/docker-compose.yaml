@@ -4,6 +4,8 @@ services:
     restart: unless-stopped
     environment:
       AGENT_CANVAS_ALLOW_LAN_SESSION_KEY: "true"
+      HOME: /home/openhands
+      XDG_CONFIG_HOME: /projects/.config
       GITEA_ACCESS_TOKEN: ${OPENHANDS_GITEA_TOKEN:-}
       GITEA_API_URL: http://scm:3000/api/v1
       GITEA_OWNER: ${GITEA_ORG:-}
@@ -23,11 +25,26 @@ services:
       - "127.0.0.1:${OPENHANDS_PORT:-8001}:8000"
     volumes:
       - openhands-data:/home/openhands/.openhands
+      - ../workspace/openhands:/projects
       - ../workspace/app:/projects/app
-    group_add:
-      - "${OPENHANDS_WORKSPACE_GID:-1000}"
+    user: "${OPENHANDS_UID:-1000}:${OPENHANDS_GID:-1000}"
+    depends_on:
+      openhands-state-init:
+        condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - shared
+
+  openhands-state-init:
+    image: ${OPENHANDS_IMAGE:-ghcr.io/openhands/agent-canvas:latest}
+    user: "0:0"
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "chown -R ${OPENHANDS_UID:-1000}:${OPENHANDS_GID:-1000} /home/openhands/.openhands"
+    volumes:
+      - openhands-data:/home/openhands/.openhands
     networks:
       - shared
 

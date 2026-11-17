@@ -613,11 +613,16 @@ OpenHands and Gitea join the same external Docker network, so the Gitea API and
 rewritten Git remotes use Gitea's `scm:3000` service address. Git uses the
 configured token for those HTTP operations, so the coding-agent container does
 not need an SSH client. `host.docker.internal` is available for host services
-such as native Ollama. On startup, the launcher grants group write access to
-files and directories owned by the host user and adds the checkout's group to
-the container. Files owned by another user, such as a root-owned local `.env`,
-are left unchanged. App-specific test commands should use that app's own
-development environment; OpenHands does not receive Docker socket access.
+such as native Ollama. The launcher runs OpenHands with the invoking host user's
+UID and GID, allowing it to modify the mounted checkout and `.git` directory
+without changing file permissions. The launcher creates the ignored
+`workspace/openhands` directory as the invoking user and mounts it at
+`/projects`; the app checkout is mounted separately at `/projects/app`. A
+one-shot initialization service aligns the private OpenHands state volume with
+the mapped IDs. Set `OPENHANDS_UID` and `OPENHANDS_GID` in `.env` only if you
+need to override the detected IDs. App-specific test commands should use that
+app's own development environment; OpenHands does not receive Docker socket
+access.
 
 Review the plan and diff before merging; CI still runs through Woodpecker.
 

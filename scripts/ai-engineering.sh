@@ -38,6 +38,8 @@ set +a
 
 OPENHANDS_PORT="${OPENHANDS_PORT:-8001}"
 OPENHANDS_IMAGE="${OPENHANDS_IMAGE:-ghcr.io/openhands/agent-canvas:latest}"
+OPENHANDS_UID="${OPENHANDS_UID:-$(id -u)}"
+OPENHANDS_GID="${OPENHANDS_GID:-$(id -g)}"
 OLLAMA_PROVIDER="${OLLAMA_PROVIDER:-native}"
 OLLAMA_IMAGE="${OLLAMA_IMAGE:-ollama/ollama:latest}"
 OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3.5:latest}"
@@ -49,8 +51,9 @@ case "$OLLAMA_PROVIDER" in
   *) error "OLLAMA_PROVIDER must be native or container." ;;
 esac
 
-export OPENHANDS_PORT OPENHANDS_IMAGE OLLAMA_PROVIDER OLLAMA_IMAGE OLLAMA_MODEL
-export OLLAMA_CONTEXT_LENGTH GITEA_HTTP_PORT OPENHANDS_GITEA_TOKEN
+export OPENHANDS_PORT OPENHANDS_IMAGE OPENHANDS_UID OPENHANDS_GID
+export OLLAMA_PROVIDER OLLAMA_IMAGE OLLAMA_MODEL OLLAMA_CONTEXT_LENGTH
+export GITEA_HTTP_PORT OPENHANDS_GITEA_TOKEN
 
 compose() {
   local profile_args=()
@@ -87,25 +90,15 @@ wait_for_workspace() {
   error "OpenHands cannot see the Git checkout at /projects/app. Check the Docker Desktop/WSL bind mount, then recreate the coding-agent container."
 }
 
-prepare_workspace_permissions() {
-  local workspace="./workspace/app"
-  local host_uid
-
-  host_uid="$(id -u)"
-
-  OPENHANDS_WORKSPACE_GID="$(stat -c '%g' "$workspace")"
-  export OPENHANDS_WORKSPACE_GID
-
-  find "$workspace" -xdev -type f -uid "$host_uid" -exec chmod g+rwX {} +
-  find "$workspace" -xdev -type d -uid "$host_uid" -exec chmod g+rwx,g+s {} +
-}
-
 up() {
   if ! git -C ./workspace/app rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     error "workspace/app must be a Git clone before starting OpenHands."
   fi
 
-  prepare_workspace_permissions
+  mkdir -p ./workspace/openhands
+  if [[ ! -w ./workspace/openhands ]]; then
+    error "workspace/openhands must be writable by the user running this script."
+  fi
 
   docker network inspect "$NETWORK_NAME" >/dev/null 2>&1 ||
     docker network create "$NETWORK_NAME" >/dev/null
