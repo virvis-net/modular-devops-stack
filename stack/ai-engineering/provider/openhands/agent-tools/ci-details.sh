@@ -12,5 +12,6 @@ echo "$P" | jq -c '[.workflows[]?.children[]? | {id, name, state}]'
 for ID in $(echo "$P" | jq -r '.workflows[]?.children[]? | select(.state=="failure" or .state=="error") | .id'); do
   echo "=== failing step id=$ID: last 80 log lines ==="
   curl -fsS -H "$H" "$API/logs/$N/$ID" | jq -r '.[]? | .data | @base64d' \
-    | sed -E 's/\x1b\[[0-9;]*[A-Za-z]//g' | tail -n 80
+    | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g' | tr -d '\r' \
+    | grep -vE '^\s+- (Installing|Downloading)|Extracting archive' | tail -n 80
 done
