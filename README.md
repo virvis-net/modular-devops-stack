@@ -414,10 +414,10 @@ any code or test changes: fetch `origin`, fast-forward local `main` from
 create the task branch directly from the freshly fetched `origin/main`. It must
 never make task commits on `main`; if the worktree is not clean or the branch
 cannot be prepared safely, it should stop and report the problem rather than
-discard or overwrite changes. For example:
+discard or overwrite changes. For example (replace <NUMBER>):
 
 ```text
-Implement Gitea issue #<number> in this Laravel application.
+Implement Gitea issue #<NUMBER> in this Laravel application.
 
 ## 1. Retrieve and verify the issue
 
@@ -425,11 +425,9 @@ Before making any changes:
 
 - Retrieve issue from:
 
-$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/issues/<number>
+$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/issues/<issue-number>
 
-using:
-
-$GITEA_ACCESS_TOKEN
+using the header `Authorization: Bearer $GITEA_ACCESS_TOKEN`.
 
 - Verify the issue title and description.
 - If the issue cannot be retrieved, stop and report the problem.
@@ -451,9 +449,11 @@ If it is not clean:
 - Report the problem.
 - Do not reset, stash, discard, or modify unrelated changes.
 
-Synchronize the repository using exactly:
+Synchronize the repository using exactly these three commands, one after another:
 
-git fetch origin git checkout main git merge --ff-only origin/main
+git fetch origin
+git checkout main
+git merge --ff-only origin/main
 
 If any command fails:
 
@@ -526,65 +526,65 @@ Push the issue branch:
 
 git push -u origin <branch-name>
 
-## 7. Validate through Woodpecker CI
+## 7. Validate CI through Gitea commit statuses
 
-After pushing the issue branch:
+The repository's CI is Woodpecker. Woodpecker reports each pipeline result back to Gitea as a commit status. You do NOT have access to the Woodpecker API or web interface. The authoritative CI result is the Gitea commit status API, restricted to statuses whose context starts with `ci/woodpecker/`.
 
-Retrieve the most recent Woodpecker pipeline associated with the branch.
+Rules:
 
-Use the Woodpecker API or Woodpecker web interface.
+- Only requests to `$GITEA_API_URL` (which ends in `/api/v1`) are API calls. Gitea web paths such as `/statuses/...`, `/pulls/<n>/checks` or `/commits?branch=...` are not API endpoints and will return "Not found".
+- Do not use a browser.
+- Do not request the `target_url` of a status. It points to Woodpecker, which is not reachable or authorized for you.
+- Do not query any service other than Gitea for CI status.
+- Always query by commit SHA, not by branch name.
 
-Do not infer CI status from:
+After pushing, poll the status of the pushed commit. Run this loop (checks every 15 seconds, up to 5 minutes):
 
-- local test execution
-- missing runtimes
-- build assumptions
-- git output
+```bash
+SHA=$(git rev-parse HEAD)
+URL="$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/commits/$SHA/status"
+FILTER='[.statuses[]? | select(.context | startswith("ci/woodpecker/")) | {context, status: (.status // .state), description, target_url}]'
 
-CI status must be retrieved from Woodpecker itself.
+for i in $(seq 1 20); do
+  RESP=$(curl -fsS -H "Authorization: Bearer $GITEA_ACCESS_TOKEN" "$URL") || { echo "REQUEST FAILED"; break; }
+  echo "attempt $i: $(echo "$RESP" | jq -c "$FILTER")"
+  DONE=$(echo "$RESP" | jq "$FILTER | length > 0 and all(.[]; .status != \"pending\")")
+  [ "$DONE" = "true" ] && break
+  sleep 15
+done
+```
 
-Acceptable CI states are:
+If the tool timeout is shorter than the loop, run it in smaller batches. The 5-minute total limit still applies.
 
-- passed
-- failed
-- running
-- pending
-- unavailable
+Interpret the result using only the Woodpecker-context statuses:
 
-If no pipeline is found:
+- Any status is `failure` or `error` → CI status is **failed**.
+- At least one status exists and all are `success` → CI status is **passed**.
+- At least one status exists and any is `pending` after the 5-minute limit → CI status is **pending**. Gitea does not distinguish "queued" from "running".
+- No `ci/woodpecker/` status exists after the 5-minute limit → CI status is **unavailable**. Explain why: no status was reported for the commit SHA within 5 minutes. Include the last raw response. Do not guess a cause.
+- The request fails, returns an HTTP error, or the response lacks a `statuses` field → CI status is **unavailable**. Report the exact error.
+- Any other status value (for example `warning`) → report the raw value and treat the CI status as **unavailable**.
 
-- report CI status as unavailable
-- explain why the pipeline could not be located
+If CI status is failed:
 
-If the pipeline is running or pending:
+- Do not create the pull request.
+- Do not attempt a fix. Gitea statuses do not include step names or logs, so the failure cause cannot be identified.
+- Stop and report the failing contexts, their descriptions, and their `target_url` values so a human can inspect the pipeline.
 
-- wait and re-check when possible
-- do not immediately create a PR if the pipeline status can still be determined
+If CI status is pending after the time limit:
 
-If the pipeline fails:
+- Do not create the pull request.
+- Stop and report the pending contexts.
 
-1. Retrieve the pipeline details.
-2. Identify whether the failure is directly related to the issue change.
-3. Make the smallest possible fix.
-4. Commit and push the fix.
-5. Re-check the pipeline.
-6. Repeat while meaningful progress is being made.
-
-Stop if:
-
-- multiple unrelated failures appear
-- the root cause cannot be identified
-- the pipeline cannot be accessed
-- progress stalls
-
-Do not report a CI status unless it was retrieved from Woodpecker.
+Do not report a CI status unless it was derived from the Gitea commit status API response. Never infer CI status from local test execution, missing runtimes, build assumptions or git output.
 
 Record in the final report:
 
-- pipeline number
-- pipeline URL
-- pipeline status
-- most recent completed step (if available)
+- the commit SHA checked
+- each `ci/woodpecker/` context and its status
+- the pipeline URL (`target_url`) exactly as returned
+- the pipeline number, if the final path segment of `target_url` is numeric (otherwise state "not determinable")
+- the overall CI status (passed, failed, pending, or unavailable)
 
 ## 8. Create the pull request
 
@@ -595,10 +595,7 @@ Only create the pull request if:
 - CI status is passed, or
 - CI status is unavailable and the reason has been reported explicitly
 
-If CI is failed:
-
-- do not create the pull request
-- continue investigating the failure
+Do not create the pull request if CI status is failed or pending.
 
 Use the Gitea API:
 
@@ -606,9 +603,11 @@ POST
 
 $GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/pulls
 
+with the headers `Authorization: Bearer $GITEA_ACCESS_TOKEN` and `Content-Type: application/json`.
+
 Request body:
 
-{ "head": "", "base": "main", "title": "" }
+{ "head": "<branch-name>", "base": "main", "title": "<title>" }
 
 Use the exact branch name that was pushed.
 
@@ -622,11 +621,11 @@ Creating a PR request is not sufficient.
 
 After PR creation:
 
-- Retrieve the PR from Gitea.
-- Verify the PR exists.
+- Retrieve the PR from Gitea with GET $GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/pulls/<pr-number>.
+- Verify the PR exists, is open, and its head branch is the pushed issue branch.
 - Obtain:
     - PR number
-    - PR URL
+    - PR URL (`html_url`, exactly as returned)
 
 If these cannot be retrieved:
 
@@ -640,7 +639,7 @@ At completion report:
 - Issue title
 - Branch name
 - Files changed
-- CI status
+- CI status, with the details listed in section 7
 - PR number
 - PR URL
 
