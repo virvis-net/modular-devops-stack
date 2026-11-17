@@ -417,59 +417,195 @@ cannot be prepared safely, it should stop and report the problem rather than
 discard or overwrite changes. For example:
 
 ```text
-Implement Gitea issue #<number> in this Laravel app. Before changing files,
-fetch the issue from Gitea at
-`$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/issues/<number>` using
-`$GITEA_ACCESS_TOKEN`. Verify its title and description; if you cannot retrieve
-the issue, stop and report that instead of guessing.
+Implement Gitea issue #<number> in this Laravel application.
 
-Before changing code or tests, check that the worktree is clean, fetch `origin`
-and fast-forward local `main` to match `origin/main`, then create and switch
-to a new branch. The branch naming should follow the template
-`issue/<number>-<kebab-case-title>` using only lowercase ASCII letters (a-z),
-digits (0-9), and hyphens (-). Verify that the active branch is the newly
-created issue branch; never make task commits on `main`. If the worktree is not
-clean or branch setup cannot be done safely, stop and report the problem
-without discarding changes. Do not stash, reset, discard, or modify unrelated
-changes.
+## 1. Retrieve and verify the issue
 
-Use a test-driven workflow: inspect the relevant tests, add or update the
-focused test for the requested behavior first, and run it to confirm it fails
-for the expected reason when the local environment permits. If the required
-runtime or tooling is not available in the OpenHands environment, do not
-attempt to install it or work around the limitation; rely on the repository's
-Woodpecker pipeline as the authoritative test environment. Then make the
-smallest code change and rerun the test when possible. Push the task branch to
-trigger the repository's Woodpecker pipeline. Treat CI as required
-validation and the source of truth for test results: inspect failures, update
-the relevant test or code, push the fix, and wait for the pipeline to finish.
-If CI fails, inspect the failure and make only the minimal fix. Repeat while
-the cause is clear, directly related to the requested change, and meaningful
-progress is being made. If the agent cannot identify a clear fix, if multiple
-unrelated failures appear, or if progress stalls, stop and report the current
-status rather than continuing indefinitely. Do not claim success unless CI
-passes; if it is pending or unavailable, report that status explicitly.
+Before making any changes:
 
-Before creating the pull request, verify that all intended changes have been
-committed and pushed to the issue branch. Do not create a pull request from
-uncommitted or unpushed changes.
+- Retrieve issue from:
 
-Create the pull request using the Gitea API or web interface. Do not consider
-the task complete merely because Git reports a PR creation URL. Verify that a
-pull request has actually been created by retrieving its details from Gitea,
-and obtain its PR number and URL. If a PR number cannot be retrieved, report
-that the PR creation step failed.
+$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/issues/<number>
 
-Do not merge or deploy. Keep the diff small.
+using:
 
-At the end, report:
+$GITEA_ACCESS_TOKEN
+
+- Verify the issue title and description.
+- If the issue cannot be retrieved, stop and report the problem.
+- Do not guess issue contents.
+
+## 2. Prepare the repository
+
+Before modifying any files:
+
+Run:
+
+git status
+
+The worktree must be clean.
+
+If it is not clean:
+
+- Stop.
+- Report the problem.
+- Do not reset, stash, discard, or modify unrelated changes.
+
+Synchronize the repository using exactly:
+
+git fetch origin git checkout main git merge --ff-only origin/main
+
+If any command fails:
+
+- Stop.
+- Report the failure.
+- Do not attempt alternative Git commands.
+
+## 3. Create the issue branch
+
+Create and switch to a branch named:
+
+issue/<number>-<kebab-case-title>
+
+Rules:
+
+- Use only lowercase ASCII letters (a-z), digits (0-9), and hyphens (-).
+- Include the issue number.
+- Use the verified issue title to generate the kebab-case name.
+
+Verify:
+
+git branch --show-current
+
+The active branch must be the issue branch.
+
+Never commit task changes directly to main.
+
+## 4. Implement the change
+
+Use a test-first workflow, but do not stop after modifying tests.
+
+Workflow:
+
+1. Inspect existing tests.
+2. Update or add the test that describes the requested behaviour.
+3. Immediately implement the corresponding production code change.
+4. Keep the implementation minimal and focused on the issue requirements.
+
+Do not push a branch containing only a failing test unless the issue explicitly requires demonstrating a failing state.
+
+Keep the diff small.
+
+Do not modify unrelated files.
+
+## 5. Run tests when possible
+
+If the required runtime and tooling are available:
+
+- Run the relevant tests.
+- Fix any failures caused by the requested change.
+
+If the required runtime or tooling is not available:
+
+- Do not install software.
+- Do not attempt workarounds.
+- Continue with the implementation.
+- Rely on the repository CI pipeline as the authoritative test environment.
+
+## 6. Commit and push
+
+Before pushing:
+
+Verify that:
+
+- The test changes are committed.
+- The implementation changes are committed.
+- No intended changes remain uncommitted.
+
+Push the issue branch:
+
+git push -u origin
+
+## 7. Validate through CI
+
+After pushing:
+
+- Check the CI pipeline associated with the branch.
+- Treat CI as the source of truth.
+
+If CI fails:
+
+1. Inspect the failure.
+2. Determine whether it is directly related to this issue.
+3. Make the smallest possible fix.
+4. Commit and push again.
+5. Repeat while meaningful progress is being made.
+
+Stop if:
+
+- The failure cannot be clearly diagnosed.
+- Multiple unrelated failures appear.
+- Progress stalls.
+- Required information is unavailable.
+
+Do not claim success unless CI passes.
+
+If CI status cannot be determined, report that explicitly.
+
+## 8. Create the pull request
+
+Only create the pull request after:
+
+- All intended changes are committed.
+- The branch has been pushed.
+
+Use the Gitea API:
+
+POST
+
+$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/pulls
+
+Request body:
+
+{ "head": "", "base": "main", "title": "" }
+
+Use the issue branch name exactly as pushed.
+
+Do not invent alternative head formats.
+
+Do not guess namespace prefixes.
+
+Do not retry using modified branch names unless the API error explicitly identifies the required format.
+
+## 9. Verify pull request creation
+
+Creating a PR request is not sufficient.
+
+After PR creation:
+
+- Retrieve the PR from Gitea.
+- Verify the PR exists.
+- Obtain:
+    - PR number
+    - PR URL
+
+If these cannot be retrieved:
+
+- Report PR creation as failed.
+
+## 10. Final report
+
+At completion report:
+
 - Issue number
 - Issue title
 - Branch name
 - Files changed
+- CI status
 - PR number
 - PR URL
-- CI status
+
+Do not merge. Do not deploy. Do not perform additional enhancements beyond the issue requirements.
 ```
 
 The OpenHands container trusts `/projects/app` as a Git working directory.
