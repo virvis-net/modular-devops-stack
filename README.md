@@ -419,231 +419,95 @@ discard or overwrite changes. For example (replace <NUMBER>):
 ```text
 Implement Gitea issue #<NUMBER> in this Laravel application.
 
+## Ground rules
+
+- Credentials are already in the environment: $GITEA_API_URL, $GITEA_OWNER, $GITEA_REPOSITORY, $GITEA_ACCESS_TOKEN, $WOODPECKER_API_URL, $WOODPECKER_TOKEN. Never print them and never paste their values into a command.
+- Run one command per tool call (chain with && if needed).
+- Explore with `git ls-files` and `git grep`. Never search vendor/ or node_modules/.
+- Change existing files with the edit tool. Do not rewrite whole files with heredocs.
+- Once a result is established, do not run extra commands to re-verify it beyond what the steps below require.
+
 ## 1. Retrieve and verify the issue
 
-Before making any changes:
-
-- Retrieve issue from:
-
-$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/issues/<issue-number>
-
-using the header `Authorization: Bearer $GITEA_ACCESS_TOKEN`.
-
-- Verify the issue title and description.
-- If the issue cannot be retrieved, stop and report the problem.
-- Do not guess issue contents.
+GET $GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/issues/<issue-number> with header `Authorization: Bearer $GITEA_ACCESS_TOKEN`. Verify the title and description. If the issue cannot be retrieved, stop and report. Do not guess issue contents.
 
 ## 2. Prepare the repository
 
-Before modifying any files:
+Run `git status`. The worktree must be clean. If not, stop and report; do not reset, stash, discard, or modify anything.
 
-Run:
-
-git status
-
-The worktree must be clean.
-
-If it is not clean:
-
-- Stop.
-- Report the problem.
-- Do not reset, stash, discard, or modify unrelated changes.
-
-Synchronize the repository using exactly these three commands, one after another:
+Then run these three commands, one per tool call:
 
 git fetch origin
 git checkout main
 git merge --ff-only origin/main
 
-If any command fails:
-
-- Stop.
-- Report the failure.
-- Do not attempt alternative Git commands.
+If any fails: stop and report. Do not try alternative Git commands.
 
 ## 3. Create the issue branch
 
-Create and switch to a branch named:
+Create and switch to `issue/<issue-number>-<kebab-case-issue-title>`: lowercase a-z, digits and hyphens only, built from the verified title. Verify with `git branch --show-current`. Never commit task changes to main.
 
-issue/<issue-number>-<kebab-case-issue-title>
+## 4. Implement the change (test-first, but finish the job)
 
-Rules:
+1. Find every reference: `git grep -n` for the endpoint path and for the current (old) value or behaviour the issue changes. Read each matching test file in full.
+2. Update the existing tests that assert the old behaviour. Add a new test only if no existing test covers it. Never leave two tests covering the same behaviour. Do not add traits, setup or dependencies the existing tests don't use.
+3. Implement the minimal production change.
+4. Before committing, `git grep` for the old value again. Nothing left may contradict the issue.
 
-- Use only lowercase ASCII letters (a-z), digits (0-9), and hyphens (-).
-- Branch name MUST include the issue number.
-- Use the verified issue title to generate the kebab-case name.
-
-Verify:
-
-git branch --show-current
-
-The active branch must be the issue branch.
-
-Never commit task changes directly to main.
-
-## 4. Implement the change
-
-Use a test-first workflow, but do not stop after modifying tests.
-
-Workflow:
-
-1. Inspect existing tests.
-2. Update or add the test that describes the requested behaviour.
-3. Immediately implement the corresponding production code change.
-4. Keep the implementation minimal and focused on the issue requirements.
-
-Do not push a branch containing only a failing test unless the issue explicitly requires demonstrating a failing state.
-
-Keep the diff small.
-
-Do not modify unrelated files.
+Keep the diff small. Do not modify unrelated files. Do not push a branch containing only a failing test.
 
 ## 5. Run tests when possible
 
-If the required runtime and tooling are available:
-
-- Run the relevant tests.
-- Fix any failures caused by the requested change.
-
-If the required runtime or tooling is not available:
-
-- Do not install software.
-- Do not attempt workarounds.
-- Continue with the implementation.
-- Rely on the repository CI pipeline as the authoritative test environment.
+If the runtime is available, run the relevant tests and fix failures caused by your change. If not (for example `php` is missing): do not install anything, do not work around it, and continue. CI is authoritative.
 
 ## 6. Commit and push
 
-Before pushing:
-
-Verify that:
-
-- The test changes are committed.
-- The implementation changes are committed.
-- No intended changes remain uncommitted.
-
-Push the issue branch:
+Verify that test and implementation changes are committed and nothing intended is left uncommitted. Then:
 
 git push -u origin <branch-name>
 
-## 7. Validate CI through Gitea commit statuses
+## 7. Validate CI
 
-The repository's CI is Woodpecker. Woodpecker reports each pipeline result back to Gitea as a commit status. You do NOT have access to the Woodpecker API or web interface. The authoritative CI result is the Gitea commit status API, restricted to statuses whose context starts with `ci/woodpecker/`.
+CI is Woodpecker. Use only the two helper scripts below. Do not use a browser, do not fetch `target_url`, and do not query any other service. Never report a CI status that did not come from the scripts' output.
 
-Rules:
+**A. Get the status.** Run `/opt/ci/ci-status.sh` (checks HEAD). It polls Gitea for up to 5 minutes and prints `SHA=...`, `CI_STATUS=passed|failed|pending|unavailable`, and one JSON line per `ci/woodpecker/` context including its `target_url`. If the tool says the command is still running, wait for it; do not start a second poll.
 
-- Only requests to `$GITEA_API_URL` (which ends in `/api/v1`) are API calls. Gitea web paths such as `/statuses/...`, `/pulls/<n>/checks` or `/commits?branch=...` are not API endpoints and will return "Not found".
-- Do not use a browser.
-- Do not request the `target_url` of a status. It points to Woodpecker, which is not reachable or authorized for you.
-- Do not query any service other than Gitea for CI status.
-- Always query by commit SHA, not by branch name.
+- Statuses returned for a SHA belong to that SHA. Pipeline numbers are repo-wide counters, so a number like 17 is normal. Never speculate that a status comes from an earlier commit.
 
-After pushing, poll the status of the pushed commit. Run this loop (checks every 15 seconds, up to 5 minutes):
+**B. Act on CI_STATUS.**
+- passed: run `/opt/ci/ci-details.sh "<target_url>"` once to record the pipeline number and step states, then go to section 8.
+- pending: stop. No PR. Report the pending contexts.
+- unavailable: report the script output verbatim and state that no Woodpecker status was reported for the SHA (or the exact error). Do not guess a cause. Go to section 8.
+- failed: go to C.
 
-```bash
-SHA=$(git rev-parse HEAD)
-URL="$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/commits/$SHA/status"
-FILTER='[.statuses[]? | select(.context | startswith("ci/woodpecker/")) | {context, status: (.status // .state), description, target_url}]'
+**C. Diagnose and fix.** Run `/opt/ci/ci-details.sh "<target_url of the failing context>"`. It prints the pipeline summary, the steps with states, and the last 80 log lines of each failing step. If the script itself fails, stop and report its error.
 
-for i in $(seq 1 20); do
-  RESP=$(curl -fsS -H "Authorization: Bearer $GITEA_ACCESS_TOKEN" "$URL") || { echo "REQUEST FAILED"; break; }
-  echo "attempt $i: $(echo "$RESP" | jq -c "$FILTER")"
-  DONE=$(echo "$RESP" | jq "$FILTER | length > 0 and all(.[]; .status != \"pending\")")
-  [ "$DONE" = "true" ] && break
-  sleep 15
-done
-```
+- Related failure (the log names a test, file or message touched by your change, or the old value you replaced): make the smallest fix, commit, push, and run `/opt/ci/ci-status.sh` again. Maximum 2 fix attempts.
+- Unrelated or unclear failure: run `/opt/ci/ci-status.sh $(git rev-parse origin/main) 1` to see whether main fails too, then stop and report.
+- Stop if the same step fails again with the same error, if multiple unrelated failures appear, or after 2 fix attempts.
+- Never create a PR while CI is failed.
 
-If the tool timeout is shorter than the loop, run it in smaller batches. The 5-minute total limit still applies.
-
-Interpret the result using only the Woodpecker-context statuses:
-
-- Any status is `failure` or `error` → CI status is **failed**.
-- At least one status exists and all are `success` → CI status is **passed**.
-- At least one status exists and any is `pending` after the 5-minute limit → CI status is **pending**. Gitea does not distinguish "queued" from "running".
-- No `ci/woodpecker/` status exists after the 5-minute limit → CI status is **unavailable**. Explain why: no status was reported for the commit SHA within 5 minutes. Include the last raw response. Do not guess a cause.
-- The request fails, returns an HTTP error, or the response lacks a `statuses` field → CI status is **unavailable**. Report the exact error.
-- Any other status value (for example `warning`) → report the raw value and treat the CI status as **unavailable**.
-
-If CI status is failed:
-
-- Do not create the pull request.
-- Do not attempt a fix. Gitea statuses do not include step names or logs, so the failure cause cannot be identified.
-- Stop and report the failing contexts, their descriptions, and their `target_url` values so a human can inspect the pipeline.
-
-If CI status is pending after the time limit:
-
-- Do not create the pull request.
-- Stop and report the pending contexts.
-
-Do not report a CI status unless it was derived from the Gitea commit status API response. Never infer CI status from local test execution, missing runtimes, build assumptions or git output.
-
-Record in the final report:
-
-- the commit SHA checked
-- each `ci/woodpecker/` context and its status
-- the pipeline URL (`target_url`) exactly as returned
-- the pipeline number, if the final path segment of `target_url` is numeric (otherwise state "not determinable")
-- the overall CI status (passed, failed, pending, or unavailable)
+Record for the final report: commit SHA checked; each `ci/woodpecker/` context and status; pipeline number (from ci-details output); pipeline URL (`target_url` as returned); steps with states and the last completed step; for failures, the failing step, the failing test names and what you changed.
 
 ## 8. Create the pull request
 
-Only create the pull request if:
+Only if all intended changes are committed, the branch is pushed, and CI is passed, or unavailable with the reason reported. Never if CI is failed or pending.
 
-- all intended changes are committed
-- the issue branch has been pushed
-- CI status is passed, or
-- CI status is unavailable and the reason has been reported explicitly
-
-Do not create the pull request if CI status is failed or pending.
-
-Use the Gitea API:
-
-POST
-
-$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/pulls
-
-with the headers `Authorization: Bearer $GITEA_ACCESS_TOKEN` and `Content-Type: application/json`.
-
-Request body:
+POST $GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/pulls with headers `Authorization: Bearer $GITEA_ACCESS_TOKEN` and `Content-Type: application/json`:
 
 { "head": "<branch-name>", "base": "main", "title": "<title>" }
 
-Use the exact branch name that was pushed.
-
-Do not invent alternate branch formats.
-
-Do not retry using modified branch names unless the API error explicitly identifies the required format.
+Use the exact branch name that was pushed. Do not invent alternate branch formats or retry with modified names unless the API error names the required format.
 
 ## 9. Verify pull request creation
 
-Creating a PR request is not sufficient.
-
-After PR creation:
-
-- Retrieve the PR from Gitea with GET $GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/pulls/<pr-number>.
-- Verify the PR exists, is open, and its head branch is the pushed issue branch.
-- Obtain:
-    - PR number
-    - PR URL (`html_url`, exactly as returned)
-
-If these cannot be retrieved:
-
-- Report PR creation as failed.
+GET $GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/pulls/<pr-number>. Verify it exists, is open, and its head is the pushed branch. Obtain the PR number and `html_url` exactly as returned. If this fails, report PR creation as failed.
 
 ## 10. Final report
 
-At completion report:
+Issue number, issue title, branch name, files changed, CI details (section 7), fix attempts made (if any), PR number, PR URL.
 
-- Issue number
-- Issue title
-- Branch name
-- Files changed
-- CI status, with the details listed in section 7
-- PR number
-- PR URL
-
-Do not merge. Do not deploy. Do not perform additional enhancements beyond the issue requirements.
+Do not merge. Do not deploy. Do not perform additional enhancements beyond the issue.
 ```
 
 The OpenHands container trusts `/projects/app` as a Git working directory.

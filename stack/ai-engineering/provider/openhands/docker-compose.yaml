@@ -8,6 +8,8 @@ services:
       XDG_CONFIG_HOME: /projects/.config
       GITEA_ACCESS_TOKEN: ${OPENHANDS_GITEA_TOKEN:-}
       GITEA_API_URL: http://scm:3000/api/v1
+      WOODPECKER_TOKEN: ${OPENHANDS_WOODPECKER_TOKEN:-}
+      WOODPECKER_API_URL: http://ci-server:8000/api
       GITEA_OWNER: ${GITEA_ORG:-}
       GITEA_REPOSITORY: app
       GIT_CONFIG_COUNT: "5"
@@ -25,6 +27,7 @@ services:
       - "127.0.0.1:${OPENHANDS_PORT:-8001}:8000"
     volumes:
       - openhands-data:/home/openhands/.openhands
+      - ./ai-engineering/provider/openhands/agent-tools:/opt/ci:ro
       - ../workspace/openhands:/projects
       - ../workspace/app:/projects/app
     user: "${OPENHANDS_UID:-1000}:${OPENHANDS_GID:-1000}"
