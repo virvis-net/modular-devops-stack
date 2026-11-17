@@ -465,12 +465,12 @@ If any command fails:
 
 Create and switch to a branch named:
 
-issue/<number>-<kebab-case-title>
+issue/<issue-number>-<kebab-case-issue-title>
 
 Rules:
 
 - Use only lowercase ASCII letters (a-z), digits (0-9), and hyphens (-).
-- Include the issue number.
+- Branch name MUST include the issue number.
 - Use the verified issue title to generate the kebab-case name.
 
 Verify:
@@ -524,40 +524,81 @@ Verify that:
 
 Push the issue branch:
 
-git push -u origin
+git push -u origin <branch-name>
 
-## 7. Validate through CI
+## 7. Validate through Woodpecker CI
 
-After pushing:
+After pushing the issue branch:
 
-- Check the CI pipeline associated with the branch.
-- Treat CI as the source of truth.
+Retrieve the most recent Woodpecker pipeline associated with the branch.
 
-If CI fails:
+Use the Woodpecker API or Woodpecker web interface.
 
-1. Inspect the failure.
-2. Determine whether it is directly related to this issue.
+Do not infer CI status from:
+
+- local test execution
+- missing runtimes
+- build assumptions
+- git output
+
+CI status must be retrieved from Woodpecker itself.
+
+Acceptable CI states are:
+
+- passed
+- failed
+- running
+- pending
+- unavailable
+
+If no pipeline is found:
+
+- report CI status as unavailable
+- explain why the pipeline could not be located
+
+If the pipeline is running or pending:
+
+- wait and re-check when possible
+- do not immediately create a PR if the pipeline status can still be determined
+
+If the pipeline fails:
+
+1. Retrieve the pipeline details.
+2. Identify whether the failure is directly related to the issue change.
 3. Make the smallest possible fix.
-4. Commit and push again.
-5. Repeat while meaningful progress is being made.
+4. Commit and push the fix.
+5. Re-check the pipeline.
+6. Repeat while meaningful progress is being made.
 
 Stop if:
 
-- The failure cannot be clearly diagnosed.
-- Multiple unrelated failures appear.
-- Progress stalls.
-- Required information is unavailable.
+- multiple unrelated failures appear
+- the root cause cannot be identified
+- the pipeline cannot be accessed
+- progress stalls
 
-Do not claim success unless CI passes.
+Do not report a CI status unless it was retrieved from Woodpecker.
 
-If CI status cannot be determined, report that explicitly.
+Record in the final report:
+
+- pipeline number
+- pipeline URL
+- pipeline status
+- most recent completed step (if available)
 
 ## 8. Create the pull request
 
-Only create the pull request after:
+Only create the pull request if:
 
-- All intended changes are committed.
-- The branch has been pushed.
+- all intended changes are committed
+- the issue branch has been pushed
+- CI status is passed, or
+- CI status is unavailable and the reason has been reported explicitly
+
+If CI is failed:
+
+- do not create the pull request
+- continue investigating the failure
 
 Use the Gitea API:
 
@@ -569,11 +610,9 @@ Request body:
 
 { "head": "", "base": "main", "title": "" }
 
-Use the issue branch name exactly as pushed.
+Use the exact branch name that was pushed.
 
-Do not invent alternative head formats.
-
-Do not guess namespace prefixes.
+Do not invent alternate branch formats.
 
 Do not retry using modified branch names unless the API error explicitly identifies the required format.
 
