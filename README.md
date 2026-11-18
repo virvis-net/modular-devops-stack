@@ -428,7 +428,7 @@ Implement Gitea issue #{{ISSUE_NUMBER}} in this Laravel application. Below, `<is
 - Run one command per tool call (a pipeline or an && chain counts as one).
 - Run all commands from /projects/app.
 - Explore with `git ls-files` and `git grep`, not find or grep -r.
-- Change existing files with the edit tool, not heredocs.
+- Change existing files with the `file_editor` tool (command `str_replace`) using text you already have; do not view a file again first. Never use heredocs, sed, or a shell command named str_replace.
 - If you are unsure of the repository state, run `git status --short` and `git diff --stat origin/main...HEAD` once, state your plan in one sentence, and act. If undoing your own mistake would take more than 5 commands, stop and report instead.
 
 ## 1. Retrieve and verify the issue
@@ -448,7 +448,7 @@ If step 2 fails, stop and report. Do not try alternative Git commands.
 
 ## 3. Create the issue branch
 
-Run `git checkout -b issue/<issue-number>-<kebab-case-issue-title> && git branch --show-current`. The name uses only lowercase a-z, digits and hyphens, is built from the verified title, and must match the printed branch. Never commit task changes to main.
+Run `git checkout -b issue/<issue-number>-<slug> && git branch --show-current`. `<slug>` is the complete issue title in lowercase with each run of non-alphanumeric characters replaced by one hyphen. Keep every word, including "the" and "a"; never shorten or reword. The printed branch must match. Never commit task changes to main.
 
 ## 4. Implement the change (test first, but finish the job)
 
@@ -466,11 +466,10 @@ If the runtime is available, run the relevant tests and fix failures caused by y
 ## 6. Commit and push
 
 1. Stage explicit paths. Never use `git add -A` or `git add .`.
-2. Commit with a one-line message ending in `(#<issue-number>)`; Gitea turns it into a link on the issue. Do not use closing keywords such as "closes" or "fixes" in commit messages.
-3. Run `git status --short && git diff --stat origin/main...HEAD && git grep -n -F "<old value>"` (skip the grep if the issue replaces no existing value). The status must be empty and the grep must print nothing; exit 1 with no output is the expected result. Fix anything the grep prints before pushing. Every file in the diff must be one you deliberately changed for the issue. For any other file, run `git checkout origin/main -- <file>` if it exists on main, or `git rm <file>` if it does not, then commit and run this check again. Do not use git reset, restore or revert for this.
-4. Push: `git push -u origin <branch-name>`
+2. Commit and check in one command: `git commit -m "<one-line message> (#<issue-number>)" && git status --short && git diff --stat origin/main...HEAD && git grep -n -F "<old value>"` (omit the grep if the issue replaces no existing value). Gitea turns `(#<issue-number>)` into a link on the issue; never use closing keywords such as "closes" or "fixes" in commit messages. After the commit, the status must be empty and the grep must print nothing; exit 1 with no output is the expected result. Every file in the diff must be one you deliberately changed for the issue. For any other file, run `git checkout origin/main -- <file>` if it exists on main, or `git rm <file>` if it does not, then repeat this step. Do not use git reset, restore or revert for this.
+3. Push: `git push -u origin <branch-name>`
 
-For every fix made in section 7, repeat steps 1-4.
+For every fix made in section 7, repeat steps 1-3.
 
 ## 7. Validate CI
 
@@ -506,11 +505,13 @@ The PR must be open, with the pushed branch as head and main as base. If this fa
 
 ## 9. Final report
 
-If you stopped early and the branch was already pushed, first post one comment on the issue. If it fails, do not retry; mention that in the report.
+Only if you stopped without creating a PR and the branch was already pushed, first post one comment on the issue. When a PR was created, skip the comment; the PR already links the issue. If the comment fails, do not retry; mention that in the report.
 
-jq -n --arg b "<2-3 lines: branch name, why you stopped, failing test or error>" '{body:$b}' | curl -fsS -X POST -H "Authorization: Bearer $GITEA_ACCESS_TOKEN" -H "Content-Type: application/json" -d @- "$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/issues/<issue-number>/comments" | jq '{id, html_url}'
+jq -n --arg b "<branch-name>" --arg r "<why you stopped, one line: failing test or error>" '{body:("Stopped before opening a PR.\nBranch: "+$b+"\nReason: "+$r)}' | curl -fsS -X POST -H "Authorization: Bearer $GITEA_ACCESS_TOKEN" -H "Content-Type: application/json" -d @- "$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/issues/<issue-number>/comments" | jq '{id, html_url}'
 
-Then send the report as a plain message:
+Never type `\n` inside the quoted values; the jq program inserts the line breaks.
+
+Then write the report as your final message, not inside your reasoning:
 - issue number and title
 - branch name
 - files changed (from the section 6 diff)
