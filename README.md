@@ -466,7 +466,7 @@ If the runtime is available, run the relevant tests and fix failures caused by y
 ## 6. Commit and push
 
 1. Stage explicit paths. Never use `git add -A` or `git add .`.
-2. Commit.
+2. Commit with a one-line message ending in `(#<issue-number>)`; Gitea turns it into a link on the issue. Do not use closing keywords such as "closes" or "fixes" in commit messages.
 3. Run `git status --short && git diff --stat origin/main...HEAD && git grep -n -F "<old value>"` (skip the grep if the issue replaces no existing value). The status must be empty and the grep must print nothing; exit 1 with no output is the expected result. Fix anything the grep prints before pushing. Every file in the diff must be one you deliberately changed for the issue. For any other file, run `git checkout origin/main -- <file>` if it exists on main, or `git rm <file>` if it does not, then commit and run this check again. Do not use git reset, restore or revert for this.
 4. Push: `git push -u origin <branch-name>`
 
@@ -492,7 +492,9 @@ Only if all intended changes are committed, the branch is pushed, and CI is pass
 
 Create it with the title `Issue #<issue-number>: <issue title>`:
 
-jq -n --arg h "<branch-name>" --arg t "<title>" '{head:$h, base:"main", title:$t}' | curl -fsS -X POST -H "Authorization: Bearer $GITEA_ACCESS_TOKEN" -H "Content-Type: application/json" -d @- "$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/pulls" | jq '{number, html_url, state, head: .head.ref}'
+jq -n --arg h "<branch-name>" --arg t "<title>" --arg n "<issue-number>" --arg ci "<CI result>" '{head:$h, base:"main", title:$t, body:("Closes #"+$n+"\n\nCI: "+$ci)}' | curl -fsS -X POST -H "Authorization: Bearer $GITEA_ACCESS_TOKEN" -H "Content-Type: application/json" -d @- "$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/pulls" | jq '{number, html_url, state, head: .head.ref}'
+
+`<CI result>` is one line: `passed, pipeline <number>, <target_url>`, or `unavailable: <reason>`. Never close or edit the issue yourself; the `Closes` line closes it when a human merges the PR.
 
 Use the exact branch name that was pushed. Do not invent alternate branch formats or retry with modified names unless the API error names the required format.
 
@@ -504,7 +506,11 @@ The PR must be open, with the pushed branch as head and main as base. If this fa
 
 ## 9. Final report
 
-Send it as a plain message:
+If you stopped early and the branch was already pushed, first post one comment on the issue. If it fails, do not retry; mention that in the report.
+
+jq -n --arg b "<2-3 lines: branch name, why you stopped, failing test or error>" '{body:$b}' | curl -fsS -X POST -H "Authorization: Bearer $GITEA_ACCESS_TOKEN" -H "Content-Type: application/json" -d @- "$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/issues/<issue-number>/comments" | jq '{id, html_url}'
+
+Then send the report as a plain message:
 - issue number and title
 - branch name
 - files changed (from the section 6 diff)
