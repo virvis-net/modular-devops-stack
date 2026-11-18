@@ -393,13 +393,13 @@ Then add a new LLM model:
 - **Custom model:** `ollama_chat/<model-name>` using a model installed in
   that Ollama instance (for example, `ollama_chat/qwen3.5`)
 
-For the OpenHands Agent profile, the settings that worked reliably for the
+For the OpenHands LLM profile, the settings that worked reliably for the
 example prompt were:
 
 - **Reasoning Effort:** `medium`
 - **Temperature:** `0.1`
-- **Timeout:** `900`
-- **Stream Idle Timeout:** `900`
+- **Timeout:** `1200`
+- **Stream Idle Timeout:** `1200`
 - **Max Input Tokens:** leave blank
 - **Max Output Tokens:** `4096`
 
