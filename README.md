@@ -211,8 +211,9 @@ Now all you need to do is connect CI and Source Control and you're good to go.
 Open `http://localhost:<WOODPECKER_PORT>/login` (default port `8000`), sign
 in through Gitea, authorise the application, and add the `<GITEA_ORG>/app`
 repository in Woodpecker (+ / Add repository > Enable). In the repository
-settings, enable **Volumes** under **Trusted**. The example pipeline requires
-trusted volumes for its Docker socket mount.
+settings, disable **Allow Pull Requests** under **Project** and enable
+**Volumes** under **Trusted**. The example pipeline only has steps for push
+events and it requires trusted volumes for its Docker socket mount.
 
 > The Trusted option is only shown to Woodpecker server admins. If it is missing,
 > confirm that `GITEA_ADMIN_USER` in `.env` exactly matches the signed-in Gitea
@@ -451,11 +452,10 @@ Run `git checkout -b issue/<issue-number>-<kebab-case-issue-title> && git branch
 
 ## 4. Implement the change (test first, but finish the job)
 
-1. Identify the current behaviour: find the existing test that covers it and note the exact value or behaviour it asserts. Then run `git grep -n -F "<that value>"` to find every place that produces or asserts it.
+1. Identify the current behaviour: find the existing test that covers it and note the exact value or behaviour it asserts. Then run `git grep -n -F "<that value>"`, using the full asserted string and not a fragment, to find every place that produces or asserts it. Search only with `git grep`; never use grep -r.
 2. If the issue concerns an HTTP route: routes in routes/api.php are served under the /api prefix, so /api/hello is declared there as '/hello'. Search routes/ for the last path segment. A file that only mentions the path (for example as a JSON field) is not the handler.
 3. Update the existing tests that assert the old behaviour first. Add a new test only if no existing test covers it. Do not add traits, setup or dependencies the existing tests do not use.
 4. Implement the minimal production change. Change only files where you found the old value or the handler.
-5. Run `git grep -n -F "<old value>"` again. Nothing left may contradict the issue.
 
 Keep the diff small. Never push a test change without its implementation.
 
@@ -467,27 +467,24 @@ If the runtime is available, run the relevant tests and fix failures caused by y
 
 1. Stage explicit paths. Never use `git add -A` or `git add .`.
 2. Commit.
-3. Run `git status --short && git diff --stat origin/main...HEAD`. The status must be empty. Every file in the diff must be one you deliberately changed for the issue. For any other file, run `git checkout origin/main -- <file>` if it exists on main, or `git rm <file>` if it does not, then commit and run this check again. Do not use git reset, restore or revert for this.
+3. Run `git status --short && git diff --stat origin/main...HEAD && git grep -n -F "<old value>"` (skip the grep if the issue replaces no existing value). The status must be empty and the grep must print nothing; exit 1 with no output is the expected result. Fix anything the grep prints before pushing. Every file in the diff must be one you deliberately changed for the issue. For any other file, run `git checkout origin/main -- <file>` if it exists on main, or `git rm <file>` if it does not, then commit and run this check again. Do not use git reset, restore or revert for this.
 4. Push: `git push -u origin <branch-name>`
 
 For every fix made in section 7, repeat steps 1-4.
 
 ## 7. Validate CI
 
-CI is Woodpecker. Use only the two helper scripts named here. Do not call Woodpecker or any other CI endpoint yourself, do not use a browser or fetch `target_url`. Never report a CI status that did not come from the scripts' output.
+CI is Woodpecker. Use only `bash /opt/ci/ci-status.sh`. Do not call Woodpecker or any other CI endpoint yourself, do not use a browser or fetch `target_url`. Never report a CI status that did not come from its output.
 
-**A. Get the status.** Run `bash /opt/ci/ci-status.sh`. It checks HEAD, polls Gitea for up to 5 minutes, and prints `SHA=...`, `CI_STATUS=passed|failed|pending|unavailable`, and one JSON line per `ci/woodpecker/` context including its `target_url`. If the tool says the command is still running, wait for it; do not start a second poll. Statuses returned for a SHA belong to that SHA; never speculate otherwise. The pipeline number is the number after `/pipeline/` in `target_url`.
+Run `bash /opt/ci/ci-status.sh`. It checks HEAD, polls Gitea for up to 5 minutes, and prints `SHA=...`, `CI_STATUS=passed|failed|pending|unavailable`, one JSON line per `ci/woodpecker/push/` context including its `target_url`, and, for passed or failed, the pipeline summary, the steps with states, and the last 80 log lines of each failing step. If the tool says the command is still running, wait for it; do not start a second poll. Statuses belong to the SHA checked; never speculate otherwise. The pipeline number is the number after `/pipeline/` in `target_url`.
 
-**B. Act on CI_STATUS.**
-- passed: run `bash /opt/ci/ci-details.sh "<target_url>"` once to get the step states, then go to section 8.
+- passed: go to section 8.
 - pending: stop. No PR. Report the pending contexts.
-- unavailable: report the script output verbatim and state that no Woodpecker status was reported for the SHA (or the exact error). Do not guess a cause. Go to section 8.
-- failed: go to C.
-
-**C. Diagnose and fix.** Run `bash /opt/ci/ci-details.sh "<target_url of the failing context>"`. It prints the pipeline summary, the steps with states, and the last 80 log lines of each failing step. If the script itself fails, stop and report its error.
-- If the failure is related (the log names a test, file or message touched by your change, or the old value you replaced), make the smallest fix, repeat section 6, then run 7A again.
-- If the failure is unrelated or unclear, run `bash /opt/ci/ci-status.sh $(git rev-parse origin/main) 1` to see whether main fails too, then stop and report.
-- Stop and report if the same error repeats, if multiple unrelated failures appear, or after 2 fix attempts.
+- unavailable: report the output verbatim and state that no Woodpecker status was reported for the SHA (or the exact error). Do not guess a cause. Go to section 8.
+- failed:
+  - Related (the log names a test, file or message touched by your change, or the old value you replaced): make the smallest fix, repeat section 6, then run this section again.
+  - Unrelated or unclear: run `bash /opt/ci/ci-status.sh $(git rev-parse origin/main) 1` to see whether main fails too, then stop and report.
+  - Stop and report if the same error repeats, if multiple unrelated failures appear, or after 2 fix attempts.
 
 ## 8. Create and verify the pull request
 
@@ -511,7 +508,7 @@ Send it as a plain message:
 - issue number and title
 - branch name
 - files changed (from the section 6 diff)
-- CI: commit SHA checked, each `ci/woodpecker/` context with its status, pipeline number, pipeline URL (`target_url` as returned), steps with states and the last completed step, and for failures the failing step, failing test names and what you changed
+- CI: commit SHA checked, each `ci/woodpecker/push/` context with its status, pipeline number, pipeline URL (`target_url` as returned), steps with states and the last completed step, and for failures the failing step, failing test names and what you changed
 - fix attempts made, if any
 - PR number and PR URL (`html_url` as returned)
 
