@@ -414,98 +414,108 @@ any code or test changes: fetch `origin`, fast-forward local `main` from
 create the task branch directly from the freshly fetched `origin/main`. It must
 never make task commits on `main`; if the worktree is not clean or the branch
 cannot be prepared safely, it should stop and report the problem rather than
-discard or overwrite changes. For example (replace <NUMBER>):
+discard or overwrite changes. For example (replace `{{ISSUE_NUMBER}}`):
 
 ```text
-Implement Gitea issue #<NUMBER> in this Laravel application.
+Implement Gitea issue #{{ISSUE_NUMBER}} in this Laravel application. Below, `<issue-number>` means that number.
 
 ## Ground rules
 
-- Credentials are already in the environment: $GITEA_API_URL, $GITEA_OWNER, $GITEA_REPOSITORY, $GITEA_ACCESS_TOKEN, $WOODPECKER_API_URL, $WOODPECKER_TOKEN. Never print them and never paste their values into a command.
-- Run one command per tool call (chain with && if needed).
-- Explore with `git ls-files` and `git grep`. Never search vendor/ or node_modules/.
-- Change existing files with the edit tool. Do not rewrite whole files with heredocs.
-- Once a result is established, do not run extra commands to re-verify it beyond what the steps below require.
+- Credentials are in the environment ($GITEA_API_URL, $GITEA_OWNER, $GITEA_REPOSITORY, $GITEA_ACCESS_TOKEN). Never print environment variables and never paste their values into a command. The CI helper scripts read their own credentials.
+- Your context window is limited. Keep your reasoning to 1-3 sentences per step. Do not re-read files or re-run commands whose result you already have. Filter API output with jq exactly as shown below.
+- Every turn must be a tool call, except the last: a plain message containing the final report (section 9), sent when the work is complete or when a rule below tells you to stop. Never end a turn with reasoning only.
+- Run one command per tool call (a pipeline or an && chain counts as one).
+- Run all commands from /projects/app.
+- Explore with `git ls-files` and `git grep`, not find or grep -r.
+- Change existing files with the edit tool, not heredocs.
+- If you are unsure of the repository state, run `git status --short` and `git diff --stat origin/main...HEAD` once, state your plan in one sentence, and act. If undoing your own mistake would take more than 5 commands, stop and report instead.
 
 ## 1. Retrieve and verify the issue
 
-GET $GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/issues/<issue-number> with header `Authorization: Bearer $GITEA_ACCESS_TOKEN`. Verify the title and description. If the issue cannot be retrieved, stop and report. Do not guess issue contents.
+Run:
+
+curl -fsS -H "Authorization: Bearer $GITEA_ACCESS_TOKEN" "$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/issues/<issue-number>" | jq '{number, title, body, state}'
+
+The output must be one object whose `number` equals the issue number. Otherwise stop and report.
 
 ## 2. Prepare the repository
 
-Run `git status`. The worktree must be clean. If not, stop and report; do not reset, stash, discard, or modify anything.
+1. Run `git status --short`. The output must be empty. If not, stop and report; do not reset, stash, discard or modify anything.
+2. Run exactly: `git fetch origin && git checkout main && git merge --ff-only origin/main`
 
-Then run these three commands, one per tool call:
-
-git fetch origin
-git checkout main
-git merge --ff-only origin/main
-
-If any fails: stop and report. Do not try alternative Git commands.
+If step 2 fails, stop and report. Do not try alternative Git commands.
 
 ## 3. Create the issue branch
 
-Create and switch to `issue/<issue-number>-<kebab-case-issue-title>`: lowercase a-z, digits and hyphens only, built from the verified title. Verify with `git branch --show-current`. Never commit task changes to main.
+Run `git checkout -b issue/<issue-number>-<kebab-case-issue-title> && git branch --show-current`. The name uses only lowercase a-z, digits and hyphens, is built from the verified title, and must match the printed branch. Never commit task changes to main.
 
-## 4. Implement the change (test-first, but finish the job)
+## 4. Implement the change (test first, but finish the job)
 
-1. Find every reference: `git grep -n` for the endpoint path and for the current (old) value or behaviour the issue changes. Read each matching test file in full.
-2. Update the existing tests that assert the old behaviour. Add a new test only if no existing test covers it. Never leave two tests covering the same behaviour. Do not add traits, setup or dependencies the existing tests don't use.
-3. Implement the minimal production change.
-4. Before committing, `git grep` for the old value again. Nothing left may contradict the issue.
+1. Identify the current behaviour: find the existing test that covers it and note the exact value or behaviour it asserts. Then run `git grep -n -F "<that value>"` to find every place that produces or asserts it.
+2. If the issue concerns an HTTP route: routes in routes/api.php are served under the /api prefix, so /api/hello is declared there as '/hello'. Search routes/ for the last path segment. A file that only mentions the path (for example as a JSON field) is not the handler.
+3. Update the existing tests that assert the old behaviour first. Add a new test only if no existing test covers it. Do not add traits, setup or dependencies the existing tests do not use.
+4. Implement the minimal production change. Change only files where you found the old value or the handler.
+5. Run `git grep -n -F "<old value>"` again. Nothing left may contradict the issue.
 
-Keep the diff small. Do not modify unrelated files. Do not push a branch containing only a failing test.
+Keep the diff small. Never push a test change without its implementation.
 
 ## 5. Run tests when possible
 
-If the runtime is available, run the relevant tests and fix failures caused by your change. If not (for example `php` is missing): do not install anything, do not work around it, and continue. CI is authoritative.
+If the runtime is available, run the relevant tests and fix failures caused by your change. If it is not (for example `php` is missing), install nothing, use no workaround, and continue. CI is authoritative.
 
 ## 6. Commit and push
 
-Verify that test and implementation changes are committed and nothing intended is left uncommitted. Then:
+1. Stage explicit paths. Never use `git add -A` or `git add .`.
+2. Commit.
+3. Run `git status --short && git diff --stat origin/main...HEAD`. The status must be empty. Every file in the diff must be one you deliberately changed for the issue. For any other file, run `git checkout origin/main -- <file>` if it exists on main, or `git rm <file>` if it does not, then commit and run this check again. Do not use git reset, restore or revert for this.
+4. Push: `git push -u origin <branch-name>`
 
-git push -u origin <branch-name>
+For every fix made in section 7, repeat steps 1-4.
 
 ## 7. Validate CI
 
-CI is Woodpecker. Use only the two helper scripts below. Do not use a browser, do not fetch `target_url`, and do not query any other service. Never report a CI status that did not come from the scripts' output.
+CI is Woodpecker. Use only the two helper scripts named here. Do not call Woodpecker or any other CI endpoint yourself, do not use a browser or fetch `target_url`. Never report a CI status that did not come from the scripts' output.
 
-**A. Get the status.** Run `/opt/ci/ci-status.sh` (checks HEAD). It polls Gitea for up to 5 minutes and prints `SHA=...`, `CI_STATUS=passed|failed|pending|unavailable`, and one JSON line per `ci/woodpecker/` context including its `target_url`. If the tool says the command is still running, wait for it; do not start a second poll.
-
-- Statuses returned for a SHA belong to that SHA. Pipeline numbers are repo-wide counters, so a number like 17 is normal. Never speculate that a status comes from an earlier commit.
+**A. Get the status.** Run `bash /opt/ci/ci-status.sh`. It checks HEAD, polls Gitea for up to 5 minutes, and prints `SHA=...`, `CI_STATUS=passed|failed|pending|unavailable`, and one JSON line per `ci/woodpecker/` context including its `target_url`. If the tool says the command is still running, wait for it; do not start a second poll. Statuses returned for a SHA belong to that SHA; never speculate otherwise. The pipeline number is the number after `/pipeline/` in `target_url`.
 
 **B. Act on CI_STATUS.**
-- passed: run `/opt/ci/ci-details.sh "<target_url>"` once to record the pipeline number and step states, then go to section 8.
+- passed: run `bash /opt/ci/ci-details.sh "<target_url>"` once to get the step states, then go to section 8.
 - pending: stop. No PR. Report the pending contexts.
 - unavailable: report the script output verbatim and state that no Woodpecker status was reported for the SHA (or the exact error). Do not guess a cause. Go to section 8.
 - failed: go to C.
 
-**C. Diagnose and fix.** Run `/opt/ci/ci-details.sh "<target_url of the failing context>"`. It prints the pipeline summary, the steps with states, and the last 80 log lines of each failing step. If the script itself fails, stop and report its error.
+**C. Diagnose and fix.** Run `bash /opt/ci/ci-details.sh "<target_url of the failing context>"`. It prints the pipeline summary, the steps with states, and the last 80 log lines of each failing step. If the script itself fails, stop and report its error.
+- If the failure is related (the log names a test, file or message touched by your change, or the old value you replaced), make the smallest fix, repeat section 6, then run 7A again.
+- If the failure is unrelated or unclear, run `bash /opt/ci/ci-status.sh $(git rev-parse origin/main) 1` to see whether main fails too, then stop and report.
+- Stop and report if the same error repeats, if multiple unrelated failures appear, or after 2 fix attempts.
 
-- Related failure (the log names a test, file or message touched by your change, or the old value you replaced): make the smallest fix, commit, push, and run `/opt/ci/ci-status.sh` again. Maximum 2 fix attempts.
-- Unrelated or unclear failure: run `/opt/ci/ci-status.sh $(git rev-parse origin/main) 1` to see whether main fails too, then stop and report.
-- Stop if the same step fails again with the same error, if multiple unrelated failures appear, or after 2 fix attempts.
-- Never create a PR while CI is failed.
-
-Record for the final report: commit SHA checked; each `ci/woodpecker/` context and status; pipeline number (from ci-details output); pipeline URL (`target_url` as returned); steps with states and the last completed step; for failures, the failing step, the failing test names and what you changed.
-
-## 8. Create the pull request
+## 8. Create and verify the pull request
 
 Only if all intended changes are committed, the branch is pushed, and CI is passed, or unavailable with the reason reported. Never if CI is failed or pending.
 
-POST $GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/pulls with headers `Authorization: Bearer $GITEA_ACCESS_TOKEN` and `Content-Type: application/json`:
+Create it with the title `Issue #<issue-number>: <issue title>`:
 
-{ "head": "<branch-name>", "base": "main", "title": "<title>" }
+jq -n --arg h "<branch-name>" --arg t "<title>" '{head:$h, base:"main", title:$t}' | curl -fsS -X POST -H "Authorization: Bearer $GITEA_ACCESS_TOKEN" -H "Content-Type: application/json" -d @- "$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/pulls" | jq '{number, html_url, state, head: .head.ref}'
 
 Use the exact branch name that was pushed. Do not invent alternate branch formats or retry with modified names unless the API error names the required format.
 
-## 9. Verify pull request creation
+Then verify it, using the number from the response:
 
-GET $GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/pulls/<pr-number>. Verify it exists, is open, and its head is the pushed branch. Obtain the PR number and `html_url` exactly as returned. If this fails, report PR creation as failed.
+curl -fsS -H "Authorization: Bearer $GITEA_ACCESS_TOKEN" "$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/pulls/<pr-number>" | jq '{number, html_url, state, head: .head.ref, base: .base.ref}'
 
-## 10. Final report
+The PR must be open, with the pushed branch as head and main as base. If this fails, report PR creation as failed.
 
-Issue number, issue title, branch name, files changed, CI details (section 7), fix attempts made (if any), PR number, PR URL.
+## 9. Final report
+
+Send it as a plain message:
+- issue number and title
+- branch name
+- files changed (from the section 6 diff)
+- CI: commit SHA checked, each `ci/woodpecker/` context with its status, pipeline number, pipeline URL (`target_url` as returned), steps with states and the last completed step, and for failures the failing step, failing test names and what you changed
+- fix attempts made, if any
+- PR number and PR URL (`html_url` as returned)
+
+If you stopped early, state the reason and the last command you ran.
 
 Do not merge. Do not deploy. Do not perform additional enhancements beyond the issue.
 ```
