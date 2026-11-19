@@ -359,11 +359,14 @@ local agent so it can push a branch and create a PR. Do not use a Gitea
 administrator token. The token is optional if you only want to experiment
 with local edits; without it the agent cannot push changes or open a PR.
 
-By default, the AI Engineering stack uses Ollama installed on the host and
-starts only OpenHands. Set `OLLAMA_PROVIDER=container` in `.env` if you want
-the script to start a separate Ollama container and download the model named
-by `OLLAMA_MODEL` on first use. That container keeps its model data in a
-persistent Docker volume.
+Similarly, configure `OPENHANDS_WOODPECKER_TOKEN` in `.env` with a token,
+ideally for the same account as configured in Gitea above.
+
+By default, the AI Engineering stack uses a containerized Ollama and downloads
+the model named by `OLLAMA_MODEL` on first use. That container keeps its model
+data in a persistent Docker volume. Set `OLLAMA_PROVIDER=native` in `.env` if
+you want to run the model host natively, the script will then only start the
+Openhands container.
 
 Start the services with:
 
@@ -371,7 +374,7 @@ Start the services with:
 ./scripts/ai-engineering.sh up
 ```
 
-OpenHands and the optional Ollama container are independent of
+The OpenHands and Ollama containers are independent of
 `./scripts/up.sh`; starting or stopping the main stack does not start or stop
 them. OpenHands is available at
 `http://localhost:<OPENHANDS_PORT>/canvas` (default port `8001`).
@@ -380,8 +383,9 @@ In OpenHands `Settings > LLM > Advanced`, configure the local model:
 
 First add a Provider:
 - **Provider:** `ollama_chat`
-- **Base URL for native Windows Ollama:** `http://host.docker.internal:11434`
-- **Base URL for containerized Ollama:** `http://model-host:11434`
+- **Base URL:**
+  - for containerized Ollama: `http://model-host:11434`
+  - for native Windows Ollama: `http://host.docker.internal:11434`
 - **API key:** any placeholder, such as `local-llm`
 
 For native Windows Ollama, it must accept connections from Docker Desktop;
