@@ -65,7 +65,9 @@ compose() {
     "${profile_args[@]}" \
     -f ./stack/docker-compose.yaml \
     -f ./stack/model-host/provider/ollama/docker-compose.yaml \
-    -f ./stack/ai-engineering/provider/openhands/docker-compose.yaml "$@"
+    -f ./stack/ai-engineering/provider/openhands/docker-compose.yaml \
+    -f ./stack/orchestration/provider/n8n/docker-compose.yaml \
+    "$@"
 }
 
 wait_for_model_host() {
@@ -109,6 +111,7 @@ up() {
       -f ./stack/docker-compose.yaml \
       -f ./stack/model-host/provider/ollama/docker-compose.yaml \
       -f ./stack/ai-engineering/provider/openhands/docker-compose.yaml \
+      -f ./stack/orchestration/provider/n8n/docker-compose.yaml \
       rm --stop --force model-host
   fi
 
@@ -144,6 +147,7 @@ case "$1" in
         -f ./stack/docker-compose.yaml \
         -f ./stack/model-host/provider/ollama/docker-compose.yaml \
         -f ./stack/ai-engineering/provider/openhands/docker-compose.yaml \
+        -f ./stack/orchestration/provider/n8n/docker-compose.yaml \
         rm --stop --force model-host
     fi
     compose down
