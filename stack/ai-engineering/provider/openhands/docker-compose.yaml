@@ -24,7 +24,7 @@ services:
       GIT_CONFIG_KEY_4: safe.directory
       GIT_CONFIG_VALUE_4: /projects/app
     ports:
-      - "127.0.0.1:${OPENHANDS_PORT:-8001}:8000"
+      - "${OPENHANDS_PORT:-8001}:8000"
     volumes:
       - openhands-data:/home/openhands/.openhands
       - ./ai-engineering/provider/openhands/agent-tools:/opt/ci:ro

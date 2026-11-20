@@ -18,7 +18,7 @@ services:
       # For visible host-folder storage, replace the named volume above with:
       # - ${PWD}/stack/ci/provider/woodpecker/data:/var/lib/woodpecker
     ports:
-      - "${WOODPECKER_PORT}:8000"
+      - "${WOODPECKER_PORT:-8000}:8000"
     networks:
       - shared
 
