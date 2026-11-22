@@ -22,6 +22,22 @@ services:
     networks:
       - shared
 
+  orchestration-bootstrap:
+    build:
+      context: ./orchestration/provider/n8n/bootstrap
+    depends_on:
+      orchestration:
+        condition: service_started
+    restart: "no"
+    environment:
+      N8N_URL: http://orchestration:5678
+      N8N_API_KEY: ${N8N_API_KEY}
+    volumes:
+      - ./orchestration/provider/n8n/workflows:/assets/workflows:ro
+      - ./orchestration/provider/n8n/datatables:/assets/datatables:ro
+    networks:
+      - shared
+
 volumes:
   n8n-data:
     name: ${STACK_NAME}-n8n-data

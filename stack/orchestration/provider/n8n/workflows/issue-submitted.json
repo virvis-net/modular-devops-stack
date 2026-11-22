@@ -1,0 +1,127 @@
+{
+  "name": "Issue Submitted",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gitea",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        -96
+      ],
+      "id": "db913564-2890-4e98-82e5-0d304fe79ea4",
+      "name": "Webhook",
+      "webhookId": "6ecdb426-c707-4b9a-92b5-cb4e3b3d11ac"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{\n  `${$env.GITEA_API_URL}/repos/${$('Webhook').item.json.body.repository.full_name}/issues/${$('Webhook').item.json.body.issue.number}/comments`\n}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{\n  'token ' + $env.GITEA_ACCESS_TOKEN\n}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"body\": \"🤖 Issue #{{$json.body.issue.number}} has been queued for AI processing.\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        -112
+      ],
+      "id": "19620078-d496-4252-af6a-764125767a8d",
+      "name": "Leave comment"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "a0536d4e-c499-4b42-a149-2832c198e4dd",
+              "leftValue": "={{\n  $json.body.issue.labels.some(\n    label => label.name === 'ai-fix'\n  )\n}}",
+              "rightValue": "ai-fix",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "72a90298-63e7-4110-9636-d82da536b40d",
+              "leftValue": "={{$json.body.action}}",
+              "rightValue": "label_updated",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        224,
+        -96
+      ],
+      "id": "1520148e-bdcf-4ce3-9030-e7bb36942fee",
+      "name": "Is it labelled ai-fix?"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Is it labelled ai-fix?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leave comment": {
+      "main": [
+        []
+      ]
+    },
+    "Is it labelled ai-fix?": {
+      "main": [
+        [
+          {
+            "node": "Leave comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "nodeGroups": []
+}

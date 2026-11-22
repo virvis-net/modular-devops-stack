@@ -1,0 +1,12 @@
+{
+  "name": "ai-engineering_jobs",
+  "columns": [
+    { "name": "issue_id", "type": "string" },
+    { "name": "conversation_id", "type": "string" },
+    { "name": "execution_status", "type": "string" },
+    { "name": "repository", "type": "string" },
+    { "name": "branch_name", "type": "string" },
+    { "name": "prompt_version", "type": "string" },
+    { "name": "attempt", "type": "number" }
+  ]
+}

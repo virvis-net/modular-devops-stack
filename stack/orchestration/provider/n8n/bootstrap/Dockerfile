@@ -1,0 +1,9 @@
+FROM python:3.12-alpine
+
+RUN pip install --no-cache-dir requests
+
+WORKDIR /bootstrap
+
+COPY deploy.py .
+
+CMD ["python", "/bootstrap/deploy.py"]
