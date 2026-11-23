@@ -1,10 +1,17 @@
+#!/usr/bin/env python3
+
 import json
 import os
 import time
 import requests
 
-N8N_URL = os.getenv("N8N_URL", "http://orchestration:5678")
+N8N_URL = os.getenv("N8N_URL", "http://orchestration:5678").rstrip("/")
 N8N_API_KEY = os.environ["N8N_API_KEY"]
+
+# Set to "false" to deploy workflows without activating them (development)
+N8N_ACTIVATE_WORKFLOWS = (
+    os.getenv("N8N_ACTIVATE_WORKFLOWS", "true").lower() == "true"
+)
 
 HEADERS = {
     "X-N8N-API-KEY": N8N_API_KEY,
@@ -13,6 +20,45 @@ HEADERS = {
 
 WORKFLOW_DIR = "/assets/workflows"
 DATATABLE_DIR = "/assets/datatables"
+
+
+def api(method, path, payload=None, params=None):
+    response = requests.request(
+        method,
+        f"{N8N_URL}{path}",
+        headers=HEADERS,
+        json=payload,
+        params=params,
+        timeout=30,
+    )
+
+    if not response.ok:
+        print(response.text)
+
+    response.raise_for_status()
+
+    return response.json() if response.text else None
+
+
+def get_all(path):
+    """Collect every item of a paginated list endpoint."""
+    items = []
+    cursor = None
+
+    while True:
+        page = api("GET", path, params={"cursor": cursor} if cursor else None)
+        items.extend(page.get("data", []))
+        cursor = page.get("nextCursor")
+
+        if not cursor:
+            return items
+
+
+def load_json(path):
+    # No ${VAR} expansion here, unlike the OpenHands bootstrap: workflow JSON
+    # contains Code-node JavaScript with $ and ${...} that must stay untouched
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def wait_for_n8n():
@@ -30,7 +76,10 @@ def wait_for_n8n():
                 print("n8n API is ready")
                 return
 
-        except Exception:
+            if response.status_code in (401, 403):
+                raise RuntimeError("n8n rejected the API key")
+
+        except requests.RequestException:
             pass
 
         time.sleep(5)
@@ -38,18 +87,60 @@ def wait_for_n8n():
     raise RuntimeError("Timed out waiting for n8n API")
 
 
+# --- Data tables ----------------------------------------------------------
+
+
+def get_datatables():
+    return get_all("/api/v1/data-tables")
+
+
+def get_datatable_by_name(name):
+    for table in get_datatables():
+        if table["name"] == name:
+            return table
+
+    return None
+
+
+def ensure_datatable(schema_path):
+    schema = load_json(schema_path)
+    table_name = schema["name"]
+
+    existing = get_datatable_by_name(table_name)
+
+    if existing:
+        # Existing tables are never altered: a new column in the schema file
+        # does not reach an instance where the table already exists
+        print(f"Data table exists: {table_name}")
+        return table_name
+
+    api("POST", "/api/v1/data-tables", schema)
+    print(f"Created data table: {table_name}")
+
+    return table_name
+
+
+def build_datatable_mapping():
+    return {table["name"]: table["id"] for table in get_datatables()}
+
+
+def deploy_datatables():
+    names = []
+
+    for filename in sorted(os.listdir(DATATABLE_DIR)):
+        if filename.endswith(".schema.json"):
+            names.append(
+                ensure_datatable(os.path.join(DATATABLE_DIR, filename))
+            )
+
+    return build_datatable_mapping(), names
+
+
+# --- Workflows ------------------------------------------------------------
+
+
 def get_workflows():
-    response = requests.get(
-        f"{N8N_URL}/api/v1/workflows",
-        headers=HEADERS,
-    )
-
-    if not response.ok:
-        print(response.text)
-
-    response.raise_for_status()
-
-    return response.json().get("data", [])
+    return get_all("/api/v1/workflows")
 
 
 def get_workflow_by_name(name):
@@ -72,71 +163,7 @@ def clean_workflow(workflow):
     return workflow
 
 
-def get_datatables():
-    response = requests.get(
-        f"{N8N_URL}/api/v1/data-tables",
-        headers=HEADERS,
-    )
-
-    if not response.ok:
-        print(response.text)
-
-    response.raise_for_status()
-
-    return response.json().get("data", [])
-
-
-def get_datatable_by_name(name):
-    for table in get_datatables():
-        if table["name"] == name:
-            return table
-
-    return None
-
-
-def ensure_datatable(schema_path):
-    with open(schema_path, "r", encoding="utf-8") as f:
-        schema = json.load(f)
-
-    table_name = schema["name"]
-
-    existing = get_datatable_by_name(table_name)
-
-    if existing:
-        print(f"Data table exists: {table_name}")
-        return existing
-
-    response = requests.post(
-        f"{N8N_URL}/api/v1/data-tables",
-        headers=HEADERS,
-        json=schema,
-    )
-
-    if not response.ok:
-        print(response.text)
-
-    response.raise_for_status()
-
-    created = response.json()
-
-    print(f"Created data table: {table_name}")
-
-    return created
-
-
-def build_datatable_mapping():
-    mapping = {}
-
-    for table in get_datatables():
-        mapping[table["name"]] = table["id"]
-
-    return mapping
-
-
-def replace_datatable_references(
-    obj,
-    datatable_mapping,
-):
+def replace_datatable_references(obj, datatable_mapping, missing):
     """
     Finds n8n Data Table references such as:
 
@@ -147,164 +174,118 @@ def replace_datatable_references(
         "cachedResultUrl": "/projects/.../datatables/old-id"
     }
 
-    and updates only the runtime table ID.
-
-    We intentionally leave cachedResultUrl untouched for now,
-    because it is UI metadata and may contain project-specific
-    information that is not required for workflow execution.
+    and updates only the runtime table ID. cachedResultUrl is UI metadata
+    and is left untouched. A data table reference whose name is not in the
+    mapping is recorded in `missing`, so a typo cannot leave a stale ID.
     """
 
     if isinstance(obj, dict):
 
-        if (
-            obj.get("__rl") is True
-            and obj.get("cachedResultName")
-        ):
+        if obj.get("__rl") is True and obj.get("cachedResultName"):
             table_name = obj["cachedResultName"]
 
             if table_name in datatable_mapping:
                 obj["value"] = datatable_mapping[table_name]
+            elif "datatables" in str(obj.get("cachedResultUrl", "")):
+                missing.append(table_name)
 
         for value in obj.values():
-            replace_datatable_references(
-                value,
-                datatable_mapping,
-            )
+            replace_datatable_references(value, datatable_mapping, missing)
 
     elif isinstance(obj, list):
         for item in obj:
-            replace_datatable_references(
-                item,
-                datatable_mapping,
-            )
+            replace_datatable_references(item, datatable_mapping, missing)
 
 
-def deploy_workflow(
-    workflow_path,
-    datatable_mapping,
-):
-    with open(
-        workflow_path,
-        "r",
-        encoding="utf-8",
-    ) as f:
-        workflow = json.load(f)
+def deploy_workflow(workflow_path, datatable_mapping):
+    workflow = clean_workflow(load_json(workflow_path))
+    name = workflow["name"]
 
-    workflow = clean_workflow(workflow)
+    missing = []
+    replace_datatable_references(workflow, datatable_mapping, missing)
 
-    replace_datatable_references(
-        workflow,
-        datatable_mapping,
-    )
+    if missing:
+        raise RuntimeError(
+            f"{workflow_path}: references unknown data tables "
+            f"{sorted(set(missing))}"
+        )
 
-    existing = get_workflow_by_name(
-        workflow["name"]
-    )
+    existing = get_workflow_by_name(name)
 
     if existing:
-
-        response = requests.put(
-            f"{N8N_URL}/api/v1/workflows/{existing['id']}",
-            headers=HEADERS,
-            json=workflow,
-        )
-
-        if not response.ok:
-            print(response.text)
-
-        response.raise_for_status()
-
-        print(
-            f"Updated workflow: "
-            f"{workflow['name']}"
-        )
-
+        workflow_id = existing["id"]
+        api("PUT", f"/api/v1/workflows/{workflow_id}", workflow)
+        print(f"Updated workflow: {name}")
     else:
-        response = requests.post(
-            f"{N8N_URL}/api/v1/workflows",
-            headers=HEADERS,
-            json=workflow,
-        )
+        workflow_id = api("POST", "/api/v1/workflows", workflow)["id"]
+        print(f"Created workflow: {name}")
 
-        if not response.ok:
-            print(response.text)
+    if N8N_ACTIVATE_WORKFLOWS:
+        api("POST", f"/api/v1/workflows/{workflow_id}/activate")
+        print(f"Activated workflow: {name}")
 
-        response.raise_for_status()
-
-        print(
-            f"Created workflow: "
-            f"{workflow['name']}"
-        )
+    return name
 
 
-def deploy_datatables():
-    for filename in sorted(
-        os.listdir(DATATABLE_DIR)
-    ):
-        if not filename.endswith(
-            ".schema.json"
-        ):
-            continue
+def deploy_workflows(datatable_mapping):
+    names = []
 
-        ensure_datatable(
-            os.path.join(
-                DATATABLE_DIR,
-                filename,
+    for filename in sorted(os.listdir(WORKFLOW_DIR)):
+        if filename.endswith(".json"):
+            names.append(
+                deploy_workflow(
+                    os.path.join(WORKFLOW_DIR, filename),
+                    datatable_mapping,
+                )
             )
-        )
 
-    return build_datatable_mapping()
+    return names
 
 
-def deploy_workflows(
-    datatable_mapping,
-):
-    for filename in sorted(
-        os.listdir(WORKFLOW_DIR)
-    ):
-        if not filename.endswith(".json"):
-            continue
+# --- Verification ---------------------------------------------------------
 
-        deploy_workflow(
-            os.path.join(
-                WORKFLOW_DIR,
-                filename,
-            ),
-            datatable_mapping,
-        )
+
+def verify(table_names, workflow_names):
+    problems = []
+
+    tables = {table["name"] for table in get_datatables()}
+    for name in table_names:
+        if name not in tables:
+            problems.append(f"data table '{name}' not found")
+
+    workflows = {workflow["name"]: workflow for workflow in get_workflows()}
+    for name in workflow_names:
+        workflow = workflows.get(name)
+
+        if workflow is None:
+            problems.append(f"workflow '{name}' not found")
+        # `is False`: skip the check if this n8n version omits the field
+        elif N8N_ACTIVATE_WORKFLOWS and workflow.get("active") is False:
+            problems.append(f"workflow '{name}' is not active")
+
+    if problems:
+        raise RuntimeError("Verification failed:\n  " + "\n  ".join(problems))
+
+    print("All checks passed")
 
 
 def main():
     wait_for_n8n()
 
-    print(
-        "\n=== Deploying Data Tables ==="
-    )
+    print("\n=== Deploying Data Tables ===")
+    datatable_mapping, table_names = deploy_datatables()
 
-    datatable_mapping = deploy_datatables()
+    print("Resolved Data Tables:")
+    for name, table_id in sorted(datatable_mapping.items()):
+        print(f"  {name} -> {table_id}")
 
-    print(
-        "Resolved Data Tables:"
-    )
+    print("\n=== Deploying Workflows ===")
+    workflow_names = deploy_workflows(datatable_mapping)
 
-    for name, table_id in sorted(
-        datatable_mapping.items()
-    ):
-        print(
-            f"  {name} -> {table_id}"
-        )
+    print("\n=== Verifying ===")
+    verify(table_names, workflow_names)
 
-    print(
-        "\n=== Deploying Workflows ==="
-    )
-
-    deploy_workflows(
-        datatable_mapping
-    )
-
-    print(
-        "\nBootstrap complete"
-    )
+    print("\nBootstrap complete")
 
 
 if __name__ == "__main__":
