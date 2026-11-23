@@ -402,6 +402,7 @@
             }
           ]
         },
+        "limit": 1,
         "orderBy": true
       },
       "type": "n8n-nodes-base.dataTable",
@@ -642,12 +643,8 @@
         "filters": {
           "conditions": [
             {
-              "keyName": "issue_id",
-              "keyValue": "={{ $('Select processing issue').item.json.id }}"
-            },
-            {
-              "keyName": "repository",
-              "keyValue": "={{ $('Select processing issue').item.json.repository.full_name }}"
+              "keyName": "conversation_id",
+              "keyValue": "={{ $('Get conversation_id').item.json.conversation_id }}"
             }
           ]
         },
