@@ -1,0 +1,6 @@
+{
+  "display_name": "Ollama (native)",
+  "provider": "ollama_chat",
+  "base_url": "http://host.docker.internal:11434",
+  "api_key": "local-llm"
+}

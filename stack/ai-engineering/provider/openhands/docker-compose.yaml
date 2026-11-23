@@ -32,14 +32,14 @@ services:
       - ../workspace/app:/projects/app
     user: "${OPENHANDS_UID:-1000}:${OPENHANDS_GID:-1000}"
     depends_on:
-      openhands-state-init:
+      coding-agent-state-init:
         condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
       - shared
 
-  openhands-state-init:
+  coding-agent-state-init:
     image: ${OPENHANDS_IMAGE:-ghcr.io/openhands/agent-canvas:latest}
     user: "0:0"
     restart: "no"
@@ -51,7 +51,7 @@ services:
     networks:
       - shared
 
-  openhands-bootstrap:
+  coding-agent-bootstrap:
     build:
       context: ./ai-engineering/provider/openhands/bootstrap
     depends_on:
@@ -61,6 +61,7 @@ services:
     environment:
       OPENHANDS_URL: http://coding-agent:8000
       OPENHANDS_API_KEY: ${OPENHANDS_API_KEY}
+      OLLAMA_PROVIDER: ${OLLAMA_PROVIDER:-container}
     volumes:
       - ./ai-engineering/provider/openhands/config:/assets:ro
     networks:

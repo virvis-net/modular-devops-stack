@@ -1,5 +1,5 @@
 {
-  "name": "qwen3.5",
+  "name": "mds-agent",
   "agent_kind": "openhands",
   "llm_profile_ref": "qwen3.5"
 }

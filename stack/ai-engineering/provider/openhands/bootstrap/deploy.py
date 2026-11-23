@@ -8,6 +8,7 @@ import requests
 
 OPENHANDS_URL = os.getenv("OPENHANDS_URL", "http://coding-agent:8000").rstrip("/")
 OPENHANDS_API_KEY = os.environ["OPENHANDS_API_KEY"]
+OLLAMA_PROVIDER = os.getenv("OLLAMA_PROVIDER", "container").lower()
 
 HEADERS = {
     "X-Session-API-Key": OPENHANDS_API_KEY,
@@ -147,6 +148,21 @@ def deploy_provider_connections():
     return build_provider_mapping()
 
 
+def get_selected_provider_name():
+    mapping = {
+        "container": "Ollama",
+        "native": "Ollama (native)",
+    }
+
+    if OLLAMA_PROVIDER not in mapping:
+        raise RuntimeError(
+            f"Invalid OLLAMA_PROVIDER '{OLLAMA_PROVIDER}'. "
+            f"Expected one of: {sorted(mapping)}"
+        )
+
+    return mapping[OLLAMA_PROVIDER]
+
+
 # --- LLM profiles ---------------------------------------------------------
 
 
@@ -165,10 +181,12 @@ def deploy_profile(path, provider_mapping):
     provider_name = profile.pop("provider", None)
 
     if provider_name is None:
-        raise RuntimeError(
-            f"{path}: add a 'provider' key holding the display_name of a "
-            f"provider connection (known: {sorted(provider_mapping)})"
-        )
+        provider_name = get_selected_provider_name()
+
+    print(
+        f"Using provider '{provider_name}' "
+        f"for profile '{name}'"
+    )
 
     if provider_name not in provider_mapping:
         raise RuntimeError(

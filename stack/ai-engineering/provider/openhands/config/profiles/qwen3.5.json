@@ -1,6 +1,5 @@
 {
   "model": "ollama_chat/qwen3.5",
-  "provider": "Ollama",
   "auth_type": "api_key",
   "temperature": 0.1,
   "timeout": 1200,
