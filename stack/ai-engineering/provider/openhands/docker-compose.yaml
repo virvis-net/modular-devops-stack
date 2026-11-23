@@ -51,6 +51,21 @@ services:
     networks:
       - shared
 
+  openhands-bootstrap:
+    build:
+      context: ./ai-engineering/provider/openhands/bootstrap
+    depends_on:
+      coding-agent:
+        condition: service_started
+    restart: "no"
+    environment:
+      OPENHANDS_URL: http://coding-agent:8000
+      OPENHANDS_API_KEY: ${OPENHANDS_API_KEY}
+    volumes:
+      - ./ai-engineering/provider/openhands/config:/assets:ro
+    networks:
+      - shared
+
 volumes:
   openhands-data:
     name: ${STACK_NAME}-openhands-data

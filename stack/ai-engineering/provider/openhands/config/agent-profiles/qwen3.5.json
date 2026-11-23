@@ -1,0 +1,5 @@
+{
+  "name": "qwen3.5",
+  "agent_kind": "openhands",
+  "llm_profile_ref": "qwen3.5"
+}

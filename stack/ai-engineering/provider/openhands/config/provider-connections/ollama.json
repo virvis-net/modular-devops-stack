@@ -1,0 +1,6 @@
+{
+  "display_name": "Ollama",
+  "provider": "ollama_chat",
+  "base_url": "http://model-host:11434",
+  "api_key": "local-llm"
+}
