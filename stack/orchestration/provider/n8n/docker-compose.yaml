@@ -7,6 +7,7 @@ services:
       N8N_PROTOCOL: http
       N8N_PORT: ${N8N_PORT:-5678}
       N8N_BLOCK_ENV_ACCESS_IN_NODE: false
+      N8N_RESTRICT_FILE_ACCESS_TO: /assets
       GITEA_ACCESS_TOKEN: ${N8N_GITEA_TOKEN:-}
       GITEA_API_URL: http://host.docker.internal:${GITEA_HTTP_PORT:-3000}/api/v1
       GITEA_ORG: ${GITEA_ORG:-}
@@ -19,6 +20,7 @@ services:
       - "${N8N_PORT:-5678}:5678"
     volumes:
       - n8n-data:/home/node/.n8n
+      - ./orchestration/provider/n8n/prompts:/assets/prompts:ro
     networks:
       - shared
 
