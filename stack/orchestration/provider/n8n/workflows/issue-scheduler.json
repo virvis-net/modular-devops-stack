@@ -178,7 +178,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        2016,
+        2240,
         512
       ],
       "id": "abd1271b-aaab-4dad-aee5-19ce62fc0c0b",
@@ -205,7 +205,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        2272,
+        2496,
         512
       ],
       "id": "765facce-e554-4f83-a07c-5d5c97786719",
@@ -373,7 +373,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1584,
+        1808,
         160
       ],
       "id": "f41da2f2-fa4e-44f5-8165-4ea44ca62f19",
@@ -514,7 +514,7 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        2496,
+        2720,
         512
       ],
       "id": "35b05b16-4735-4136-9697-98a238f10ad8",
@@ -541,7 +541,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        1808,
+        2032,
         160
       ],
       "id": "02de1f9b-3e3d-4ff9-b7ac-dadf8a557a52",
@@ -729,7 +729,7 @@
     {
       "parameters": {
         "operation": "read",
-        "fileSelector": "/assets/prompts/ai-engineer.md",
+        "fileSelector": "={{ $json.path }}",
         "options": {
           "mimeType": "text/markdown",
           "dataPropertyName": "prompt_template"
@@ -738,7 +738,7 @@
       "type": "n8n-nodes-base.readWriteFile",
       "typeVersion": 1.1,
       "position": [
-        1152,
+        1376,
         160
       ],
       "id": "13d51530-49af-40b2-ba2a-38c31b37b45c",
@@ -746,12 +746,12 @@
     },
     {
       "parameters": {
-        "jsCode": "const issue = $('Branch name').first().json; // number, title, body, branch_name\nconst buf = await this.helpers.getBinaryDataBuffer(0, 'prompt_template');\nconst template = buf.toString('utf8');\n\nif (!issue.title) throw new Error('Issue has no title');\nif (!issue.branch_name) throw new Error('Issue has no branch_name');\nif (!template.includes('\\n')) {\n  throw new Error('Template has no line breaks: it was probably pasted into a single-line field');\n}\n\n// Wrap in single quotes, escaping any single quote inside the text\nconst shellQuote = (s) => \"'\" + String(s).replace(/'/g, \"'\\\\''\") + \"'\";\n\nconst values = {\n  ISSUE_NUMBER: String(issue.number),\n  ISSUE_TITLE: issue.title,\n  ISSUE_TITLE_SHELL: shellQuote(issue.title),\n  BRANCH_NAME: issue.branch_name,\n  ISSUE_BODY: (issue.body || '(no description)')\n    .replace(/\\r\\n/g, '\\n')\n    .replace(/<\\/issue-body>/gi, ''),\n};\n\n// Single pass, accepting {{NAME}} and [[NAME]]. Text inside the issue is never re-scanned.\nconst unknown = [];\nlet replaced = 0;\nconst prompt = template.replace(\n  /\\{\\{\\s*(\\w+)\\s*\\}\\}|\\[\\[\\s*(\\w+)\\s*\\]\\]/g,\n  (m, a, b) => {\n    const key = a || b;\n    if (!Object.hasOwn(values, key)) {\n      unknown.push(key);\n      return m;\n    }\n    replaced++;\n    return values[key];\n  }\n);\nif (unknown.length) {\n  throw new Error(`Unknown placeholders in template: ${unknown.join(', ')}`);\n}\nif (replaced === 0) {\n  throw new Error('Template contains no placeholders');\n}\n\n// Small version stamp so you can tell which template produced which run\nlet h = 5381;\nfor (const ch of template) h = ((h * 33) ^ ch.codePointAt(0)) >>> 0;\n\nreturn [{ json: { ...issue, prompt, prompt_version: h.toString(16) } }];"
+        "jsCode": "const issue = $('Branch name').first().json; // number, title, body, branch_name\n\nif ($input.all().length !== 2) {\n  throw new Error('Expected 2 prompt files (generic and stack), got ' + $input.all().length + '. Check PROMPT_STACK and the files in /assets/prompts/stacks');\n}\nconst nl = String.fromCharCode(10);\nconst generic = (await this.helpers.getBinaryDataBuffer(0, 'prompt_template')).toString('utf8');\nconst stack = (await this.helpers.getBinaryDataBuffer(1, 'prompt_template')).toString('utf8');\nconst template = generic.trimEnd() + nl + nl + stack.trim() + nl;\n\nif (!issue.title) throw new Error('Issue has no title');\nif (!issue.branch_name) throw new Error('Issue has no branch_name');\nif (!template.includes('\\n')) {\n  throw new Error('Template has no line breaks: it was probably pasted into a single-line field');\n}\n\n// Wrap in single quotes, escaping any single quote inside the text\nconst shellQuote = (s) => \"'\" + String(s).replace(/'/g, \"'\\\\''\") + \"'\";\n\nconst values = {\n  ISSUE_NUMBER: String(issue.number),\n  ISSUE_TITLE: issue.title,\n  ISSUE_TITLE_SHELL: shellQuote(issue.title),\n  BRANCH_NAME: issue.branch_name,\n  ISSUE_BODY: (issue.body || '(no description)')\n    .replace(/\\r\\n/g, '\\n')\n    .replace(/<\\/issue-body>/gi, ''),\n};\n\n// Single pass, accepting {{NAME}} and [[NAME]]. Text inside the issue is never re-scanned.\nconst unknown = [];\nlet replaced = 0;\nconst prompt = template.replace(\n  /\\{\\{\\s*(\\w+)\\s*\\}\\}|\\[\\[\\s*(\\w+)\\s*\\]\\]/g,\n  (m, a, b) => {\n    const key = a || b;\n    if (!Object.hasOwn(values, key)) {\n      unknown.push(key);\n      return m;\n    }\n    replaced++;\n    return values[key];\n  }\n);\nif (unknown.length) {\n  throw new Error(`Unknown placeholders in template: ${unknown.join(', ')}`);\n}\nif (replaced === 0) {\n  throw new Error('Template contains no placeholders');\n}\n\n// Small version stamp so you can tell which template produced which run\nlet h = 5381;\nfor (const ch of template) h = ((h * 33) ^ ch.codePointAt(0)) >>> 0;\n\nreturn [{ json: { ...issue, prompt, prompt_version: h.toString(16) }, pairedItem: { item: 0 } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1376,
+        1600,
         160
       ],
       "id": "242beb91-e5ac-4d10-860a-a97d17af3d9e",
@@ -791,6 +791,19 @@
       "id": "ab947a19-0819-47c2-aae1-4fb5b0bdb516",
       "name": "Get previous attempts",
       "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const stack = ($env.STACK_APP || '').trim();\nif (!/^[a-z0-9-]+$/.test(stack)) {\n  throw new Error('STACK_APP must be a stack name such as go, laravel or vue, got: ' + stack);\n}\nreturn [\n  { json: { path: '/assets/prompts/ai-engineer.md' }, pairedItem: { item: 0 } },\n  { json: { path: '/assets/prompts/stacks/' + stack + '.md' }, pairedItem: { item: 0 } },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        160
+      ],
+      "id": "24221d17-05b0-4e71-9f29-cbfddbad19d6",
+      "name": "Prompt files"
     }
   ],
   "pinData": {},
@@ -1022,7 +1035,7 @@
       "main": [
         [
           {
-            "node": "Prompt template",
+            "node": "Prompt files",
             "type": "main",
             "index": 0
           }
@@ -1061,6 +1074,17 @@
           }
         ]
       ]
+    },
+    "Prompt files": {
+      "main": [
+        [
+          {
+            "node": "Prompt template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -1093,7 +1117,8 @@
         "06bcfcec-2773-4cac-8ed3-bd68d62e28d4",
         "13d51530-49af-40b2-ba2a-38c31b37b45c",
         "242beb91-e5ac-4d10-860a-a97d17af3d9e",
-        "ab947a19-0819-47c2-aae1-4fb5b0bdb516"
+        "ab947a19-0819-47c2-aae1-4fb5b0bdb516",
+        "24221d17-05b0-4e71-9f29-cbfddbad19d6"
       ]
     }
   ]

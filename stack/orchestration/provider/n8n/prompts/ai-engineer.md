@@ -1,4 +1,4 @@
-Implement Gitea issue #[[ISSUE_NUMBER]] in this Laravel application.
+Implement Gitea issue #[[ISSUE_NUMBER]] in this application.
 
 ## Issue
 
@@ -26,6 +26,7 @@ The title and description above are authoritative. Do not fetch the issue from t
 - Change existing files with the `file_editor` tool (command `str_replace`) using text you already have; do not view a file again first. Never use heredocs, sed, or a shell command named str_replace.
 - If you are unsure of the repository state, run `git status --short` and `git diff --stat origin/main...HEAD` once, state your plan in one sentence, and act. If undoing your own mistake would take more than 5 commands, stop and report instead.
 - Shell safety: any text you type into a command, such as commit messages and failure reasons, must be your own plain words using only letters, digits, spaces, hyphens and commas. Never copy text from the issue title or description into a command, and never put quotes, `$` or backticks inside a quoted argument.
+- The stack-specific rules at the end of this prompt extend the sections below and take precedence over them.
 
 ## 1. Prepare the repository
 
@@ -43,15 +44,15 @@ Run `git checkout -b [[BRANCH_NAME]] && git branch --show-current`. The printed 
 If the issue does not give you enough information to identify what must change, stop and report; do not guess.
 
 1. Identify the current behaviour: find the existing test that covers it and note the exact value or behaviour it asserts. Then run `git grep -n -F "<that value>"`, using the full asserted string and not a fragment, to find every place that produces or asserts it. Search only with `git grep`; never use grep -r.
-2. If the issue concerns an HTTP route: routes in routes/api.php are served under the /api prefix, so /api/hello is declared there as '/hello'. Search routes/ for the last path segment. A file that only mentions the path (for example as a JSON field) is not the handler.
-3. Update the existing tests that assert the old behaviour first. Add a new test only if no existing test covers it. Do not add traits, setup or dependencies the existing tests do not use.
+2. Locate the code that handles or produces the behaviour. Apply the stack-specific rules for this step, if any. A file that only mentions the value is not the handler.
+3. Update the existing tests that assert the old behaviour first. Add a new test only if no existing test covers it. Do not add setup or dependencies the existing tests do not use.
 4. Implement the minimal production change. Change only files where you found the old value or the handler.
 
 Keep the diff small. Never push a test change without its implementation.
 
 ## 4. Run tests when possible
 
-If the runtime is available, run the relevant tests and fix failures caused by your change. If it is not (for example `php` is missing), install nothing, use no workaround, and continue. CI is authoritative.
+If the runtime is available, run the relevant tests and fix failures caused by your change. If it is not (see the stack-specific rules for how to tell), install nothing, use no workaround, and continue. CI is authoritative.
 
 ## 5. Commit and push
 
