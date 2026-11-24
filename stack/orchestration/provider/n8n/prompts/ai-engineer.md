@@ -23,7 +23,7 @@ The title and description above are authoritative. Do not fetch the issue from t
 - If evidence contradicts the issue's stated cause, continue from the observed evidence and report the discrepancy.
 - Every turn must be a tool call, except the last: a plain message containing the final report (section 8), sent when the work is complete or when a rule below tells you to stop. Never end a turn with reasoning only.
 - Run one command per tool call (a pipeline or an && chain counts as one).
-- Run all commands from /projects/app.
+- Run all commands from workspace/app.
 - Explore with `git ls-files` and `git grep`, not find or grep -r.
 - Change existing files with the `file_editor` tool (command `str_replace`) using text you already have; do not view a file again first. Never use heredocs, sed, or a shell command named str_replace.
 - If you are unsure of the repository state, run `git status --short` and `git diff --stat origin/main...HEAD` once, state your plan in one sentence, and act. If undoing your own mistake would take more than 5 commands, stop and report instead.

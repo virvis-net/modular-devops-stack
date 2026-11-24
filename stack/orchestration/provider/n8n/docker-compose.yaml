@@ -13,7 +13,7 @@ services:
       GITEA_API_URL: http://host.docker.internal:${GITEA_HTTP_PORT:-3000}/api/v1
       GITEA_ORG: ${GITEA_ORG:-}
       GITEA_REPOSITORY: app
-      GITEA_REPOSITORY_PATH: /projects/app
+      GITEA_REPOSITORY_PATH: ${WORKSPACE_DIRECTORY}/app
       GITEA_REPOSITORY_BRANCH: ${APP_BRANCH:-main}
       OPENHANDS_ACCESS_TOKEN: ${N8N_OPENHANDS_TOKEN:-}
       OPENHANDS_API_URL: http://host.docker.internal:${OPENHANDS_PORT:-8001}/api

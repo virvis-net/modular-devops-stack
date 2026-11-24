@@ -5,7 +5,7 @@ It is kept separate from the normal stack startup so an agent never starts
 automatically when the DevOps stack starts.
 
 The Compose service joins the same external Docker network as Gitea, mounts
-the app checkout at `/projects/app` and a dedicated local work area at
+the app checkout at `workspace/app` and a dedicated local work area at
 `/projects`, and does not mount the Docker socket or the GitOps checkout.
 The launcher creates `workspace/openhands` as the invoking host user for that
 work area. Browser configuration is stored under `/projects/.config`, which
@@ -20,7 +20,7 @@ The Gitea token is available to agent processes in this container. Use a
 dedicated Gitea account with access only to the app repository; agent-run
 commands can read the token. Git uses an HTTP authorization header so
 credentials are not embedded in the remote URL. The Compose environment
-marks `/projects/app` as a safe Git directory and rewrites the host-side
+marks `workspace/app` as a safe Git directory and rewrites the host-side
 localhost and configured Gitea SSH URLs to the internal HTTP endpoint, so Git
 does not need an SSH client in the coding-agent container. The Compose service
 runs as the host user's UID and GID, which the launcher detects automatically,

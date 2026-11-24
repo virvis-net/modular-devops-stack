@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # usage: [CI_EVENT=push|pr] ci-status.sh [sha] [max_polls]   (defaults: push, HEAD, 20 polls x 15s)
 set -u
-SHA="${1:-$(git -C /projects/app rev-parse HEAD)}"; MAX="${2:-20}"
+SHA="${1:-$(git -C ${WORKSPACE_DIRECTORY}/app rev-parse HEAD)}"; MAX="${2:-20}"
 PREFIX="ci/woodpecker/${CI_EVENT:-push}/"
 URL="$GITEA_API_URL/repos/$GITEA_OWNER/$GITEA_REPOSITORY/commits/$SHA/status"
 F='[.statuses[]? | select(.context|startswith($P)) | {context, status:(.status // .state), description, target_url}]'

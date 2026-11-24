@@ -84,12 +84,12 @@ wait_for_model_host() {
 wait_for_workspace() {
   local attempt
   for attempt in {1..30}; do
-    if compose exec -T coding-agent test -d /projects/app/.git >/dev/null 2>&1; then
+    if compose exec -T coding-agent test -d ${WORKSPACE_DIRECTORY}/app/.git >/dev/null 2>&1; then
       return 0
     fi
     sleep 1
   done
-  error "OpenHands cannot see the Git checkout at /projects/app. Check the Docker Desktop/WSL bind mount, then recreate the coding-agent container."
+  error "OpenHands cannot see the Git checkout at ${WORKSPACE_DIRECTORY}/app. Check the Docker Desktop/WSL bind mount, then recreate the coding-agent container."
 }
 
 up() {

@@ -199,7 +199,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"agent_profile_id\": \"{{$json.active_agent_profile_id}}\",\n  \"workspace\": {\n    \"working_dir\": \"projects/app\"\n  },\n  \"initial_message\": {\n    \"role\": \"user\",\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": {{ JSON.stringify($('Render prompt').first().json.prompt) }}\n      }\n    ]\n  }\n}",
+        "jsonBody": "={\n  \"agent_profile_id\": \"{{$json.active_agent_profile_id}}\",\n  \"workspace\": {\n    \"working_dir\": \"workspace/app\"\n  },\n  \"initial_message\": {\n    \"role\": \"user\",\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": {{ JSON.stringify($('Render prompt').first().json.prompt) }}\n      }\n    ]\n  }\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

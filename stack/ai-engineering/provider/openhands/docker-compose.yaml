@@ -23,14 +23,14 @@ services:
       GIT_CONFIG_KEY_3: url.http://scm:3000/.insteadOf
       GIT_CONFIG_VALUE_3: ssh://git@${GITEA_SSH_DOMAIN:-host.docker.internal}:${GITEA_SSH_PORT:-2222}/
       GIT_CONFIG_KEY_4: safe.directory
-      GIT_CONFIG_VALUE_4: /projects/app
+      GIT_CONFIG_VALUE_4: ${WORKSPACE_DIRECTORY}/app
     ports:
       - "${OPENHANDS_PORT:-8001}:8000"
     volumes:
       - openhands-data:/home/openhands/.openhands
+      - openhands-projects:/projects
       - ./ai-engineering/provider/openhands/agent-tools:/opt/ci:ro
-      - ../workspace/openhands:/projects
-      - ../workspace/app:/projects/app
+      - ${WORKSPACE_DIRECTORY}:${WORKSPACE_DIRECTORY}
       - /var/run/docker.sock:/var/run/docker.sock
     user: "${OPENHANDS_UID:-1000}:${OPENHANDS_GID:-1000}"
     group_add:
@@ -49,9 +49,10 @@ services:
     restart: "no"
     entrypoint: ["/bin/sh", "-c"]
     command:
-      - "chown -R ${OPENHANDS_UID:-1000}:${OPENHANDS_GID:-1000} /home/openhands/.openhands"
+      - "chown -R ${OPENHANDS_UID:-1000}:${OPENHANDS_GID:-1000} /home/openhands/.openhands /projects"
     volumes:
       - openhands-data:/home/openhands/.openhands
+      - openhands-projects:/projects
     networks:
       - shared
 
@@ -66,6 +67,7 @@ services:
       OPENHANDS_URL: http://coding-agent:8000
       OPENHANDS_API_KEY: ${OPENHANDS_API_KEY}
       OLLAMA_PROVIDER: ${OLLAMA_PROVIDER:-container}
+      WORKSPACE_DIRECTORY: ${WORKSPACE_DIRECTORY}
     volumes:
       - ./ai-engineering/provider/openhands/config:/assets:ro
     networks:
@@ -74,3 +76,5 @@ services:
 volumes:
   openhands-data:
     name: ${STACK_NAME}-openhands-data
+  openhands-projects:
+    name: ${STACK_NAME}-openhands-projects

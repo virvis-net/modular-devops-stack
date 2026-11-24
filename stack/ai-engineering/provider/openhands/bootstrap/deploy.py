@@ -9,6 +9,7 @@ import requests
 OPENHANDS_URL = os.getenv("OPENHANDS_URL", "http://coding-agent:8000").rstrip("/")
 OPENHANDS_API_KEY = os.environ["OPENHANDS_API_KEY"]
 OLLAMA_PROVIDER = os.getenv("OLLAMA_PROVIDER", "container").lower()
+STACK_WORKSPACE_DIRECTORY = os.getenv("WORKSPACE_DIRECTORY", "/workspace").rstrip("/")
 
 HEADERS = {
     "X-Session-API-Key": OPENHANDS_API_KEY,
@@ -294,9 +295,9 @@ def load_workspaces():
 
     for filename in sorted(os.listdir(WORKSPACE_DIR)):
         if filename.endswith(".json"):
-            workspaces.append(
-                load_json(os.path.join(WORKSPACE_DIR, filename))
-            )
+            workspace = load_json(os.path.join(WORKSPACE_DIR, filename))
+            workspace["path"] = os.path.join(STACK_WORKSPACE_DIRECTORY, workspace["path"].lstrip("/"))
+            workspaces.append(workspace)
 
     return workspaces
 

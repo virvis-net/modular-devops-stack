@@ -408,7 +408,7 @@ example prompt were:
 - **Max Input Tokens:** leave blank
 - **Max Output Tokens:** `4096`
 
-Open the `/projects/app` workspace. The agent can use the `GITEA_API_URL`,
+Open the `workspace/app` workspace. The agent can use the `GITEA_API_URL`,
 `GITEA_OWNER`, `GITEA_REPOSITORY`, and `GITEA_ACCESS_TOKEN` environment
 variables to interact with the app repository. Ask it to fetch the issue from
 the Gitea API and verify its title and description before planning or changing
@@ -430,7 +430,7 @@ Implement Gitea issue #{{ISSUE_NUMBER}} in this Laravel application. Below, `<is
 - Your context window is limited. Keep your reasoning to 1-3 sentences per step. Do not re-read files or re-run commands whose result you already have. Filter API output with jq exactly as shown below.
 - Every turn must be a tool call, except the last: a plain message containing the final report (section 9), sent when the work is complete or when a rule below tells you to stop. Never end a turn with reasoning only.
 - Run one command per tool call (a pipeline or an && chain counts as one).
-- Run all commands from /projects/app.
+- Run all commands from workspace/app.
 - Explore with `git ls-files` and `git grep`, not find or grep -r.
 - Change existing files with the `file_editor` tool (command `str_replace`) using text you already have; do not view a file again first. Never use heredocs, sed, or a shell command named str_replace.
 - If you are unsure of the repository state, run `git status --short` and `git diff --stat origin/main...HEAD` once, state your plan in one sentence, and act. If undoing your own mistake would take more than 5 commands, stop and report instead.
@@ -528,7 +528,7 @@ If you stopped early, state the reason and the last command you ran.
 Do not merge. Do not deploy. Do not perform additional enhancements beyond the issue.
 ```
 
-The OpenHands container trusts `/projects/app` as a Git working directory.
+The OpenHands container trusts `workspace/app` as a Git working directory.
 OpenHands and Gitea join the same external Docker network, so the Gitea API and
 rewritten Git remotes use Gitea's `scm:3000` service address. Git uses the
 configured token for those HTTP operations, so the coding-agent container does
@@ -537,7 +537,7 @@ such as native Ollama. The launcher runs OpenHands with the invoking host user's
 UID and GID, allowing it to modify the mounted checkout and `.git` directory
 without changing file permissions. The launcher creates the ignored
 `workspace/openhands` directory as the invoking user and mounts it at
-`/projects`; the app checkout is mounted separately at `/projects/app`. A
+`/projects`; the app checkout is mounted separately at `workspace/app`. A
 one-shot initialization service aligns the private OpenHands state volume with
 the mapped IDs. Set `OPENHANDS_UID` and `OPENHANDS_GID` in `.env` only if you
 need to override the detected IDs. App-specific test commands should use that
