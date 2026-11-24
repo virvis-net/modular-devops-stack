@@ -19,6 +19,8 @@ The title and description above are authoritative. Do not fetch the issue from t
 
 - Credentials are in the environment ($GITEA_API_URL, $GITEA_OWNER, $GITEA_REPOSITORY, $GITEA_ACCESS_TOKEN). Never print environment variables and never paste their values into a command. The CI helper scripts read their own credentials.
 - Your context window is limited. Keep your reasoning to 1-3 sentences per step. Do not re-read files or re-run commands whose result you already have. Filter API output with jq exactly as shown below.
+- Treat observed repository state as more authoritative than assumptions in the issue description.
+- If evidence contradicts the issue's stated cause, continue from the observed evidence and report the discrepancy.
 - Every turn must be a tool call, except the last: a plain message containing the final report (section 8), sent when the work is complete or when a rule below tells you to stop. Never end a turn with reasoning only.
 - Run one command per tool call (a pipeline or an && chain counts as one).
 - Run all commands from /projects/app.
@@ -27,6 +29,55 @@ The title and description above are authoritative. Do not fetch the issue from t
 - If you are unsure of the repository state, run `git status --short` and `git diff --stat origin/main...HEAD` once, state your plan in one sentence, and act. If undoing your own mistake would take more than 5 commands, stop and report instead.
 - Shell safety: any text you type into a command, such as commit messages and failure reasons, must be your own plain words using only letters, digits, spaces, hyphens and commas. Never copy text from the issue title or description into a command, and never put quotes, `$` or backticks inside a quoted argument.
 - The stack-specific rules at the end of this prompt extend the sections below and take precedence over them.
+
+## Development Environment
+
+- Before concluding that a runtime is unavailable, determine whether the repository provides a development container.
+- Check for:
+  - .devcontainer/devcontainer.json
+  - .devcontainer/compose.yaml
+  - .devcontainer/compose.yml
+  - .devcontainer/docker-compose.yml
+  - .devcontainer/docker-compose.yaml
+  - .devcontainer/Dockerfile
+- Before using a devcontainer, verify:
+  - Docker CLI is available.
+  - Docker daemon access is available.
+  - The Docker client can create its configuration directory.
+- Verify Docker access using the project's available Docker tooling.
+- Do not use sudo.
+- Determine whether Docker access is available by attempting ordinary Docker commands first.
+- If a Docker command fails, report the specific error rather than assuming Docker is unavailable.
+- Before concluding that Docker access is unavailable, distinguish between:
+  - Docker CLI unavailable;
+  - Docker socket unavailable;
+  - Docker permission denied;
+  - Docker client configuration permission denied;
+  - Devcontainer startup failure.
+- Report the specific failure.
+- If the repository contains a devcontainer but Docker access is unavailable due to permissions or environment restrictions, report the limitation and continue according to the runtime-specific rules.
+- If a devcontainer configuration exists and Docker access is available, use the repository's devcontainer as the authoritative development and test environment.
+- Development tasks that require a runtime, package manager, build tool, compiler, interpreter, or test runner should be executed inside the devcontainer whenever possible.
+- When modifying dependencies and a usable devcontainer is available:
+  - perform dependency installation and lockfile generation inside the devcontainer;
+  - commit the dependency manifest and generated lockfile together;
+  - run the relevant tests;
+  - validate build and packaging steps relevant to the change.
+  - Examples include:
+    - composer.json and composer.lock
+    - package.json and package-lock.json
+    - pyproject.toml and poetry.lock
+    - go.mod and go.sum
+- Never edit generated lockfiles manually. Generate them using the project's tooling.
+- Do not assume a runtime is unavailable until:
+  1. no devcontainer configuration exists, or
+  2. the devcontainer cannot be started, or
+  3. the required tooling is unavailable inside the devcontainer.
+- If the devcontainer is unavailable, continue using the repository workspace and follow the runtime-specific rules in the stack section.
+- When reporting results, state whether tests were executed:
+  - in the devcontainer,
+  - in the local workspace,
+  - or not executed.
 
 ## 1. Prepare the repository
 
@@ -52,7 +103,11 @@ Keep the diff small. Never push a test change without its implementation.
 
 ## 4. Run tests when possible
 
-If the runtime is available, run the relevant tests and fix failures caused by your change. If it is not (see the stack-specific rules for how to tell), install nothing, use no workaround, and continue. CI is authoritative.
+If a repository devcontainer is available, use it as the authoritative runtime for dependency management, build steps and test execution.
+
+If no usable devcontainer exists, follow the stack-specific rules to determine whether a runtime is available.
+
+If no runtime is available, install nothing, use no workaround, and continue. CI is authoritative.
 
 ## 5. Commit and push
 

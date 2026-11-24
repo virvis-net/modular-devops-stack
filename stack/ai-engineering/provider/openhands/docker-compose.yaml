@@ -5,6 +5,7 @@ services:
     environment:
       AGENT_CANVAS_ALLOW_LAN_SESSION_KEY: "true"
       HOME: /home/openhands
+      DOCKER_CONFIG: /tmp/docker-config
       XDG_CONFIG_HOME: /projects/.config
       GITEA_ACCESS_TOKEN: ${OPENHANDS_GITEA_TOKEN:-}
       GITEA_API_URL: http://host.docker.internal:${GITEA_HTTP_PORT:-3000}/api/v1
@@ -30,7 +31,10 @@ services:
       - ./ai-engineering/provider/openhands/agent-tools:/opt/ci:ro
       - ../workspace/openhands:/projects
       - ../workspace/app:/projects/app
+      - /var/run/docker.sock:/var/run/docker.sock
     user: "${OPENHANDS_UID:-1000}:${OPENHANDS_GID:-1000}"
+    group_add:
+      - "1001"
     depends_on:
       coding-agent-state-init:
         condition: service_completed_successfully
