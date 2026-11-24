@@ -199,13 +199,13 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"agent_profile_id\": \"{{$json.active_agent_profile_id}}\",\n  \"workspace\": {\n    \"working_dir\": \"workspace/app\"\n  },\n  \"initial_message\": {\n    \"role\": \"user\",\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": {{ JSON.stringify($('Render prompt').first().json.prompt) }}\n      }\n    ]\n  }\n}",
+        "jsonBody": "={\n  \"agent_profile_id\": \"{{$('Get agent profiles').first().json.active_agent_profile_id}}\",\n  \"workspace\": {\n    \"working_dir\": \"{{$('Get agent workspaces').first().json.workspaces.find(w => w.id === 'workspace/app')?.path}}\"\n  },\n  \"initial_message\": {\n    \"role\": \"user\",\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": {{ JSON.stringify($('Render prompt').first().json.prompt) }}\n      }\n    ]\n  }\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        2496,
+        2688,
         512
       ],
       "id": "765facce-e554-4f83-a07c-5d5c97786719",
@@ -515,7 +515,7 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        2720,
+        2912,
         512
       ],
       "id": "35b05b16-4735-4136-9697-98a238f10ad8",
@@ -801,6 +801,29 @@
       ],
       "id": "24221d17-05b0-4e71-9f29-cbfddbad19d6",
       "name": "Prompt files"
+    },
+    {
+      "parameters": {
+        "url": "={{\n  `${$env.OPENHANDS_API_URL}/workspaces`\n}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Session-API-Key",
+              "value": "={{\n  $env.OPENHANDS_ACCESS_TOKEN\n}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7123519c-ed09-4d20-9796-1c2a1350d084",
+      "name": "Get agent workspaces",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2464,
+        512
+      ]
     }
   ],
   "pinData": {},
@@ -893,7 +916,7 @@
       "main": [
         [
           {
-            "node": "Create conversation",
+            "node": "Get agent workspaces",
             "type": "main",
             "index": 0
           }
@@ -1077,6 +1100,17 @@
         [
           {
             "node": "Prompt template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get agent workspaces": {
+      "main": [
+        [
+          {
+            "node": "Create conversation",
             "type": "main",
             "index": 0
           }
