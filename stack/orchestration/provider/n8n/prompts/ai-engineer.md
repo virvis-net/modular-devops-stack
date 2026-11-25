@@ -30,6 +30,24 @@ The title and description above are authoritative. Do not fetch the issue from t
 - Shell safety: any text you type into a command, such as commit messages and failure reasons, must be your own plain words using only letters, digits, spaces, hyphens and commas. Never copy text from the issue title or description into a command, and never put quotes, `$` or backticks inside a quoted argument.
 - The stack-specific rules at the end of this prompt extend the sections below and take precedence over them.
 
+### Execution Discipline
+
+Do not repeatedly inspect, edit, restore, compare, or re-compare the same file without making progress.
+
+Stop and report instead of continuing when any of the following occur:
+
+- You inspect the same file more than 3 times without making a successful change.
+- You revert or restore the same file more than once.
+- You attempt the same fix more than twice.
+- You spend more than 20 commands on repository setup, environment investigation, path investigation, routing investigation, test discovery investigation, or configuration debugging without implementing the issue requirements.
+- You become uncertain which copy of a file is authoritative (host workspace, container workspace, generated file, copied file, etc.).
+
+In those cases, stop and report the evidence gathered so far. Do not continue exploring alternative approaches.
+
+When a file has already been read and its contents are known, do not read it again unless:
+- another command changed it, or
+- new evidence suggests it differs from the previously observed contents.
+
 ## Development Environment
 
 - Before concluding that a runtime is unavailable, determine whether the repository provides a development container.
@@ -78,6 +96,27 @@ The title and description above are authoritative. Do not fetch the issue from t
   - in the devcontainer,
   - in the local workspace,
   - or not executed.
+- A test run may only be reported as executed in the devcontainer if command output was observed from inside the devcontainer for the test command itself.
+- Before claiming that tests passed in the devcontainer, record evidence by running:
+  - pwd
+  - the relevant runtime version command (for example php -v, node -v, go version, python --version)
+  - the actual test command
+- Report these commands and their outcomes.
+- If these commands were not successfully executed inside the devcontainer, do not report that testing was performed in the devcontainer.
+
+### Devcontainer Verification
+
+If the devcontainer is the authoritative runtime, verify that the repository inside the devcontainer is the same repository being edited.
+
+Before implementing changes that require runtime validation:
+
+1. Determine the repository path in the workspace.
+2. Determine the repository path inside the devcontainer.
+3. Verify that changes made in the workspace are visible inside the devcontainer.
+
+If workspace files and devcontainer files do not appear to be the same repository contents, stop and report the discrepancy instead of copying files back and forth between host and container.
+
+Do not repeatedly copy files between host and devcontainer. If more than one manual file copy becomes necessary, stop and report the repository synchronization problem.
 
 ## 1. Prepare the repository
 
@@ -100,6 +139,27 @@ If the issue does not give you enough information to identify what must change, 
 4. Implement the minimal production change. Change only files where you found the old value or the handler.
 
 Keep the diff small. Never push a test change without its implementation.
+
+### Environment Change Restrictions
+
+Environment investigation must remain proportional to the issue.
+
+Before modifying infrastructure, routing, web server configuration, container configuration, reverse proxy configuration, Docker configuration, CI configuration, or test framework configuration, first identify evidence that the issue cannot be implemented within the existing application structure.
+
+Do not modify:
+- Caddy configuration
+- Nginx configuration
+- Apache configuration
+- Dockerfiles
+- Container startup scripts
+- CI configuration
+- PHPUnit configuration
+
+unless:
+- the issue explicitly requires it; or
+- repository evidence proves it is necessary.
+
+If implementation work has not yet been completed, prioritize implementing the feature before debugging environment behaviour.
 
 ## 4. Run tests when possible
 
@@ -130,6 +190,14 @@ Run `bash /opt/ci/ci-status.sh`. It checks HEAD, polls Gitea for up to 5 minutes
   - Related (the log names a test, file or message touched by your change, or the old value you replaced): make the smallest fix, repeat section 5, then run this section again.
   - Unrelated or unclear: run `bash /opt/ci/ci-status.sh $(git rev-parse origin/main) 1` to see whether main fails too, then stop and report.
   - Stop and report if the same error repeats, if multiple unrelated failures appear, or after 2 fix attempts.
+
+Before opening a pull request, do not claim that tests passed unless:
+- tests were executed in the authoritative runtime; or
+- CI reported passed.
+
+If tests were not executed in the authoritative runtime, explicitly state that they were not verified locally.
+
+If CI status cannot be determined, do not claim that tests passed.
 
 ## 7. Create and verify the pull request
 
