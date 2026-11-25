@@ -23,6 +23,12 @@ RUN php artisan package:discover --ansi
 
 FROM app AS devcontainer
 
+ARG UID=1000
+ARG GID=1000
+
+RUN groupadd -g ${GID} devuser \
+    && useradd -m -u ${UID} -g ${GID} -s /bin/bash devuser
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git openssh-client \

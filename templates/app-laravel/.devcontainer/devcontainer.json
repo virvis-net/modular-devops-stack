@@ -31,5 +31,6 @@
         "bmewburn.vscode-intelephense-client"
       ]
     }
-  }
+  },
+  "remoteUser": "devuser"
 }
