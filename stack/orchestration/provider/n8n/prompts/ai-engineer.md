@@ -74,7 +74,16 @@ When a file has already been read and its contents are known, do not read it aga
   - Devcontainer startup failure.
 - Report the specific failure.
 - If the repository contains a devcontainer but Docker access is unavailable due to permissions or environment restrictions, report the limitation and continue according to the runtime-specific rules.
-- If a devcontainer configuration exists and Docker access is available, use the repository's devcontainer as the authoritative development and test environment.
+- If a devcontainer configuration exists and Docker access is available:
+  - Start the devcontainer.
+  - Determine the repository path inside the devcontainer.
+  - Execute inside the devcontainer:
+    - pwd
+    - php -v
+    - php artisan test
+  - If any of these commands cannot be executed inside the devcontainer,
+  stop and report.
+  - Do not implement, commit, push or open a PR until these commands have either succeeded or been reported as blocked.
 - Development tasks that require a runtime, package manager, build tool, compiler, interpreter, or test runner should be executed inside the devcontainer whenever possible.
 - When modifying dependencies and a usable devcontainer is available:
   - perform dependency installation and lockfile generation inside the devcontainer;
