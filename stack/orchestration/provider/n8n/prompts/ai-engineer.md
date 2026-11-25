@@ -113,19 +113,37 @@ When a file has already been read and its contents are known, do not read it aga
 - Report these commands and their outcomes.
 - If these commands were not successfully executed inside the devcontainer, do not report that testing was performed in the devcontainer.
 
+### Devcontainer Workspace Rules
+
+The repository mounted in the devcontainer and the repository in the workspace are the same files exposed through different paths.
+
+Host path:
+  /home/.../workspace/app
+
+Devcontainer path:
+  /var/www/html
+
+These paths refer to one repository, not two copies.
+
+Rules:
+
+- Modify files directly using the workspace path.
+- Use the devcontainer for runtime commands such as php, composer, artisan, pint and phpunit.
+- Never use docker cp to transfer repository files.
+- Never copy source files between host and devcontainer.
+- Never attempt to synchronize files between host and devcontainer.
+- A file change made through either path is already visible through the other path.
+- If a change is not visible through both paths, stop and report a workspace mount problem.
+
 ### Devcontainer Verification
 
-If the devcontainer is the authoritative runtime, verify that the repository inside the devcontainer is the same repository being edited.
+Verify that the workspace is correctly mounted by checking that the same file exists in both locations.
 
-Before implementing changes that require runtime validation:
+Do not copy files between locations during verification.
 
-1. Determine the repository path in the workspace.
-2. Determine the repository path inside the devcontainer.
-3. Verify that changes made in the workspace are visible inside the devcontainer.
+If the file contents differ between the workspace path and the devcontainer path, stop and report a mount problem.
 
-If workspace files and devcontainer files do not appear to be the same repository contents, stop and report the discrepancy instead of copying files back and forth between host and container.
-
-Do not repeatedly copy files between host and devcontainer. If more than one manual file copy becomes necessary, stop and report the repository synchronization problem.
+If the contents match, treat the repository as a single working tree and continue.
 
 ## 1. Prepare the repository
 
