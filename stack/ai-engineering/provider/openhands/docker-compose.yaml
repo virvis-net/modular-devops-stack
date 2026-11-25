@@ -24,6 +24,7 @@ services:
       GIT_CONFIG_VALUE_3: ssh://git@${GITEA_SSH_DOMAIN:-host.docker.internal}:${GITEA_SSH_PORT:-2222}/
       GIT_CONFIG_KEY_4: safe.directory
       GIT_CONFIG_VALUE_4: ${WORKSPACE_DIRECTORY}/app
+      WORKSPACE_DIRECTORY: ${WORKSPACE_DIRECTORY}
     ports:
       - "${OPENHANDS_PORT:-8001}:8000"
     volumes:
