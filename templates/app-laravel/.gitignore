@@ -14,4 +14,4 @@
 /storage/framework/views/.gitignore
 /bootstrap/cache/*
 /bootstrap/cache/.gitignore
-/phpunit.result.cache
+.phpunit.result.cache
