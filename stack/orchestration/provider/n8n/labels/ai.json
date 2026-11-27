@@ -1,0 +1,32 @@
+[
+  {
+    "name": "ai/ready",
+    "exclusive": true,
+    "color": "5319e7",
+    "description": "Ready for AI processing"
+  },
+  {
+    "name": "ai/in-progress",
+    "exclusive": true,
+    "color": "207de5",
+    "description": "Claimed by orchestration"
+  },
+  {
+    "name": "ai/review",
+    "exclusive": true,
+    "color": "009800",
+    "description": "PR created, awaiting human review"
+  },
+  {
+    "name": "ai/needs-human",
+    "exclusive": true,
+    "color": "fbca04",
+    "description": "AI could not complete successfully"
+  },
+  {
+    "name": "ai/do-not-process",
+    "exclusive": true,
+    "color": "e11d21",
+    "description": "Explicitly excluded from automation"
+  }
+]

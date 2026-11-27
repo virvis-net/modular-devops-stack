@@ -4,6 +4,6 @@ RUN pip install --no-cache-dir requests
 
 WORKDIR /bootstrap
 
-COPY deploy.py .
+COPY deploy_n8n.py deploy_gitea.py run.sh ./
 
-CMD ["python", "/bootstrap/deploy.py"]
+CMD ["sh", "/bootstrap/run.sh"]

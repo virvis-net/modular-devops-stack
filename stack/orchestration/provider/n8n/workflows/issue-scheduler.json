@@ -23,7 +23,7 @@
     },
     {
       "parameters": {
-        "url": "={{\n  `${$env.GITEA_API_URL}/repos/${$env.GITEA_ORG}/${$env.GITEA_REPOSITORY}/issues?state=open`\n}}",
+        "url": "={{\n  `${$env.GITEA_API_URL}/repos/${$env.GITEA_OWNER}/${$env.GITEA_REPOSITORY}/issues?state=open`\n}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -46,7 +46,7 @@
     },
     {
       "parameters": {
-        "url": "={{\n  `${$env.GITEA_API_URL}/orgs/${$env.GITEA_ORG}/labels`\n}}",
+        "url": "={{\n  `${$env.GITEA_API_URL}/repos/${$env.GITEA_OWNER}/${$env.GITEA_REPOSITORY}/labels`\n}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -137,7 +137,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const issues = $('Get open issues').all();\n\nconst byNumber = (a, b) => a.json.number - b.json.number;\nconst hasLabel = (item, name) =>\n  (item.json.labels || []).some(label => label.name === name);\n\nreturn {\n  inProgress: issues.filter(i => hasLabel(i, 'ai-in-progress')).sort(byNumber),\n  inQueue: issues.filter(i => hasLabel(i, 'ai-fix')).sort(byNumber),\n};"
+        "jsCode": "const issues = $('Get open issues').all();\n\nconst byNumber = (a, b) => a.json.number - b.json.number;\nconst hasLabel = (item, name) =>\n  (item.json.labels || []).some(label => label.name === name);\n\nreturn {\n  inProgress: issues.filter(i => hasLabel(i, 'ai/in-progress')).sort(byNumber),\n  inQueue: issues.filter(i => hasLabel(i, 'ai/ready')).sort(byNumber),\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -150,7 +150,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const labels = $input.all().map(item => item.json);\n\nconst aiFix = labels.find(l => l.name === 'ai-fix');\nconst aiInProgress = labels.find(l => l.name === 'ai-in-progress');\nconst aiNeedsHuman = labels.find(l => l.name === 'ai-needs-human');\nconst aiReview = labels.find(l => l.name === 'ai-review');\n\nreturn {\n  aiFixId: aiFix.id,\n  aiInProgressId: aiInProgress.id,\n  aiNeedsHumanId: aiNeedsHuman.id,\n  aiReviewId: aiReview.id\n};"
+        "jsCode": "const labels = $input.all().map(item => item.json);\n\nconst aiReady = labels.find(l => l.name === 'ai/ready');\nconst aiInProgress = labels.find(l => l.name === 'ai/in-progress');\nconst aiNeedsHuman = labels.find(l => l.name === 'ai/needs-human');\nconst aiReview = labels.find(l => l.name === 'ai/review');\n\nreturn {\n  aiReadyId: aiReady.id,\n  aiInProgressId: aiInProgress.id,\n  aiNeedsHumanId: aiNeedsHuman.id,\n  aiReviewId: aiReview.id\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

@@ -11,11 +11,11 @@ services:
       STACK_APP: ${STACK_APP:-go}
       GITEA_ACCESS_TOKEN: ${N8N_GITEA_TOKEN:-}
       GITEA_API_URL: http://host.docker.internal:${GITEA_HTTP_PORT:-3000}/api/v1
-      GITEA_ORG: ${GITEA_ORG:-}
+      GITEA_OWNER: ${GITEA_ORG:-}
       GITEA_REPOSITORY: app
       GITEA_REPOSITORY_PATH: ${WORKSPACE_DIRECTORY}/app
       GITEA_REPOSITORY_BRANCH: ${APP_BRANCH:-main}
-      OPENHANDS_ACCESS_TOKEN: ${N8N_OPENHANDS_TOKEN:-}
+      OPENHANDS_ACCESS_TOKEN: ${N8N_OPENHANDS_TOKEN}
       OPENHANDS_API_URL: http://host.docker.internal:${OPENHANDS_PORT:-8001}/api
     ports:
       - "${N8N_PORT:-5678}:5678"
@@ -35,9 +35,14 @@ services:
     environment:
       N8N_URL: http://orchestration:5678
       N8N_API_KEY: ${N8N_API_KEY}
+      GITEA_URL: http://scm:3000
+      GITEA_API_TOKEN: ${GITEA_API_TOKEN}
+      GITEA_OWNER: ${GITEA_ORG:-}
+      GITEA_REPOSITORY: app
     volumes:
       - ./orchestration/provider/n8n/workflows:/assets/workflows:ro
       - ./orchestration/provider/n8n/datatables:/assets/datatables:ro
+      - ./orchestration/provider/n8n/labels:/assets/labels:ro
     networks:
       - shared
 

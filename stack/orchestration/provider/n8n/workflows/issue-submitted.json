@@ -56,8 +56,8 @@
           "conditions": [
             {
               "id": "a0536d4e-c499-4b42-a149-2832c198e4dd",
-              "leftValue": "={{\n  $json.body.issue.labels.some(\n    label => label.name === 'ai-fix'\n  )\n}}",
-              "rightValue": "ai-fix",
+              "leftValue": "={{\n  $json.body.issue.labels.some(\n    label => label.name === 'ai/ready'\n  )\n}}",
+              "rightValue": "ai/ready",
               "operator": {
                 "type": "boolean",
                 "operation": "true",
@@ -86,7 +86,7 @@
         -96
       ],
       "id": "1520148e-bdcf-4ce3-9030-e7bb36942fee",
-      "name": "Is it labelled ai-fix?"
+      "name": "Is it labelled ai/ready?"
     }
   ],
   "pinData": {},
@@ -95,7 +95,7 @@
       "main": [
         [
           {
-            "node": "Is it labelled ai-fix?",
+            "node": "Is it labelled ai/ready?",
             "type": "main",
             "index": 0
           }
@@ -107,7 +107,7 @@
         []
       ]
     },
-    "Is it labelled ai-fix?": {
+    "Is it labelled ai/ready?": {
       "main": [
         [
           {
