@@ -401,8 +401,8 @@ Then add a new LLM model:
 For the OpenHands LLM profile, the settings that worked reliably for the
 example prompt were:
 
-- **Reasoning Effort:** `medium`
-- **Temperature:** `0.1`
+- **Reasoning Effort:** `low`
+- **Temperature:** `0.2`
 - **Timeout:** `1200`
 - **Stream Idle Timeout:** `1200`
 - **Max Input Tokens:** leave blank
