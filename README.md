@@ -396,7 +396,7 @@ Select the matching Base URL for the provider you are using.
 
 Then add a new LLM model:
 - **Custom model:** `ollama_chat/<model-name>` using a model installed in
-  that Ollama instance (for example, `ollama_chat/qwen3.5`)
+  that Ollama instance (for example, `ollama_chat/qwen3.6`)
 
 For the OpenHands LLM profile, the settings that worked reliably for the
 example prompt were:

@@ -1,0 +1,9 @@
+{
+  "model": "ollama_chat/qwen3.6-27b-32k",
+  "auth_type": "api_key",
+  "temperature": 0.2,
+  "timeout": 1200,
+  "stream_idle_timeout": 1200,
+  "max_output_tokens": 4096,
+  "reasoning_effort": "low"
+}
