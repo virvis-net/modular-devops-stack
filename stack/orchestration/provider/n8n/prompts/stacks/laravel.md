@@ -20,6 +20,7 @@ This is a Laravel application. These rules extend the rules above.
 - Edit the generated migration to add columns. Keep only the controller methods the issue needs.
 - Controllers, routes and tests must import classes from the namespace the generator used.
 - After writing a migration, run `php artisan migrate` once to check that it runs.
+- Do not run migrate:fresh, migrate:reset or db:wipe. prepare.sh already reset the database to the state of main.
 
 ### Tests
 - Feature tests go in tests/Feature and unit tests in tests/Unit. Follow the style of the existing tests.

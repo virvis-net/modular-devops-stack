@@ -6,7 +6,7 @@ This is a Vue application. These rules extend the rules above.
 - Read the scripts section of package.json once to find the existing test, lint and format scripts. Run only scripts that exist.
 - Tests: `npm test`. For one file: `npm test -- <path>`. If the test runner is Vitest, add --run so it does not start in watch mode.
 - Lint or format: `npm run <script>` for the existing script, if there is one.
-- If node_modules is missing, run `npm ci` once.
+- Dependencies are installed by prepare.sh; do not run npm ci or npm install unless the issue adds a dependency.
 - Add a dependency: `npm install <package>`
 
 ### Locating code
