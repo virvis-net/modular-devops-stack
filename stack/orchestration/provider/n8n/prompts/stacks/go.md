@@ -1,28 +1,27 @@
 ## Stack-specific rules: Go
 
-This is a Go application. These rules extend the sections above.
+This is a Go application. These rules extend the rules above.
 
-- Section 3, step 2: if the issue concerns an HTTP route, search for the last path segment with `git grep`. The handler is the function registered for that path in the router setup. A file that only mentions the path (for example as a JSON field or in a test) is not the handler.
+### Commands
+- Tests of one package: `go test ./<package-dir>/...`
+- One test: `go test ./<package-dir>/... -run <TestName>`
+- Several packages affected: `go test ./...`
+- Formatter: `gofmt -l -w <files>` (only the Go files you changed)
+- Add a dependency: `go get <module>`, then `go mod tidy`
 
-- Section 3, step 3: existing tests are the `*_test.go` files next to the code they cover. Update them in place; do not add test helpers or dependencies they do not use.
+### Locating code
+- For an HTTP route, search for the last path segment with `git grep`. The handler is the function registered for that path in the router setup.
 
-- Section 3, step 4: do not change `go.mod` or `go.sum` unless the issue requires a new dependency. Keep the code formatted as `gofmt` would.
+### Tests
+- Existing tests are the *_test.go files next to the code they cover. Follow their style.
 
-- If a devcontainer is available and the Go toolchain is not available in the workspace, attempt to execute Go commands inside the devcontainer before concluding that the runtime is unavailable.
+### Dependencies
+- Prefer the standard library over a new dependency.
+- Change go.mod and go.sum only through `go get` and `go mod tidy`, and commit them together.
+- Do not edit files that start with a "Code generated ... DO NOT EDIT" header.
 
-- When a dependency is added, removed or upgraded:
-  - update both `go.mod` and `go.sum`;
-  - generate dependency changes using Go tooling;
-  - never edit `go.mod` or `go.sum` manually.
+### Formatting
+- Run gofmt on every changed Go file before committing, and keep the diff free of unrelated reformatting.
 
-- After modifying dependencies, run:
-  - `go mod tidy`
-
-- Before committing Go changes, run:
-  - `gofmt` on every modified Go source file, using the devcontainer toolchain when available.
-
-- When tests are run inside the devcontainer, use the devcontainer Go toolchain as the authoritative environment.
-
-- Section 4: run the tests of the affected package with `go test`. If the change affects multiple packages, run the narrowest set of packages that covers the change. The runtime is not available only if Go is unavailable both in the workspace and in an available devcontainer.
-
-- Prefer existing standard-library packages over introducing new dependencies.
+### Never modify or stage
+- vendor/ (if present)

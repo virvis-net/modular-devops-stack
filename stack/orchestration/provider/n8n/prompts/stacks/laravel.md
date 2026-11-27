@@ -1,59 +1,33 @@
 ## Stack-specific rules: Laravel
 
-This is a Laravel application. These rules extend the sections above.
+This is a Laravel application. These rules extend the rules above.
 
-- Section 3, step 2: if the issue concerns an HTTP route, routes in routes/api.php are served under the /api prefix, so /api/hello is declared there as '/hello'. Search routes/ for the last path segment. A file that only mentions the path (for example as a JSON field) is not the handler.
+### Commands
+- All tests: `php artisan test`
+- One file or filter: `php artisan test tests/Feature/<File>.php` or `php artisan test --filter=<name>`
+- Formatter: `vendor/bin/pint <files>` (only the PHP files you changed)
+- Migrations: `php artisan migrate`
+- Generators: `php artisan make:model <Name> --migration`, `php artisan make:controller <Name> --api`
+- Dependencies: `composer require <package>`, `npm install <package>`
 
-- Section 3, step 3: do not add traits to tests.
+### Locating code
+- Routes in routes/api.php are served under the /api prefix, so /api/hello is declared there as '/hello'. Add new API routes there without the /api prefix.
+- For existing behaviour, search routes/ for the last path segment. The handler is the closure or controller method registered for that route.
 
-- If a devcontainer is available and PHP tooling is unavailable in the workspace, attempt to use the devcontainer before concluding that the runtime is unavailable.
+### Generators
+- Run each generator once, then run `git status --short` to see where it created files. Use the files and namespaces exactly as generated. Do not move them, do not generate a second copy, and do not hand-write a file a generator already created.
+- `make:model <Name> --migration` creates the model and its migration. Do not also run `make:migration`.
+- Edit the generated migration to add columns. Keep only the controller methods the issue needs.
+- Controllers, routes and tests must import classes from the namespace the generator used.
+- After writing a migration, run `php artisan migrate` once to check that it runs.
 
-- When a usable devcontainer is available, treat the devcontainer as the authoritative Laravel runtime for:
-  - dependency management;
-  - migrations;
-  - testing;
-  - build verification.
+### Tests
+- Feature tests go in tests/Feature and unit tests in tests/Unit. Follow the style of the existing tests.
+- A new test that writes to the database uses the RefreshDatabase trait, unless existing tests show a different database strategy.
+- Do not change phpunit.xml.
 
-- When modifying Composer dependencies:
-  - update both composer.json and composer.lock;
-  - generate composer.lock using Composer tooling;
-  - never edit composer.lock manually;
-  - do not commit dependency changes without the corresponding lockfile update.
+### Formatting
+- Run Pint on every changed PHP file before committing. If vendor/bin/pint does not exist, follow the existing code style and do not reformat unrelated files.
 
-- When modifying Node dependencies:
-  - update both package.json and package-lock.json;
-  - generate package-lock.json using npm tooling;
-  - never edit package-lock.json manually;
-  - do not commit dependency changes without the corresponding lockfile update.
-
-- If dependencies were changed, run the appropriate dependency installation command before testing.
-
-- When a change affects the database schema:
-  - run the relevant migration commands before testing, if a runtime is available;
-  - prefer existing migration conventions already used by the repository;
-  - ensure affected tests continue to pass using the repository's existing database testing strategy.
-
-- Before committing PHP changes, run the repository's existing formatting tooling if it is available.
-
-- Prefer the formatter already used by the repository. Do not introduce a new formatter.
-
-- When Laravel Pint is available:
-  - format all modified PHP files with Pint before committing.
-
-- If Laravel Pint is not available:
-  - follow the repository's existing formatting conventions;
-  - do not reformat unrelated files.
-
-- When formatting is run inside a devcontainer, use the devcontainer PHP toolchain as the authoritative environment.
-
-- Do not modify files under:
-  - bootstrap/cache/;
-  - storage/framework/;
-  - storage/logs/;
-  - vendor/.
-
-- Regenerate these through tooling when required; never edit them manually.
-
-- Section 4: run the narrowest relevant Laravel test set first. If the change affects multiple areas, run the broader relevant suite. The runtime is not available only if:
-  - PHP is unavailable in the workspace; and
-  - no usable devcontainer runtime is available.
+### Never modify or stage
+- bootstrap/cache/, storage/framework/, storage/logs/, vendor/, .env

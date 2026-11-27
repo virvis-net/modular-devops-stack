@@ -30,7 +30,9 @@ services:
     volumes:
       - openhands-data:/home/openhands/.openhands
       - openhands-projects:/projects
-      - ./ai-engineering/provider/openhands/agent-tools:/opt/ci:ro
+      - ./ai-engineering/provider/openhands/agent-tools/agent:/opt/agent:ro
+      - ./ai-engineering/provider/openhands/agent-tools/ci:/opt/ci:ro
+      - ./ai-engineering/provider/openhands/agent-tools/dev:/opt/dev:ro
       - ${WORKSPACE_DIRECTORY}:${WORKSPACE_DIRECTORY}
       - /var/run/docker.sock:/var/run/docker.sock
     user: "${OPENHANDS_UID:-1000}:${OPENHANDS_GID:-1000}"

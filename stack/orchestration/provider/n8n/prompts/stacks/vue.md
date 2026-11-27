@@ -1,27 +1,22 @@
 ## Stack-specific rules: Vue
 
-This is a Vue application. These rules extend the sections above.
+This is a Vue application. These rules extend the rules above.
 
-- Section 3, step 2: if the issue concerns visible text, a page or a route, search for the full text with `git grep` under src/, covering components, views, the router and any translation files. The file that renders or declares it is the one to change. A file that only mentions it (for example a test or documentation) is not.
+### Commands
+- Read the scripts section of package.json once to find the existing test, lint and format scripts. Run only scripts that exist.
+- Tests: `npm test`. For one file: `npm test -- <path>`. If the test runner is Vitest, add --run so it does not start in watch mode.
+- Lint or format: `npm run <script>` for the existing script, if there is one.
+- If node_modules is missing, run `npm ci` once.
+- Add a dependency: `npm install <package>`
 
-- Section 3, step 3: existing tests are the test files next to the components or in the tests folder (for example `*.spec.ts`). Update them in place; do not add test utilities, plugins or dependencies they do not use.
+### Locating code
+- For visible text, a page or a route, search for the full text with `git grep` under src/, covering components, views, the router and any translation files. The file that renders or declares it is the one to change.
 
-- Section 3, step 4: do not change package.json or the lock file unless the issue requires a new dependency. Never edit generated output such as dist/.
+### Tests
+- Existing tests are *.spec.ts or *.test.ts files next to the components, or files in the tests folder. Follow their style.
 
-- If a devcontainer is available and Node tooling is unavailable in the workspace, attempt to use the devcontainer before concluding that the runtime is unavailable.
+### Formatting
+- Run the project's existing formatter or linter on changed files only if the repository already uses one. Do not introduce a new formatting or linting tool.
 
-- When modifying dependencies:
-  - update both package.json and package-lock.json;
-  - generate package-lock.json using npm tooling;
-  - never edit package-lock.json manually;
-  - install dependencies inside the devcontainer before running tests or builds.
-
-- Never modify files under dist/, coverage/, .output/, .nuxt/, .vite/, or other generated build output directories.
-
-- When tests are executed inside a devcontainer, treat the devcontainer Node environment as the authoritative runtime.
-
-- Before committing frontend source changes, run the project's existing formatter or linter only if it is already used by the repository. Do not introduce new formatting or linting tools.
-
-- Section 4: run the project's existing test script from package.json. Use the devcontainer runtime when available. The runtime is not available only if:
-  - Node tooling is unavailable in the workspace; and
-  - no usable devcontainer runtime is available.
+### Never modify or stage
+- dist/, coverage/, .output/, .nuxt/, .vite/, node_modules/
